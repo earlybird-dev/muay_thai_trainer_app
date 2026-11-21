@@ -1,4 +1,6 @@
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useAuth } from './lib/auth';
+import { Avatar } from './components/AccountCard';
 import Learn from './pages/Learn';
 import TechniqueDetail from './pages/TechniqueDetail';
 import Combos from './pages/Combos';
@@ -15,6 +17,24 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: 'M4 7h10m4 0h2M4 17h4m4 0h8M16 5v4M10 15v4' },
 ];
 
+function AccountBadge() {
+  const { enabled, ready, account, status } = useAuth();
+  if (!enabled || !ready) return null;
+  if (!account)
+    return (
+      <Link to="/settings" className="topbar-signin">
+        Sign in
+      </Link>
+    );
+  const label = status === 'synced' ? 'Synced' : status === 'syncing' ? 'Syncing' : status === 'offline' ? 'Offline' : status === 'error' ? 'Sync problem' : 'Signed in';
+  return (
+    <Link to="/settings" className={`topbar-account sync-${status}`} title={`${account.email ?? 'Account'} · ${label}`} aria-label={`Account: ${label}`}>
+      <Avatar src={account.avatar} name={account.name ?? account.email} size={30} />
+      <span className="sync-dot" aria-hidden />
+    </Link>
+  );
+}
+
 export default function App() {
   const { pathname } = useLocation();
   const inSession = pathname.startsWith('/train/session');
@@ -30,6 +50,7 @@ export default function App() {
             </svg>
             Muay Thai Trainer
           </span>
+          <AccountBadge />
         </header>
       )}
       <main className="content">

@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { StoreProvider } from './lib/store';
+import { AuthProvider } from './lib/auth';
 import './styles.css';
 
 registerSW({ immediate: true });
@@ -11,9 +12,11 @@ registerSW({ immediate: true });
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <StoreProvider>
-      <HashRouter>
-        <App />
-      </HashRouter>
+      <AuthProvider>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </AuthProvider>
     </StoreProvider>
   </React.StrictMode>,
 );

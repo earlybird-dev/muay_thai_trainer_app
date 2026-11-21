@@ -34,6 +34,14 @@ export interface AppData {
   history: SessionLog[];
   settings: Settings;
   lastSession: Partial<SessionConfig> | null;
+  // ---- cloud sync bookkeeping ----
+  /** Deleted combo id -> ISO time, kept until the deletion has synced. */
+  tombstones: Record<string, string>;
+  /** When learned/videos/synced settings last changed locally. */
+  stateUpdatedAt: string | null;
+  /** Account whose data is on this device (null = guest / never signed in). */
+  syncedUserId: string | null;
+  lastSyncAt: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -56,7 +64,17 @@ export const emptyData = (): AppData => ({
   history: [],
   settings: { ...DEFAULT_SETTINGS },
   lastSession: null,
+  tombstones: {},
+  stateUpdatedAt: null,
+  syncedUserId: null,
+  lastSyncAt: null,
 });
+
+/** Settings that follow the account across devices (voice choice is device-specific). */
+export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter'] as const;
+export type SyncedSettings = Pick<Settings, (typeof SYNCED_SETTING_KEYS)[number]>;
+export const pickSyncedSettings = (s: Settings): SyncedSettings =>
+  Object.fromEntries(SYNCED_SETTING_KEYS.map((k) => [k, s[k]])) as SyncedSettings;
 
 const KEY = 'muay-thai-trainer.v1';
 
@@ -76,6 +94,7 @@ export function parseData(raw: unknown): AppData {
         items: c.items,
         level: c.level === 'intermediate' ? ('intermediate' as const) : ('beginner' as const),
         style: c.style === 'names' ? ('names' as const) : ('numbers' as const),
+        ...(typeof c.updatedAt === 'string' ? { updatedAt: c.updatedAt } : {}),
       }))
     : base.combos;
   const learned = Array.isArray(raw.learned) ? raw.learned.filter((x): x is string => typeof x === 'string') : base.learned;
@@ -85,7 +104,23 @@ export function parseData(raw: unknown): AppData {
   const history = Array.isArray(raw.history) ? (raw.history.filter((h) => isObj(h) && typeof h.date === 'string') as SessionLog[]) : base.history;
   const settings = { ...DEFAULT_SETTINGS, ...(isObj(raw.settings) ? (raw.settings as Partial<Settings>) : {}) };
   const lastSession = isObj(raw.lastSession) ? (raw.lastSession as Partial<SessionConfig>) : null;
-  return { version: 1, combos, learned, videos, history, settings, lastSession };
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  const tombstones = isObj(raw.tombstones)
+    ? Object.fromEntries(Object.entries(raw.tombstones).filter((e): e is [string, string] => typeof e[1] === 'string'))
+    : {};
+  return {
+    version: 1,
+    combos,
+    learned,
+    videos,
+    history,
+    settings,
+    lastSession,
+    tombstones,
+    stateUpdatedAt: str(raw.stateUpdatedAt),
+    syncedUserId: str(raw.syncedUserId),
+    lastSyncAt: str(raw.lastSyncAt),
+  };
 }
 
 export const serializeData = (d: AppData) => JSON.stringify(d, null, 2);

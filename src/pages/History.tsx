@@ -1,18 +1,32 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import { formatClock } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { streakDays } from '../lib/stats';
 
 export default function History() {
   const { data, update } = useStore();
+  const { account, clearRemoteHistory } = useAuth();
+  const [error, setError] = useState<string | null>(null);
   const h = data.history;
   const weekAgo = Date.now() - 7 * 864e5;
   const thisWeek = h.filter((x) => new Date(x.date).getTime() >= weekAgo);
   const rounds = h.reduce((s, x) => s + x.completedRounds, 0);
 
-  const clear = () => {
-    if (confirm('Delete all training history? This cannot be undone (export a backup in Settings first if you want one).'))
-      update((d) => ({ ...d, history: [] }));
+  const clear = async () => {
+    const where = account ? ' from this device and your account' : '';
+    if (!confirm(`Delete all training history${where}? This cannot be undone (export a backup in Settings first if you want one).`)) return;
+    if (account) {
+      try {
+        await clearRemoteHistory();
+      } catch (e) {
+        setError(`Could not reach your account, history was not deleted: ${(e as Error).message}`);
+        return;
+      }
+    }
+    setError(null);
+    update((d) => ({ ...d, history: [] }));
   };
 
   return (
@@ -55,9 +69,10 @@ export default function History() {
               </li>
             ))}
           </ul>
-          <button className="btn danger small" onClick={clear}>
+          <button className="btn danger small" onClick={() => void clear()}>
             Clear history
           </button>
+          {error && <p className="small error-text">{error}</p>}
         </>
       )}
     </div>

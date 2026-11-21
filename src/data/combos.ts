@@ -9,6 +9,8 @@ export interface Combo {
   level: Level;
   style: CalloutStyle;
   preset?: boolean;
+  /** ISO time of the last local change; used to resolve sync conflicts (newest wins). */
+  updatedAt?: string;
 }
 
 const p = (id: string, name: string, items: string[], level: Level = 'beginner'): Combo => ({

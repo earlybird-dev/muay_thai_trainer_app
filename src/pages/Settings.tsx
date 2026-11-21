@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { bell, getVoices, speak, unlockAudio } from '../lib/audio';
 import { useStore } from '../lib/store';
 import FighterPicker from '../components/FighterPicker';
+import AccountCard from '../components/AccountCard';
+import { useAuth } from '../lib/auth';
 import { downloadBackup, emptyData, parseData, type Settings as S } from '../lib/storage';
 
 export default function Settings() {
   const { data, update, replace } = useStore();
+  const { account, clearRemoteHistory } = useAuth();
   const s = data.settings;
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(getVoices);
   const [msg, setMsg] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export default function Settings() {
   return (
     <div className="page">
       <h1>Settings</h1>
+      <AccountCard />
 
       <section className="card">
         <h2>Stance</h2>
@@ -142,8 +146,18 @@ export default function Settings() {
           />
           <button
             className="btn danger"
-            onClick={() => {
-              if (confirm('Erase all combos, progress, history and settings on this device? This cannot be undone.')) replace(emptyData());
+            onClick={async () => {
+              const where = account ? 'on this device and in your account' : 'on this device';
+              if (!confirm(`Erase all combos, progress, history and settings ${where}? This cannot be undone.`)) return;
+              if (account) {
+                try {
+                  await clearRemoteHistory();
+                } catch (e) {
+                  setMsg(`Could not reach your account, nothing was erased: ${(e as Error).message}`);
+                  return;
+                }
+              }
+              replace(emptyData());
             }}
           >
             Reset everything

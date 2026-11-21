@@ -195,3 +195,97 @@ describe('fighters', () => {
     expect(fighterById('clinch-king').name).toBe('Clinch King');
   });
 });
+
+import { clearAccountData, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
+import type { Combo } from '../data/combos';
+
+describe('cloud sync', () => {
+  const T1 = '2026-11-20T10:00:00.000Z';
+  const T2 = '2026-11-21T10:00:00.000Z';
+  const combo = (id: string, name: string, updatedAt?: string): Combo => ({ id, name, items: ['jab', 'cross'], level: 'beginner', style: 'numbers', ...(updatedAt ? { updatedAt } : {}) });
+  const row = (id: string, name: string, updated_at: string, deleted = false): ComboRow => ({ id, name, items: ['jab'], level: 'beginner', style: 'numbers', deleted, updated_at });
+  const empty: RemoteData = { combos: [], sessions: [], state: null };
+  const withCombos = (combos: Combo[], extra: Partial<ReturnType<typeof emptyData>> = {}) => ({ ...emptyData(), combos, ...extra });
+
+  it('stamps new and edited combos, tombstones deleted ones, and ignores no-op updates', () => {
+    const a = withCombos([combo('a', 'A', T1), combo('b', 'B', T1)]);
+    const edited = stampChanges(a, { ...a, combos: [{ ...a.combos[0], name: 'A2' }] }, T2);
+    expect(edited.combos[0].updatedAt).toBe(T2);
+    expect(edited.tombstones).toEqual({ b: T2 });
+    expect(stampChanges(a, { ...a }, T2)).toEqual(a);
+  });
+
+  it('bumps the progress timestamp for synced settings but not for the device voice', () => {
+    const a = emptyData();
+    expect(stampChanges(a, { ...a, settings: { ...a.settings, voiceURI: 'x' } }, T2).stateUpdatedAt).toBeNull();
+    expect(stampChanges(a, { ...a, settings: { ...a.settings, stance: 'southpaw' } }, T2).stateUpdatedAt).toBe(T2);
+    expect(stampChanges(a, { ...a, learned: ['jab'] }, T2).stateUpdatedAt).toBe(T2);
+  });
+
+  it('uploads guest data on first sign-in', () => {
+    const local = withCombos([combo('a', 'A')], {
+      history: [{ id: 's1', date: T1, rounds: 3, completedRounds: 3, roundSec: 180, restSec: 60, callouts: 20, combos: ['A'], durationSec: 600 }],
+      learned: ['jab'],
+    });
+    const { data, push } = mergeAll(local, empty, T2);
+    expect(push.combos.map((r) => [r.id, r.deleted])).toEqual([['a', false]]);
+    expect(push.sessions.map((s) => s.id)).toEqual(['s1']);
+    expect(push.state?.learned).toEqual(['jab']);
+    expect(data.combos[0].updatedAt).toBe(T2);
+  });
+
+  it('newest edit wins in both directions', () => {
+    const remoteNewer = mergeAll(withCombos([combo('a', 'Local', T1)]), { ...empty, combos: [row('a', 'Remote', T2)] });
+    expect(remoteNewer.data.combos[0].name).toBe('Remote');
+    expect(remoteNewer.push.combos).toEqual([]);
+
+    const localNewer = mergeAll(withCombos([combo('a', 'Local', T2)]), { ...empty, combos: [row('a', 'Remote', T1)] });
+    expect(localNewer.data.combos[0].name).toBe('Local');
+    expect(localNewer.push.combos[0]).toMatchObject({ id: 'a', name: 'Local', deleted: false, updated_at: T2 });
+  });
+
+  it('syncs deletions both ways', () => {
+    const localDelete = mergeAll(withCombos([], { tombstones: { a: T2 } }), { ...empty, combos: [row('a', 'A', T1)] });
+    expect(localDelete.data.combos).toEqual([]);
+    expect(localDelete.push.combos[0]).toMatchObject({ id: 'a', deleted: true, updated_at: T2 });
+    expect(localDelete.data.tombstones).toEqual({});
+
+    const remoteDelete = mergeAll(withCombos([combo('a', 'A', T1)]), { ...empty, combos: [row('a', 'A', T2, true)] });
+    expect(remoteDelete.data.combos).toEqual([]);
+    expect(remoteDelete.push.combos).toEqual([]);
+  });
+
+  it('merges history from both sides without duplicates, newest first', () => {
+    const s = (id: string, date: string) => ({ id, date, rounds: 1, completedRounds: 1, roundSec: 60, restSec: 10, callouts: 1, combos: [], durationSec: 70 });
+    const local = { ...emptyData(), history: [s('l', T1), s('both', T1)] };
+    const remote: RemoteData = {
+      ...empty,
+      sessions: [
+        { id: 'r', date: T2, rounds: 1, completed_rounds: 1, round_sec: 60, rest_sec: 10, callouts: 1, combos: [], duration_sec: 70 },
+        { id: 'both', date: T1, rounds: 1, completed_rounds: 1, round_sec: 60, rest_sec: 10, callouts: 1, combos: [], duration_sec: 70 },
+      ],
+    };
+    const { data, push } = mergeAll(local, remote);
+    expect(data.history.map((x) => x.id)).toEqual(['r', 'l', 'both']);
+    expect(push.sessions.map((x) => x.id)).toEqual(['l']);
+  });
+
+  it('applies newer progress from the account but keeps this device’s voice', () => {
+    const local = { ...emptyData(), learned: ['jab'], stateUpdatedAt: T1, settings: { ...emptyData().settings, voiceURI: 'my-voice' } };
+    const { data, push } = mergeAll(local, { ...empty, state: { learned: ['teep'], videos: {}, settings: { stance: 'southpaw', fighter: 'clinch-king' }, updated_at: T2 } });
+    expect(data.learned).toEqual(['teep']);
+    expect(data.settings.stance).toBe('southpaw');
+    expect(data.settings.fighter).toBe('clinch-king');
+    expect(data.settings.voiceURI).toBe('my-voice');
+    expect(push.state).toBeNull();
+  });
+
+  it('signing out removes account data but keeps device preferences', () => {
+    const d = { ...withCombos([combo('a', 'A')]), learned: ['jab'], syncedUserId: 'u1', settings: { ...emptyData().settings, theme: 'dark' as const } };
+    const out = clearAccountData(d);
+    expect(out.combos).toEqual([]);
+    expect(out.learned).toEqual([]);
+    expect(out.syncedUserId).toBeNull();
+    expect(out.settings.theme).toBe('dark');
+  });
+});

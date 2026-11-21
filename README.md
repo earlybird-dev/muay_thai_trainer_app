@@ -31,3 +31,12 @@ New techniques are data-only: add an entry to `src/data/techniques.ts` with phas
 - **Manual:** use **Run workflow** on the Actions tab to redeploy.
 
 Dependabot (`.github/dependabot.yml`) opens grouped pull requests for npm updates weekly and GitHub Actions updates monthly. Each one runs through CI before you merge it.
+
+## Accounts & cloud sync (Supabase)
+
+Signing in with Google is optional. Without it, everything stays on the device. When signed in, combos, training history, learned techniques, saved videos and settings sync to Supabase project `vqgwqhhkwhmntnqkcfej` (region ap-southeast-2):
+
+- Tables: `combos`, `sessions` and `user_state`. Each has row-level security, so users can only read and write their own rows.
+- The app stays local-first. `src/lib/sync.ts` pulls, merges and pushes after every change. When the same combo was changed on two devices, the newest change wins, and deletions sync too. The first sign-in uploads any data the guest already had.
+- Signing out removes the account's data from the device. It stays in the account.
+- The sign-in button only appears once the Google provider is enabled in Supabase (Authentication → Sign In / Providers). Its redirect URLs need to include `https://muaythaitrainer.app/**` and `http://localhost:5173/**`.
