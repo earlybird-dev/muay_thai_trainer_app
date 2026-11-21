@@ -88,6 +88,22 @@ export function clap(volume = 1) {
   }
 }
 
+/** Short countdown pip. */
+export function beep(volume = 1, freq = 880) {
+  if (!ctx) return;
+  const at = ctx.currentTime + 0.01;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = 'square';
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.25 * volume, at + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+  o.connect(g).connect(ctx.destination);
+  o.start(at);
+  o.stop(at + 0.2);
+}
+
 export function getVoices(): SpeechSynthesisVoice[] {
   if (!('speechSynthesis' in window)) return [];
   return speechSynthesis.getVoices();

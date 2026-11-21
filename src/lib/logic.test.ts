@@ -335,10 +335,27 @@ describe('combo drill mode', () => {
     expect(plan.events.some((e) => e.type === 'callout' && stateAt(plan, e.at).segment?.kind !== 'round')).toBe(false);
   });
 
-  it('announces the next combo during each rest', () => {
+  it('announces each combo once: the first during prep, the rest during each rest', () => {
     const nexts = plan.events.filter((e) => e.type === 'next');
-    expect(nexts.map((e) => (e.type === 'next' ? e.comboId : ''))).toEqual(['b', 'c']);
-    for (const e of nexts) expect(stateAt(plan, e.at).segment?.kind).toBe('rest');
+    expect(nexts.map((e) => (e.type === 'next' ? e.comboId : ''))).toEqual(['a', 'b', 'c']);
+    expect(nexts.map((e) => stateAt(plan, e.at).segment?.kind)).toEqual(['prep', 'rest', 'rest']);
+  });
+
+  it('counts down 3, 2, 1 over the last seconds of every combo block', () => {
+    for (const seg of plan.segments.filter((x) => x.kind === 'round')) {
+      const counts = plan.events.filter((e) => e.type === 'count' && e.at > seg.start && e.at < seg.end);
+      expect(counts.map((e) => (e.type === 'count' ? e.n : 0))).toEqual([3, 2, 1]);
+      expect(counts.map((e) => seg.end - e.at)).toEqual([3000, 2000, 1000]);
+    }
+    expect(plan.events.some((e) => e.type === 'count' && stateAt(plan, e.at).segment?.kind !== 'round')).toBe(false);
+  });
+
+  it('with no prep or rest, announces each combo as its block starts', () => {
+    const p = buildPlan({ ...drill, prepSec: 0, drillRestSec: 0 }, pool3, 7);
+    const nexts = p.events.filter((e) => e.type === 'next');
+    const starts = p.segments.filter((s) => s.kind === 'round');
+    expect(nexts.map((e) => e.at)).toEqual(starts.map((s) => s.start));
+    expect(nexts.map((e) => (e.type === 'next' ? e.comboId : ''))).toEqual(['a', 'b', 'c']);
   });
 
   it('random order uses every combo before repeating and never repeats back-to-back', () => {
@@ -351,7 +368,7 @@ describe('combo drill mode', () => {
   it('a single combo drills for one block with no rest', () => {
     const one = buildPlan({ ...drill, drillCount: 1 }, [pool3[1]], 1);
     expect(one.segments.map((s) => s.kind)).toEqual(['prep', 'round']);
-    expect(one.events.some((e) => e.type === 'next')).toBe(false);
+    expect(one.events.filter((e) => e.type === 'next')).toHaveLength(1);
   });
 });
 

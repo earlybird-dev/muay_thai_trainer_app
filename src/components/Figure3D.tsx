@@ -34,6 +34,27 @@ const VIEWS: Record<CameraView, [number, number, number]> = {
   front: [370, 110, 0],
 };
 
+/** Points that must stay in frame: the ring's edge and the top of the fighter's head. */
+const FRAME_POINTS = [
+  ...Array.from({ length: 24 }, (_, i) => new THREE.Vector3(Math.cos((i / 24) * Math.PI * 2) * 130, 0, Math.sin((i / 24) * Math.PI * 2) * 130)),
+  new THREE.Vector3(14, 196, 0),
+];
+
+/** Zoom out (never in) so the whole ring and fighter fit, whatever the box's shape. */
+function fitCamera(camera: THREE.PerspectiveCamera) {
+  camera.zoom = 1;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  let extent = 0;
+  const v = new THREE.Vector3();
+  for (const p of FRAME_POINTS) {
+    v.copy(p).project(camera);
+    extent = Math.max(extent, Math.abs(v.x), Math.abs(v.y));
+  }
+  camera.zoom = extent > 0.94 ? 0.94 / extent : 1;
+  camera.updateProjectionMatrix();
+}
+
 const css = (name: string, fallback: string) => {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
@@ -220,7 +241,7 @@ export default function Figure3D({
       const h = host.clientHeight || 1;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      fitCamera(camera);
     };
     const ro = new ResizeObserver(resize);
     ro.observe(host);
@@ -259,6 +280,7 @@ export default function Figure3D({
     c.camera.lookAt(TARGET);
     c.controls?.target.copy(TARGET);
     c.controls?.update();
+    fitCamera(c.camera);
   }, [view, mirror]);
 
   // ---- fighter look (colours + head). Declared before the pose effect so the head exists first. ----

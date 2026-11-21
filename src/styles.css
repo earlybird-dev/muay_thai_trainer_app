@@ -884,7 +884,8 @@ input[type='range'] {
   max-height: 260px;
 }
 .figure3d.session-figure {
-  max-width: 420px;
+  max-width: 460px;
+  max-height: 38vh;
   aspect-ratio: 4 / 3;
   background: transparent;
 }
@@ -1363,4 +1364,16 @@ input[type='range'] {
   width: 52px;
   height: 52px;
   align-self: center;
+}
+.clock.counting {
+  color: var(--text);
+  animation: count-pulse 0.9s ease-out;
+}
+@keyframes count-pulse {
+  from {
+    transform: scale(1.18);
+  }
+  to {
+    transform: scale(1);
+  }
 }

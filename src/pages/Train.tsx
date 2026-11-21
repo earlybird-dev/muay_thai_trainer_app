@@ -4,7 +4,7 @@ import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, calloutSpeech, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
-import { bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
+import { beep, bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
@@ -215,7 +215,7 @@ function Setup() {
         </div>
         <p className="muted small">
           {drill
-            ? 'One combo at a time: it is called on every rep for the set time, then you rest while the next combo is shown, and so on.'
+            ? 'One combo at a time: it is announced once, then you drill it for the set time (reps are counted on screen), then you rest while the next combo is announced, and so on.'
             : 'Classic rounds: combos from the pool are called at random for the whole round.'}
         </p>
         <div className="form-grid">
@@ -400,6 +400,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   const [paused, setPaused] = useState(false);
   const [current, setCurrent] = useState<{ combo: Combo; index: number; rep?: number } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [count, setCount] = useState<number | null>(null);
   const [finished, setFinished] = useState<{ completed: number; callouts: number; early: boolean } | null>(null);
   // New array per callout restarts the animation; stable between clock ticks so it can play through.
   const currentPhases = useMemo(
@@ -452,12 +453,13 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   useEffect(() => {
     let lock: { release: () => void } | null = null;
     void requestWakeLock().then((l) => (lock = l));
-    if (config.prepSec > 0) sayRef.current('Get ready');
+    // Drill mode announces the first combo during prep instead.
+    if (config.prepSec > 0 && config.mode !== 'drill') sayRef.current('Get ready');
     return () => {
       lock?.release();
       stopSpeech();
     };
-  }, [config.prepSec]);
+  }, [config.prepSec, config.mode]);
 
   // Main clock
   useEffect(() => {
@@ -473,6 +475,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
       for (const e of evs) {
         switch (e.type) {
           case 'round-start':
+            setCount(null);
             if (settings.sounds) bell(1, settings.volume);
             setBanner(drill ? null : `Round ${e.round}`);
             setCurrent(null);
@@ -480,6 +483,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             if (!drill) window.setTimeout(() => sayRef.current(`Round ${e.round}. Fight!`), 700);
             break;
           case 'round-end':
+            setCount(null);
             if (settings.sounds) bell(drill ? 2 : 3, settings.volume);
             setCurrent(null);
             setBanner(e.round < blocks ? 'Rest' : 'Time!');
@@ -487,10 +491,19 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             if (!drill && e.round < blocks) window.setTimeout(() => sayRef.current('Rest. Breathe.'), 1100);
             break;
           case 'next': {
+            // Drill mode only speaks to announce each combo; reps are shown, not read out.
             const combo = byId[e.comboId];
-            if (combo) sayRef.current(`Rest. Next: ${combo.name}. ${calloutSpeech(combo.items, combo.style)}`);
+            if (!combo) break;
+            const seg = stateAt(plan, e.at).segment;
+            const lead = seg?.kind === 'prep' ? 'First up' : seg?.kind === 'rest' ? 'Rest. Next' : 'Next';
+            sayRef.current(`${lead}: ${combo.name}. ${calloutSpeech(combo.items, combo.style)}`);
             break;
           }
+          case 'count':
+            setCount(e.n);
+            if (settings.voice) sayRef.current(String(e.n));
+            else if (settings.sounds) beep(settings.volume);
+            break;
           case 'warning':
             if (settings.sounds) clap(settings.volume);
             break;
@@ -508,7 +521,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
               used.current.add(combo.name);
               setBanner(null);
               setCurrent({ combo, index: e.index, rep: e.rep });
-              sayRef.current(calloutSpeech(combo.items, combo.style));
+              if (!drill) sayRef.current(calloutSpeech(combo.items, combo.style));
             }
             break;
           case 'done':
@@ -523,7 +536,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
       clock.current.offset += performance.now() - clock.current.base;
       window.clearInterval(id);
     };
-  }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.volume]);
+  }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.voice, settings.volume]);
 
   const state = stateAt(plan, t);
   const seg = state.segment;
@@ -601,7 +614,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
           {paused && <span className="pill warn">Paused</span>}
         </div>
 
-        <div className="clock" aria-live="off">
+        <div key={kind === 'round' && count ? `count-${count}` : 'clock'} className={`clock ${kind === 'round' && count ? 'counting' : ''}`} aria-live="off">
           {formatClock(state.remaining)}
         </div>
 

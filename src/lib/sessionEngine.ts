@@ -8,7 +8,7 @@ export type TrainMode = 'drill' | 'rounds';
 
 export interface SessionConfig {
   /**
-   * drill:  one combo at a time — called on every rep for `drillSec`, then `drillRestSec` rest,
+   * drill:  one combo at a time — announced once, reps shown on screen for `drillSec`, then `drillRestSec` rest,
    *         then the next combo, for `drillCount` combos.
    * rounds: classic rounds with random callouts from the pool.
    */
@@ -69,6 +69,8 @@ export type SessionEvent =
   | { type: 'callout'; at: number; round: number; comboId: string; index: number; rep?: number }
   /** Drill mode: announce the upcoming combo during the rest. */
   | { type: 'next'; at: number; round: number; comboId: string }
+  /** Drill mode: "3, 2, 1" over the last seconds of each combo block. */
+  | { type: 'count'; at: number; round: number; n: number }
   | { type: 'done'; at: number };
 
 export interface Plan {
@@ -130,6 +132,8 @@ function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => nu
   let t = 0;
   if (config.prepSec > 0 && blocks.length) {
     segments.push({ kind: 'prep', round: 1, start: 0, end: config.prepSec * 1000, comboId: blocks[0].id });
+    // Announce the first combo during the get-ready countdown.
+    events.push({ type: 'next', at: Math.min(600, config.prepSec * 500), round: 1, comboId: blocks[0].id });
     t = config.prepSec * 1000;
   }
   let index = 0;
@@ -139,6 +143,9 @@ function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => nu
     const end = t + workMs;
     segments.push({ kind: 'round', round: r, start, end, comboId: combo.id });
     events.push({ type: 'round-start', at: start, round: r });
+    // No countdown/rest before this block to announce it in, so announce it as it starts.
+    const announced = r === 1 ? config.prepSec > 0 : restMs > 0;
+    if (!announced) events.push({ type: 'next', at: start, round: r, comboId: combo.id });
     // Call the same combo on every rep until there isn't time for another one.
     const repMs = combo.items.length * MS_PER_STRIKE;
     let c = start + 1200;
@@ -146,6 +153,10 @@ function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => nu
     while (c + Math.min(repMs, 1500) < end) {
       events.push({ type: 'callout', at: c, round: r, comboId: combo.id, index: index++, rep: rep++ });
       c += repMs + gapMs(config, rand);
+    }
+    for (let n = 3; n >= 1; n--) {
+      const at = end - n * 1000;
+      if (at > start + 1000) events.push({ type: 'count', at, round: r, n });
     }
     events.push({ type: 'round-end', at: end, round: r });
     t = end;
