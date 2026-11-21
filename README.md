@@ -1,5 +1,9 @@
 # Muay Thai Trainer
 
+[![CI/CD](https://github.com/earlybird-dev/muay_thai_training_app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/earlybird-dev/muay_thai_training_app/actions/workflows/ci-cd.yml)
+
+Live: https://muaythaitrainer.app
+
 A home-training web app (installable PWA, works offline).
 
 - **Learn**: 24 techniques (stance, footwork, punches 1–6, kicks, knees, elbows, defense, clinch) with an animated fighter, slow-mo, step-by-step phases, southpaw mirror, key cues, common mistakes, and a video slot (YouTube search + your own saved link).
@@ -17,3 +21,13 @@ npm run build    # production build to dist/
 ```
 
 New techniques are data-only: add an entry to `src/data/techniques.ts` with phase poses (see `src/lib/pose.ts` for the angle conventions).
+
+## CI/CD
+
+`.github/workflows/ci-cd.yml`:
+
+- **Every pull request and push:** `npm ci`, unit tests, type-check and production build, then a check that the build output is complete.
+- **Push to `master`:** the same checks, then deploy to GitHub Pages and a smoke test of the live site. A deploy only happens if every check passes.
+- **Manual:** use **Run workflow** on the Actions tab to redeploy.
+
+Dependabot (`.github/dependabot.yml`) opens grouped pull requests for npm updates weekly and GitHub Actions updates monthly. Each one runs through CI before you merge it.

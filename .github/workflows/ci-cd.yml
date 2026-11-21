@@ -1,0 +1,72 @@
+name: CI/CD
+
+# CI: every pull request and push runs type-check, tests and a production build.
+# CD: pushes to master (and manual runs) deploy the build to GitHub Pages
+#     at https://muaythaitrainer.app.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Test & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Type-check & build
+        run: npm run build
+      - name: Check build output
+        run: |
+          test -f dist/index.html
+          test -f dist/sw.js
+          grep -qx 'muaythaitrainer.app' dist/CNAME
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: https://muaythaitrainer.app
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Smoke test live site
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${{ steps.deployment.outputs.page_url }}" || true)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::warning::Live site did not return 200 yet (HTTPS certificate may still be pending)"
