@@ -1335,3 +1335,32 @@ input[type='range'] {
 .combo-main .combo-preview {
   cursor: default;
 }
+
+/* ---------- Music toggle ---------- */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.music-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+.music-toggle.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.music-toggle.big {
+  width: 52px;
+  height: 52px;
+  align-self: center;
+}

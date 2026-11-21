@@ -2,14 +2,29 @@
 
 let ctx: AudioContext | null = null;
 
-/** Must be called from a user gesture (e.g. the Start button) so browsers allow audio. */
-export function unlockAudio() {
+/** The shared audio context, if a user gesture has created it. */
+export const getAudioContext = () => ctx;
+
+/** Create/resume the audio context. Must run from a user gesture (tap, click, key). */
+export function ensureAudioContext(): AudioContext | null {
   try {
     if (!ctx) ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     if (ctx.state === 'suspended') void ctx.resume();
   } catch {
     ctx = null;
   }
+  return ctx;
+}
+
+/** Notified when a voice callout starts/stops, so background music can duck under it. */
+let speechListener: ((speaking: boolean) => void) | null = null;
+export const setSpeechListener = (fn: ((speaking: boolean) => void) | null) => {
+  speechListener = fn;
+};
+
+/** Must be called from a user gesture (e.g. the Start button) so browsers allow audio. */
+export function unlockAudio() {
+  ensureAudioContext();
   // Prime speech synthesis on iOS/Safari.
   try {
     if ('speechSynthesis' in window) {
@@ -88,6 +103,19 @@ export function speak(text: string, opts: { voiceURI?: string | null; rate?: num
     u.rate = opts.rate ?? 1;
     u.volume = opts.volume ?? 1;
     u.lang = v?.lang ?? 'en-US';
+    if (speechListener) {
+      const listener = speechListener;
+      let open = true;
+      const release = () => {
+        if (open) listener(false);
+        open = false;
+      };
+      listener(true);
+      u.onend = release;
+      u.onerror = release;
+      // Some browsers never fire onend; don't leave the music ducked.
+      window.setTimeout(release, 1500 + text.length * 90);
+    }
     speechSynthesis.speak(u);
   } catch {
     /* ignore */

@@ -14,6 +14,9 @@ export interface Settings {
   figure: '2d' | '3d';
   /** Preset fighter id (see data/fighters.ts). */
   fighter: string;
+  /** Background music (calm while browsing, fight music while training). Per device. */
+  music: boolean;
+  musicVolume: number;
 }
 
 export interface SessionLog {
@@ -68,8 +71,10 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 1,
   sounds: true,
   theme: 'system',
-  figure: '2d',
+  figure: '3d',
   fighter: 'technician',
+  music: true,
+  musicVolume: 0.4,
 };
 
 export const emptyData = (): AppData => ({

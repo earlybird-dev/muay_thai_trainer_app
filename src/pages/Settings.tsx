@@ -86,6 +86,16 @@ export default function Settings() {
         <label className="check">
           <input type="checkbox" checked={s.sounds} onChange={(e) => set('sounds', e.target.checked)} /> Bell & 10-second clap
         </label>
+        <label className="check">
+          <input type="checkbox" checked={s.music} onChange={(e) => set('music', e.target.checked)} /> Background music
+        </label>
+        <p className="muted small">Calm music while you browse; driving fight music while you train. It dips under voice callouts.</p>
+        {s.music && (
+          <label className="field">
+            <span>Music volume: {Math.round(s.musicVolume * 100)}%</span>
+            <input type="range" min={0.05} max={1} step={0.05} value={s.musicVolume} onChange={(e) => set('musicVolume', Number(e.target.value))} />
+          </label>
+        )}
         <label className="field">
           <span>Voice</span>
           <select className="input" value={s.voiceURI ?? ''} onChange={(e) => set('voiceURI', e.target.value || null)}>

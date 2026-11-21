@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig } from './sessionEngine';
-import { emptyData, parseData, serializeData } from './storage';
+import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
 import { streakDays } from './stats';
 import { calloutTokens, PRESET_COMBOS } from '../data/combos';
 import { TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
@@ -468,5 +468,19 @@ describe('plan reminders', () => {
     expect(remindersDue([{ ...p, reminder: { enabled: false, time: '18:00' } }], [], at('2026-11-04', '19:00'))).toEqual([]);
     const doneToday = [{ id: 's', date: at('2026-11-04', '07:00').toISOString(), rounds: 1, completedRounds: 1, roundSec: 30, restSec: 10, callouts: 3, combos: [], durationSec: 40, planId: 'r1' }];
     expect(remindersDue([p], doneToday, at('2026-11-04', '19:00'))).toEqual([]);
+  });
+});
+
+describe('music', () => {
+  it('maps pentatonic degrees across octaves', async () => {
+    const { degreeFreq } = await import('./music');
+    expect(degreeFreq(0, 200)).toBeCloseTo(200);
+    expect(degreeFreq(5, 200)).toBeCloseTo(400);
+    expect(degreeFreq(-5, 200)).toBeCloseTo(100);
+    expect(degreeFreq(3, 200)).toBeCloseTo(200 * Math.pow(2, 7 / 12));
+  });
+  it('defaults music on at a moderate volume', () => {
+    expect(DEFAULT_SETTINGS.music).toBe(true);
+    expect(DEFAULT_SETTINGS.musicVolume).toBeGreaterThan(0);
   });
 });

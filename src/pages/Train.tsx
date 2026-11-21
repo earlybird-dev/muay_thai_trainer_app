@@ -11,6 +11,8 @@ import { newId } from '../data/combos';
 import { workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import TodayCard from '../components/TodayCard';
+import MusicToggle from '../components/MusicToggle';
+import { setMusicScene } from '../lib/music';
 
 type PoolMode = PoolKind;
 
@@ -535,6 +537,11 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     [blockCombo],
   );
 
+  // Fight music while working, backed off during prep/rest, silent when paused, calm when done.
+  useEffect(() => {
+    setMusicScene(finished ? 'calm' : paused ? 'off' : kind === 'round' ? 'fight' : kind === 'done' ? 'calm' : 'fight-rest');
+  }, [finished, paused, kind]);
+
   const end = () => {
     if (!finished && !confirm('End the session now?')) return;
     if (!finished) {
@@ -657,6 +664,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
           <button className="btn big primary" onClick={() => setPaused((p) => !p)}>
             {paused ? 'Resume' : 'Pause'}
           </button>
+          <MusicToggle className="big" />
           <button className="btn big" onClick={end}>
             End
           </button>

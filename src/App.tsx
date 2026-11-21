@@ -1,5 +1,10 @@
+import { useEffect } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
+import { useStore } from './lib/store';
+import { ensureAudioContext } from './lib/audio';
+import { configureMusic, refreshMusic, setMusicScene } from './lib/music';
+import MusicToggle from './components/MusicToggle';
 import { Avatar } from './components/AccountCard';
 import Learn from './pages/Learn';
 import TechniqueDetail from './pages/TechniqueDetail';
@@ -41,6 +46,26 @@ function AccountBadge() {
 export default function App() {
   const { pathname } = useLocation();
   const inSession = pathname.startsWith('/train/session');
+  const { data } = useStore();
+  const { music, musicVolume } = data.settings;
+
+  // Background music: calm everywhere except the session screen, which sets its own scene.
+  useEffect(() => configureMusic({ enabled: music, volume: musicVolume }), [music, musicVolume]);
+  useEffect(() => {
+    if (!inSession) setMusicScene('calm');
+  }, [inSession]);
+  // Browsers only allow audio after a user gesture, so start on the first tap/click/key.
+  useEffect(() => {
+    const start = () => {
+      if (ensureAudioContext()) refreshMusic();
+    };
+    window.addEventListener('pointerdown', start, true);
+    window.addEventListener('keydown', start, true);
+    return () => {
+      window.removeEventListener('pointerdown', start, true);
+      window.removeEventListener('keydown', start, true);
+    };
+  }, []);
 
   return (
     <div className={`app ${inSession ? 'app-session' : ''}`}>
@@ -53,7 +78,10 @@ export default function App() {
             </svg>
             Muay Thai Trainer
           </span>
-          <AccountBadge />
+          <div className="topbar-right">
+            <MusicToggle />
+            <AccountBadge />
+          </div>
         </header>
       )}
       {!inSession && <ReminderBanner />}
