@@ -8,7 +8,7 @@ import { beep, bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } fro
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
-import { workoutSummary, type PoolKind, type Workout } from '../lib/plans';
+import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import TodayCard from '../components/TodayCard';
 import MusicToggle from '../components/MusicToggle';
@@ -59,8 +59,15 @@ function Setup() {
   const [poolMode, setPoolMode] = useState<PoolMode>(() =>
     editing0 ? editing0.pool.kind : comboParam ? 'pick' : saved.comboIds.length ? 'pick' : 'all',
   );
+  const [pickQuery, setPickQuery] = useState('');
+  /** Choose…: list only the picked combos (in the order they were picked). */
+  const [selectedOnly, setSelectedOnly] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(
     () => new Set(editing0 ? editing0.pool.comboIds : comboParam ? [comboParam] : saved.comboIds),
+  );
+  /** Combos unticked from a level/all/mine pool. */
+  const [excluded, setExcluded] = useState<Set<string>>(
+    () => new Set(editing0 ? (editing0.pool.excluded ?? []) : comboParam ? [] : (saved.excludedIds ?? [])),
   );
   /** The saved workout currently loaded for editing, if any. */
   const [editingId, setEditingId] = useState<string | null>(editing0?.id ?? null);
@@ -70,8 +77,12 @@ function Setup() {
   const currentWorkout = (id: string, name: string): Workout => ({
     id,
     name,
-    config: { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] },
-    pool: { kind: poolMode, comboIds: poolMode === 'pick' ? [...picked] : [] },
+    config: sessionConfig(),
+    pool: {
+      kind: poolMode,
+      comboIds: poolMode === 'pick' ? [...picked] : [],
+      ...(poolMode !== 'pick' && excluded.size ? { excluded: [...excluded] } : {}),
+    },
   });
   const saveAsNew = async () => {
     const name = await dialog.prompt({
@@ -96,6 +107,7 @@ function Setup() {
     setCfg(w.config);
     setPoolMode(w.pool.kind);
     setPicked(new Set(w.pool.comboIds));
+    setExcluded(new Set(w.pool.excluded ?? []));
     setEditingId(w.id);
     setSavedMsg(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -120,22 +132,17 @@ function Setup() {
 
   const pool: Combo[] = useMemo(() => {
     if (tech) return [{ id: `tech-${tech.id}`, name: tech.name, items: [tech.id], level: tech.level, style: 'numbers' }];
-    switch (poolMode) {
-      case 'all':
-        return allCombos;
-      case 'beginner':
-      case 'intermediate':
-      case 'advanced':
-        return allCombos.filter((c) => c.level === poolMode);
-      case 'mine':
-        return data.combos;
-      case 'pick': {
-        // Keep the order the combos were picked in (a fixed, ordered list).
-        const byId = new Map(allCombos.map((c) => [c.id, c]));
-        return [...picked].map((id) => byId.get(id)).filter((c): c is Combo => !!c);
-      }
-    }
-  }, [tech, poolMode, picked, allCombos, data.combos]);
+    // "pick" keeps the order the combos were picked in (a fixed, ordered list).
+    return resolvePool({ kind: poolMode, comboIds: [...picked], excluded: [...excluded] }, allCombos, data.combos);
+  }, [tech, poolMode, picked, excluded, allCombos, data.combos]);
+  /** The combos listed with tick boxes: the level/all/mine pool, or every combo when choosing. */
+  const listed = useMemo(() => (poolMode === 'pick' ? allCombos : poolBase(poolMode, allCombos, data.combos)), [poolMode, allCombos, data.combos]);
+  const isTicked = (id: string) => (poolMode === 'pick' ? picked.has(id) : !excluded.has(id));
+  const sessionConfig = (): SessionConfig => ({
+    ...cfg,
+    comboIds: poolMode === 'pick' ? [...picked] : [],
+    excludedIds: poolMode === 'pick' ? [] : [...excluded],
+  });
 
   const pace = PACES.find((p) => p.min === cfg.minGap && p.max === cfg.maxGap)?.id;
   const drill = cfg.mode === 'drill';
@@ -152,19 +159,50 @@ function Setup() {
   const start = () => {
     unlockAudio();
     primeTrainingMusic();
-    const config = { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] };
+    const config = sessionConfig();
     if (!tech) update((d) => ({ ...d, lastSession: config }));
     const state: LaunchState = { config, pool, ...(editing ? { workoutId: editing.id } : {}) };
     navigate('/train/session', { state });
   };
 
-  const togglePick = (id: string) =>
-    setPicked((s) => {
+  const toggle = (set: (f: (s: Set<string>) => Set<string>) => void, id: string) =>
+    set((s) => {
       const n = new Set(s);
       if (n.has(id)) n.delete(id);
       else n.add(id);
       return n;
     });
+  const togglePick = (id: string) => toggle(poolMode === 'pick' ? setPicked : setExcluded, id);
+
+  // Every word must appear in the combo's name, callout, technique names or level.
+  const shownPicks = useMemo(() => {
+    const words = pickQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    const base = poolMode === 'pick' && selectedOnly ? pool : listed;
+    if (!words.length) return base;
+    return base.filter((c) => {
+      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.level ?? '', c.preset ? '' : 'mine my']
+        .join(' ')
+        .toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+  }, [pickQuery, listed, poolMode, selectedOnly, pool]);
+
+  /** Tick or untick every combo currently shown (respects the search). */
+  const tickShown = (on: boolean) => {
+    const ids = shownPicks.map((c) => c.id);
+    if (poolMode === 'pick')
+      setPicked((s) => {
+        const n = new Set(s);
+        for (const id of ids) on ? n.add(id) : n.delete(id);
+        return n;
+      });
+    else
+      setExcluded((s) => {
+        const n = new Set(s);
+        for (const id of ids) on ? n.delete(id) : n.add(id);
+        return n;
+      });
+  };
 
   return (
     <div className="page">
@@ -354,12 +392,49 @@ function Setup() {
               </button>
             ))}
           </div>
-          {poolMode === 'pick' && (
+          <div className="pick-search">
+            <input
+              type="search"
+              className="input"
+              placeholder="Search combos — name, strike, level…"
+              aria-label="Search combos"
+              value={pickQuery}
+              onChange={(e) => setPickQuery(e.target.value)}
+            />
+            <span className="muted small">
+              {pool.length} of {listed.length} ticked{pickQuery.trim() ? ` · ${shownPicks.length} match` : ''}
+            </span>
+            <span className="pick-bulk">
+              {poolMode === 'pick' && (
+                <button
+                  type="button"
+                  className={`btn small ${selectedOnly ? 'on' : ''}`}
+                  aria-pressed={selectedOnly}
+                  onClick={() => setSelectedOnly((v) => !v)}
+                >
+                  {selectedOnly ? 'Show all' : `Show selected (${picked.size})`}
+                </button>
+              )}
+              <button type="button" className="btn small" onClick={() => tickShown(true)} disabled={!shownPicks.length}>
+                Tick all
+              </button>
+              <button type="button" className="btn small" onClick={() => tickShown(false)} disabled={!shownPicks.length}>
+                Untick all
+              </button>
+            </span>
+          </div>
+          {listed.length === 0 ? (
+            <p className="muted small">{poolMode === 'mine' ? 'You have no combos of your own yet.' : 'No combos here.'}</p>
+          ) : shownPicks.length === 0 ? (
+            <p className="muted small">
+              {poolMode === 'pick' && selectedOnly && !pickQuery.trim() ? 'Nothing selected yet.' : `No combos match “${pickQuery.trim()}”.`}
+            </p>
+          ) : (
             <ul className="pick-list">
-              {allCombos.map((c) => (
+              {shownPicks.map((c) => (
                 <li key={c.id}>
                   <label className="check">
-                    <input type="checkbox" checked={picked.has(c.id)} onChange={() => togglePick(c.id)} />
+                    <input type="checkbox" checked={isTicked(c.id)} onChange={() => togglePick(c.id)} />
                     <span>
                       <b>{c.name}</b> <span className="muted">{calloutDisplay(c.items, c.style)}</span>
                     </span>
@@ -368,7 +443,6 @@ function Setup() {
               ))}
             </ul>
           )}
-          <p className="muted small">{pool.length} combo{pool.length === 1 ? '' : 's'} in the pool.</p>
         </section>
       )}
 

@@ -434,6 +434,12 @@ describe('training plans', () => {
     const w: Workout = { id: 'w1', name: 'Kicks', config: { ...DEFAULT_CONFIG, mode: 'drill', drillCount: 4, drillSec: 30, drillRestSec: 15, prepSec: 5 }, pool: { kind: 'pick', comboIds: ['preset-teep-kick', 'preset-1-2'] } };
     expect(resolvePool(w.pool, PRESET_COMBOS, []).map((c) => c.id)).toEqual(['preset-teep-kick', 'preset-1-2']);
     expect(resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, [])).toHaveLength(30);
+    // Unticked combos are left out of a level pool, and survive a save/load round trip.
+    const adv = resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, []);
+    const out = [adv[0].id, adv[1].id];
+    expect(resolvePool({ kind: 'advanced', comboIds: [], excluded: out }, PRESET_COMBOS, []).map((c) => c.id)).not.toContain(out[0]);
+    expect(resolvePool({ kind: 'advanced', comboIds: [], excluded: out }, PRESET_COMBOS, [])).toHaveLength(28);
+    expect(parseWorkout({ id: 'w', name: 'x', config: {}, pool: { kind: 'advanced', comboIds: [], excluded: out } })?.pool.excluded).toEqual(out);
     expect(workoutSummary(w)).toBe('Drill · 4 combos × 30s, 15s rest · 2 picked combos · 2:50');
   });
 

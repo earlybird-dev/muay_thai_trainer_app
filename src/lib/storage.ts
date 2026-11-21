@@ -168,6 +168,9 @@ export function parseWorkout(v: unknown): Workout | null {
     pool: {
       kind: (POOL_KINDS.includes(pool.kind as string) ? pool.kind : 'all') as Workout['pool']['kind'],
       comboIds: Array.isArray(pool.comboIds) ? pool.comboIds.filter((x): x is string => typeof x === 'string') : [],
+      ...(Array.isArray(pool.excluded) && pool.excluded.length
+        ? { excluded: pool.excluded.filter((x): x is string => typeof x === 'string') }
+        : {}),
     },
     ...(typeof v.updatedAt === 'string' ? { updatedAt: v.updatedAt } : {}),
   };

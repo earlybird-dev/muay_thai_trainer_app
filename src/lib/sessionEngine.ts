@@ -27,6 +27,8 @@ export interface SessionConfig {
   /** Final seconds of each round with no callouts ("freestyle"). 0 = off. */
   freestyleSec: number;
   comboIds: string[];
+  /** Combos unticked from a level/all/mine pool (remembered for the next session). */
+  excludedIds?: string[];
 }
 
 export const DEFAULT_CONFIG: SessionConfig = {

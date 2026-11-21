@@ -14,7 +14,12 @@ export interface Workout {
   name: string;
   config: SessionConfig;
   /** Which combos: a level/pool (random each time) or a hand-picked list ("pick", kept in order). */
-  pool: { kind: PoolKind; comboIds: string[] };
+  pool: {
+    kind: PoolKind;
+    comboIds: string[];
+    /** Level/all/mine pools: combos the user unticked, left out of the pool. */
+    excluded?: string[];
+  };
   updatedAt?: string;
 }
 
@@ -66,17 +71,23 @@ export const WEEKDAYS = [
 // ---------- workouts ----------
 
 export function resolvePool(pool: Workout['pool'], allCombos: Combo[], myCombos: Combo[]): Combo[] {
-  switch (pool.kind) {
+  if (pool.kind === 'pick') {
+    const byId = new Map(allCombos.map((c) => [c.id, c]));
+    return pool.comboIds.map((id) => byId.get(id)).filter((c): c is Combo => !!c);
+  }
+  const out = new Set(pool.excluded ?? []);
+  return poolBase(pool.kind, allCombos, myCombos).filter((c) => !out.has(c.id));
+}
+
+/** Every combo a level/all/mine pool draws from, before unticked ones are removed. */
+export function poolBase(kind: Exclude<PoolKind, 'pick'>, allCombos: Combo[], myCombos: Combo[]): Combo[] {
+  switch (kind) {
     case 'all':
       return allCombos;
     case 'mine':
       return myCombos;
-    case 'pick': {
-      const byId = new Map(allCombos.map((c) => [c.id, c]));
-      return pool.comboIds.map((id) => byId.get(id)).filter((c): c is Combo => !!c);
-    }
     default:
-      return allCombos.filter((c) => c.level === pool.kind);
+      return allCombos.filter((c) => c.level === kind);
   }
 }
 
@@ -99,7 +110,8 @@ export function workoutSummary(w: Workout): string {
         : w.pool.kind === 'mine'
           ? 'my combos'
           : `${w.pool.kind} combos`;
-  return `${c.mode === 'drill' ? 'Drill' : 'Rounds'} · ${shape} · ${pool} · ${formatClock(workoutSeconds(c) * 1000)}`;
+  const left = w.pool.kind !== 'pick' && w.pool.excluded?.length ? ` (−${w.pool.excluded.length})` : '';
+  return `${c.mode === 'drill' ? 'Drill' : 'Rounds'} · ${shape} · ${pool}${left} · ${formatClock(workoutSeconds(c) * 1000)}`;
 }
 
 // ---------- plans ----------
