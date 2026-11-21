@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [
     react(),
     VitePWA({
@@ -12,6 +12,9 @@ export default defineConfig({
       // Coach voice clips (~5 MB) are cached as they're first used, so they work offline afterwards
       // without every visitor downloading all of them up front.
       workbox: {
+        // Clean URLs: any in-app page loads the app shell offline.
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/(voice|music|assets)\//, /\.[a-z0-9]+$/i],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => /\/voice\/[^/]+\.mp3$/.test(url.pathname),
@@ -32,7 +35,9 @@ export default defineConfig({
         theme_color: '#141416',
         background_color: '#141416',
         display: 'standalone',
-        start_url: './',
+        start_url: '/',
+        scope: '/',
+        id: '/',
         icons: [
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
         ],

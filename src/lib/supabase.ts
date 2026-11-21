@@ -12,7 +12,7 @@ export const supabase: SupabaseClient | null =
   SUPABASE_URL && SUPABASE_KEY
     ? createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: {
-          flowType: 'pkce', // returns ?code=… instead of tokens in the #hash, which the HashRouter uses
+          flowType: 'pkce', // returns ?code=… (a query string) instead of tokens in the #hash
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,

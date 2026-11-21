@@ -47,7 +47,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 /** System notification, via the service worker when available (needed on Android). */
 export async function notify(title: string, body: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const options: NotificationOptions = { body, icon: './icon.svg', badge: './icon.svg', tag: 'mt-training-reminder' };
+  const options: NotificationOptions = { body, icon: '/icon.svg', badge: '/icon.svg', tag: 'mt-training-reminder' };
   try {
     const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
     if (reg) await reg.showNotification(title, options);

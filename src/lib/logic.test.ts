@@ -650,3 +650,20 @@ describe('technique videos', () => {
     expect(new Set(TECHNIQUES.map((t) => t.videoId)).size).toBe(TECHNIQUES.length);
   });
 });
+
+describe('seo', () => {
+  it('gives every indexed page a unique title, description and trailing-slash canonical URL', async () => {
+    const { indexedPaths, pageMeta, canonicalUrl, fullTitle } = await import('./seo');
+    const paths = indexedPaths();
+    const titles = paths.map((p) => fullTitle(pageMeta(p)));
+    expect(new Set(titles).size).toBe(paths.length);
+    for (const p of paths) {
+      const m = pageMeta(p);
+      expect(m.description.length).toBeGreaterThan(50);
+      expect(fullTitle(m).length).toBeLessThan(110);
+    }
+    expect(pageMeta('/learn/jab').title).toMatch(/Jab/);
+    expect(canonicalUrl('/learn/jab')).toBe('https://muaythaitrainer.app/learn/jab/');
+    expect(canonicalUrl('/')).toBe('https://muaythaitrainer.app/');
+  });
+});

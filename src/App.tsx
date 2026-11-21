@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import { useStore } from './lib/store';
+import { applyHead } from './lib/seo';
 import { ensureAudioContext } from './lib/audio';
 import { configureMusic, refreshMusic, setMusicScene } from './lib/music';
 import MusicToggle from './components/MusicToggle';
@@ -50,6 +51,8 @@ export default function App() {
   const { music, musicVolume, trainingTrack } = data.settings;
 
   // Background music: calm everywhere except the session screen, which sets its own scene.
+  // Page title, description and social tags for search engines and link previews.
+  useEffect(() => applyHead(pathname), [pathname]);
   useEffect(() => configureMusic({ enabled: music, volume: musicVolume, trainingTrack }), [music, musicVolume, trainingTrack]);
   useEffect(() => {
     if (!inSession) setMusicScene('calm');
