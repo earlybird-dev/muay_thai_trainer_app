@@ -10,7 +10,16 @@ export type Category =
   | 'defense'
   | 'clinch';
 
-export type Level = 'beginner' | 'intermediate';
+export type Level = 'beginner' | 'intermediate' | 'advanced';
+
+export const LEVELS: { id: Level; name: string }[] = [
+  { id: 'beginner', name: 'Beginner' },
+  { id: 'intermediate', name: 'Intermediate' },
+  { id: 'advanced', name: 'Advanced' },
+];
+
+/** Coerce unknown input (saved data, server rows) to a valid level. */
+export const toLevel = (v: unknown): Level => (v === 'intermediate' || v === 'advanced' ? v : 'beginner');
 
 export interface Phase {
   label: string;

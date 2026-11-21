@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type CalloutStyle, type Combo } from '../data/combos';
-import { CATEGORIES, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
+import { CATEGORIES, LEVELS, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
 import { speak } from '../lib/audio';
 import { calloutSpeech } from '../data/combos';
@@ -137,7 +137,7 @@ export default function ComboEditor() {
           <div className="field">
             <span>Level</span>
             <div className="seg">
-              {(['beginner', 'intermediate'] as Level[]).map((l) => (
+              {LEVELS.map(({ id: l }) => (
                 <button key={l} className={`seg-btn ${level === l ? 'on' : ''}`} onClick={() => setLevel(l)}>
                   {l}
                 </button>

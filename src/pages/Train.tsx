@@ -8,7 +8,7 @@ import { bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 
-type PoolMode = 'all' | 'beginner' | 'intermediate' | 'mine' | 'pick';
+type PoolMode = 'all' | 'beginner' | 'intermediate' | 'advanced' | 'mine' | 'pick';
 
 interface LaunchState {
   config: SessionConfig;
@@ -53,6 +53,7 @@ function Setup() {
         return allCombos;
       case 'beginner':
       case 'intermediate':
+      case 'advanced':
         return allCombos.filter((c) => c.level === mode);
       case 'mine':
         return data.combos;
@@ -174,6 +175,7 @@ function Setup() {
                 ['all', 'All'],
                 ['beginner', 'Beginner'],
                 ['intermediate', 'Intermediate'],
+                ['advanced', 'Advanced'],
                 ['mine', 'My combos'],
                 ['pick', 'Choose…'],
               ] as [PoolMode, string][]

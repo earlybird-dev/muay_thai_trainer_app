@@ -1,4 +1,5 @@
 import type { Combo } from '../data/combos';
+import { toLevel } from '../data/techniques';
 import type { SessionConfig } from './sessionEngine';
 
 export interface Settings {
@@ -92,7 +93,7 @@ export function parseData(raw: unknown): AppData {
         id: c.id,
         name: c.name,
         items: c.items,
-        level: c.level === 'intermediate' ? ('intermediate' as const) : ('beginner' as const),
+        level: toLevel(c.level),
         style: c.style === 'names' ? ('names' as const) : ('numbers' as const),
         ...(typeof c.updatedAt === 'string' ? { updatedAt: c.updatedAt } : {}),
       }))

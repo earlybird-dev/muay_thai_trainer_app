@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Combo } from '../data/combos';
+import { toLevel, type Level } from '../data/techniques';
 import { DEFAULT_SETTINGS, pickSyncedSettings, type AppData, type SessionLog, type SyncedSettings } from './storage';
 
 export interface ComboRow {
@@ -16,7 +17,7 @@ export interface ComboRow {
   id: string;
   name: string;
   items: string[];
-  level: 'beginner' | 'intermediate';
+  level: Level;
   style: 'numbers' | 'names';
   deleted: boolean;
   updated_at: string;
@@ -116,7 +117,7 @@ export const rowToCombo = (r: ComboRow): Combo => ({
   id: r.id,
   name: r.name,
   items: r.items ?? [],
-  level: r.level === 'intermediate' ? 'intermediate' : 'beginner',
+  level: toLevel(r.level),
   style: r.style === 'names' ? 'names' : 'numbers',
   updatedAt: r.updated_at,
 });

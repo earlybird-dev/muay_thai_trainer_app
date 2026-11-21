@@ -289,3 +289,22 @@ describe('cloud sync', () => {
     expect(out.settings.theme).toBe('dark');
   });
 });
+
+describe('starter combo library', () => {
+  it('has 100 combos across all three levels with unique ids and names', () => {
+    expect(PRESET_COMBOS).toHaveLength(100);
+    const count = (l: string) => PRESET_COMBOS.filter((c) => c.level === l).length;
+    expect([count('beginner'), count('intermediate'), count('advanced')]).toEqual([35, 35, 30]);
+    expect(new Set(PRESET_COMBOS.map((c) => c.id)).size).toBe(100);
+    expect(new Set(PRESET_COMBOS.map((c) => c.name.toLowerCase())).size).toBe(100);
+    expect(new Set(PRESET_COMBOS.map((c) => c.items.join(','))).size).toBe(100);
+  });
+
+  it('only uses techniques that can be combo strikes', () => {
+    for (const c of PRESET_COMBOS) for (const i of c.items) expect(TECH_BY_ID[i]?.strike, `${c.id}:${i}`).toBe(true);
+  });
+
+  it('keeps the original starter ids so saved selections still work', () => {
+    for (const id of ['1-2', '1-1-2', '1-2-3-kick', 'clinch', 'lean-2-kick']) expect(PRESET_COMBOS.some((c) => c.id === `preset-${id}`)).toBe(true);
+  });
+});

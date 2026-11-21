@@ -332,6 +332,9 @@ input[type='range'] {
   color: var(--muted);
   vertical-align: middle;
 }
+.tag-advanced {
+  color: var(--accent);
+}
 .tag-intermediate {
   color: var(--accent-2);
 }
@@ -1056,4 +1059,12 @@ input[type='range'] {
   50% {
     opacity: 0.35;
   }
+}
+
+.level-filter {
+  margin-top: 12px;
+}
+.level-filter .muted {
+  font-weight: 500;
+  margin-left: 2px;
 }
