@@ -60,7 +60,7 @@ jobs:
       url: https://muaythaitrainer.app
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       - name: Smoke test live site
         run: |
           for i in 1 2 3 4 5 6; do
