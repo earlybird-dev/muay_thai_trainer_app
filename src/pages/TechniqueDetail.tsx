@@ -178,11 +178,16 @@ function Detail({ id }: { id: string }) {
         ) : (
           <p className="muted small">Find a video you like, then paste its link below to keep it here.</p>
         )}
-        <div className="row">
-          <a className="btn" href={youtubeSearchUrl(t.videoQuery)} target="_blank" rel="noreferrer">
-            Search YouTube ↗
-          </a>
-        </div>
+        <a className="btn yt-search" href={youtubeSearchUrl(t.videoQuery)} target="_blank" rel="noreferrer">
+          <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden>
+            <rect width="28" height="20" rx="5" fill="currentColor" />
+            <path d="M11 5.5v9l8-4.5z" fill="var(--yt-bg)" />
+          </svg>
+          <span>
+            <b>Watch {t.name} videos on YouTube</b>
+            <small>Search: “{t.videoQuery}” ↗</small>
+          </span>
+        </a>
         <div className="row">
           <input
             className="input grow"

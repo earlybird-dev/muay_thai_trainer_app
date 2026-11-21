@@ -1570,3 +1570,43 @@ input[type='range'] {
   flex: 1;
   min-width: 0;
 }
+
+/* ---------- YouTube search button ---------- */
+.btn.yt-search {
+  --yt-bg: #e62117;
+  display: flex;
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 16px;
+  min-height: 60px;
+  background: var(--yt-bg);
+  border-color: var(--yt-bg);
+  color: #fff;
+  text-align: left;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--yt-bg) 30%, transparent);
+}
+.btn.yt-search:hover:not(:disabled) {
+  border-color: #fff;
+  filter: brightness(1.08);
+}
+.btn.yt-search svg {
+  flex: none;
+  color: #fff;
+}
+.btn.yt-search span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.btn.yt-search b {
+  font-size: 1.02rem;
+}
+.btn.yt-search small {
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
