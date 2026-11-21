@@ -9,6 +9,9 @@ export interface Settings {
   volume: number;
   sounds: boolean;
   theme: 'system' | 'dark' | 'light';
+  figure: '2d' | '3d';
+  /** Preset fighter id (see data/fighters.ts). */
+  fighter: string;
 }
 
 export interface SessionLog {
@@ -41,6 +44,8 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 1,
   sounds: true,
   theme: 'system',
+  figure: '2d',
+  fighter: 'technician',
 };
 
 export const emptyData = (): AppData => ({

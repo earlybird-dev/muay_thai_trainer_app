@@ -119,3 +119,79 @@ describe('streak', () => {
     expect(streakDays([d(3)], today)).toBe(0);
   });
 });
+
+import { to3D, SHOULDER_Z } from './pose3d';
+
+describe('3D pose mapping', () => {
+  const at = (id: string, label: string) => to3D(withGuard(TECH_BY_ID[id].phases.find((p) => p.label.startsWith(label))!.pose));
+  const guard = to3D(withGuard({}));
+
+  it('keeps every joint at or above the floor in every phase', () => {
+    for (const t of TECHNIQUES)
+      for (const ph of t.phases) {
+        const k = to3D(withGuard(ph.pose));
+        for (const side of [k.lead, k.rear]) for (const p of Object.values(side)) expect(p.y, `${t.id}/${ph.label}`).toBeGreaterThan(-1e-6);
+      }
+  });
+
+  it('straight punches travel to the centre line and turn the shoulders', () => {
+    const jab = at('jab', 'Extend');
+    expect(Math.abs(jab.lead.hand.z)).toBeLessThan(Math.abs(guard.lead.hand.z));
+    const cross = at('cross', 'Pivot');
+    expect(cross.rear.shoulder.x).toBeGreaterThan(cross.lead.shoulder.x); // rear shoulder rotated forward
+  });
+
+  it('hooks flare the elbow outward', () => {
+    const hook = at('lead-hook', 'Turn');
+    expect(hook.lead.elbow.z).toBeGreaterThan(SHOULDER_Z + 5);
+    // forearm runs across the body (roughly level), not straight up
+    expect(Math.abs(hook.lead.hand.y - hook.lead.elbow.y)).toBeLessThan(8);
+    expect(hook.lead.hand.z).toBeLessThan(hook.lead.elbow.z - 15);
+  });
+
+  it('keeps the guard and uppercut forearms upright', () => {
+    expect(guard.lead.hand.y - guard.lead.elbow.y).toBeGreaterThan(20);
+    const upper = at('lead-uppercut', 'Drive');
+    expect(upper.lead.hand.y - upper.lead.elbow.y).toBeGreaterThan(15);
+  });
+
+  it('keeps every forearm the right length', () => {
+    for (const t of TECHNIQUES)
+      for (const ph of t.phases) {
+        const k = to3D(withGuard(ph.pose));
+        for (const sd of [k.lead, k.rear]) {
+          const d = Math.hypot(sd.hand.x - sd.elbow.x, sd.hand.y - sd.elbow.y, sd.hand.z - sd.elbow.z);
+          expect(d, `${t.id}/${ph.label}`).toBeCloseTo(28, 3);
+        }
+      }
+  });
+
+  it('the roundhouse swings the rear shin across the body, the straight knee does not', () => {
+    const kick = at('rear-kick', 'Swing');
+    expect(kick.rear.ankle.z).toBeGreaterThan(guard.rear.ankle.z + 15);
+    const knee = at('knee', 'Hips');
+    expect(Math.abs(knee.rear.ankle.z - guard.rear.ankle.z)).toBeLessThan(3);
+  });
+
+  it('a half spin puts the lead side on the far side', () => {
+    const spun = to3D(withGuard({ facing: -1 }));
+    expect(spun.lead.shoulder.z).toBeLessThan(0);
+    expect(spun.pelvis.x).toBeCloseTo(guard.pelvis.x);
+  });
+});
+
+import { FIGHTERS, fighterById, DEFAULT_FIGHTER } from '../data/fighters';
+
+describe('fighters', () => {
+  it('have unique ids and valid colours', () => {
+    expect(new Set(FIGHTERS.map((f) => f.id)).size).toBe(FIGHTERS.length);
+    const hex = /^#[0-9a-f]{6}$/i;
+    for (const f of FIGHTERS)
+      for (const c of [f.skin, f.hairColor, f.shorts, f.shortsTrim, f.gloves, f.wraps, f.mongkol ?? '#000000']) expect(c, f.id).toMatch(hex);
+  });
+
+  it('falls back to the default fighter for unknown ids', () => {
+    expect(fighterById('nope')).toBe(DEFAULT_FIGHTER);
+    expect(fighterById('clinch-king').name).toBe('Clinch King');
+  });
+});

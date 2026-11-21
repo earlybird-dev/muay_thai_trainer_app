@@ -1,112 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { GUARD, LIMB, lerpPose, solve, withGuard, type PartialPose, type Point, type Pose } from '../lib/pose';
+import type { CSSProperties } from 'react';
+import { LIMB, solve, type Point } from '../lib/pose';
+import { useAnimatedPose, type AnimationProps } from '../lib/useAnimatedPose';
 import type { Phase } from '../data/techniques';
+import type { FighterLook } from '../data/fighters';
 
-interface Props {
-  /** Animated sequence. Each phase is a pose reached from the previous one. */
-  phases?: Phase[];
-  /** Static pose (used when no phases, or when paused at a step). */
-  pose?: PartialPose;
-  playing?: boolean;
-  speed?: number;
+export interface FigureProps extends AnimationProps {
   mirror?: boolean;
-  /** When paused, show the end pose of this phase index. */
-  step?: number;
-  /** Hold time at the end of each loop, ms. */
-  hold?: number;
-  loop?: boolean;
-  onPhase?: (index: number) => void;
   className?: string;
   label?: string;
+  /** Fighter colours (gloves, shorts, mongkol); 2D uses the theme defaults if omitted. */
+  look?: FighterLook;
 }
 
-interface Key {
-  pose: Pose;
-  start: number;
-  end: number;
-}
-
-function buildTimeline(phases: Phase[], speed: number, hold: number) {
-  const keys: Key[] = [];
-  let t = 0;
-  for (const ph of phases) {
-    const d = ph.ms / speed;
-    keys.push({ pose: withGuard(ph.pose), start: t, end: t + d });
-    t += d;
-  }
-  return { keys, total: t + hold / speed };
-}
-
-function poseAt(keys: Key[], t: number): { pose: Pose; index: number } {
-  let from = GUARD;
-  for (let i = 0; i < keys.length; i++) {
-    const k = keys[i];
-    if (t <= k.end) {
-      const local = (t - k.start) / Math.max(1, k.end - k.start);
-      return { pose: lerpPose(from, k.pose, local), index: i };
-    }
-    from = k.pose;
-  }
-  return { pose: from, index: keys.length - 1 };
-}
-
-export default function Figure({
-  phases,
-  pose,
-  playing = true,
-  speed = 1,
-  mirror = false,
-  step,
-  hold = 600,
-  loop = true,
-  onPhase,
-  className,
-  label,
-}: Props) {
-  const timeline = useMemo(() => (phases ? buildTimeline(phases, speed, hold) : null), [phases, speed, hold]);
-  const [current, setCurrent] = useState<Pose>(() => withGuard(pose ?? {}));
-  const phaseRef = useRef(-1);
-  const onPhaseRef = useRef(onPhase);
-  onPhaseRef.current = onPhase;
-
-  // Paused / static rendering
-  useEffect(() => {
-    if (playing && timeline) return;
-    if (phases && step !== undefined && step >= 0 && phases[step]) {
-      setCurrent(withGuard(phases[step].pose));
-    } else {
-      setCurrent(withGuard(pose ?? {}));
-    }
-  }, [playing, timeline, phases, step, pose]);
-
-  // Animation loop
-  useEffect(() => {
-    if (!playing || !timeline || timeline.keys.length === 0) return;
-    let raf = 0;
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      let t = now - t0;
-      if (loop) t = t % timeline.total;
-      else t = Math.min(t, timeline.total);
-      const { pose: p, index } = poseAt(timeline.keys, t);
-      setCurrent(p);
-      if (index !== phaseRef.current) {
-        phaseRef.current = index;
-        onPhaseRef.current?.(index);
-      }
-      if (loop || t < timeline.total) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, timeline, loop]);
-
+/** 2D side-view fighter (SVG). */
+export default function Figure({ mirror = false, className, label, look, ...anim }: FigureProps) {
+  const current = useAnimatedPose(anim);
   const s = solve(current);
   const line = (a: Point, b: Point) => `M${a.x},${a.y} L${b.x},${b.y}`;
   const limb = (a: Point, b: Point, c: Point) => `M${a.x},${a.y} L${b.x},${b.y} L${c.x},${c.y}`;
   const f = current.facing;
+  const colors = look
+    ? ({
+        '--fig-glove': look.gloves,
+        '--fig-glove-rear': look.gloves,
+        '--fig-shorts': look.shorts,
+        '--accent': look.mongkol ?? 'transparent',
+      } as CSSProperties)
+    : undefined;
 
   return (
     <svg
+      style={colors}
       className={`figure ${className ?? ''}`}
       viewBox="-90 -180 200 190"
       role="img"

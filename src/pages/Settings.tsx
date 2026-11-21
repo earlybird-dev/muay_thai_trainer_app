@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bell, getVoices, speak, unlockAudio } from '../lib/audio';
 import { useStore } from '../lib/store';
+import FighterPicker from '../components/FighterPicker';
 import { downloadBackup, emptyData, parseData, type Settings as S } from '../lib/storage';
 
 export default function Settings() {
@@ -52,6 +53,25 @@ export default function Settings() {
           ))}
         </div>
         <p className="muted small">Southpaw mirrors all the animations.</p>
+      </section>
+
+      <section className="card">
+        <h2>Illustrations</h2>
+        <div className="seg">
+          <button className={`seg-btn ${s.figure === '2d' ? 'on' : ''}`} onClick={() => set('figure', '2d')}>
+            2D (simple)
+          </button>
+          <button className={`seg-btn ${s.figure === '3d' ? 'on' : ''}`} onClick={() => set('figure', '3d')}>
+            3D (rotate with drag)
+          </button>
+        </div>
+        <p className="muted small">3D is used for technique tutorials, combo previews and the training screen. Technique thumbnails stay 2D.</p>
+      </section>
+
+      <section className="card">
+        <h2>Your fighter</h2>
+        <p className="muted small">Choose who demonstrates the techniques. Shown in full in 3D; 2D uses their colours.</p>
+        <FighterPicker />
       </section>
 
       <section className="card">

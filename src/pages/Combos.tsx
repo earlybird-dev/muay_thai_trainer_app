@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Figure, { chainPhases } from '../components/Figure';
+import { chainPhases } from '../components/Figure';
+import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { useStore } from '../lib/store';
@@ -31,7 +32,7 @@ export default function Combos() {
         </div>
         <div className="combo-call">{calloutDisplay(c.items, c.style)}</div>
         {preview === c.id && (
-          <Figure
+          <FigureView
             phases={chainPhases(c.items.map((i) => TECH_BY_ID[i]?.phases ?? []))}
             speed={0.8}
             mirror={mirror}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Figure, { chainPhases } from '../components/Figure';
+import { chainPhases } from '../components/Figure';
+import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type CalloutStyle, type Combo } from '../data/combos';
 import { CATEGORIES, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
@@ -87,7 +88,7 @@ export default function ComboEditor() {
           {items.length > 0 && (
             <>
               <div className="callout-preview">{calloutDisplay(items, style)}</div>
-              <Figure key={previewKey} phases={phases} speed={0.8} mirror={data.settings.stance === 'southpaw'} className="combo-preview" />
+              <FigureView key={previewKey} phases={phases} speed={0.8} mirror={data.settings.stance === 'southpaw'} className="combo-preview" />
               <div className="row">
                 <button className="btn small" onClick={() => setPreviewKey((k) => k + 1)}>
                   Replay

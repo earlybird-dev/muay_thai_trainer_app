@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import Figure, { chainPhases } from '../components/Figure';
+import { chainPhases } from '../components/Figure';
+import FigureView from '../components/FigureView';
 import { calloutDisplay, calloutSpeech, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
@@ -228,6 +229,11 @@ function SessionRunner({ config, pool }: LaunchState) {
   const [current, setCurrent] = useState<{ combo: Combo; index: number } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [finished, setFinished] = useState<{ completed: number; callouts: number; early: boolean } | null>(null);
+  // New array per callout restarts the animation; stable between clock ticks so it can play through.
+  const currentPhases = useMemo(
+    () => (current ? chainPhases(current.combo.items.map((i) => TECH_BY_ID[i]?.phases ?? [])) : undefined),
+    [current],
+  );
 
   const clock = useRef({ base: performance.now(), offset: 0 });
   const lastT = useRef(0);
@@ -402,12 +408,12 @@ function SessionRunner({ config, pool }: LaunchState) {
                 {calloutDisplay(current.combo.items, current.combo.style)}
               </div>
               <div className="callout-sub">{current.combo.items.map((i) => TECH_BY_ID[i]?.name).join(' → ')}</div>
-              <Figure
-                key={`f-${current.index}`}
-                phases={chainPhases(current.combo.items.map((i) => TECH_BY_ID[i]?.phases ?? []))}
+              <FigureView
+                phases={currentPhases}
                 loop={false}
                 mirror={settings.stance === 'southpaw'}
                 className="session-figure"
+                interactive={false}
               />
             </>
           ) : (

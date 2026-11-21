@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Figure from '../components/Figure';
+import FigureView from '../components/FigureView';
+import FighterPicker from '../components/FighterPicker';
+import type { CameraView } from '../components/Figure3D';
 import { CATEGORIES, TECH_BY_ID, youtubeId, youtubeSearchUrl } from '../data/techniques';
 import { useStore } from '../lib/store';
 
@@ -8,6 +10,11 @@ const SPEEDS = [0.25, 0.5, 1];
 
 export default function TechniqueDetail() {
   const { id = '' } = useParams();
+  // Fresh state (step, playback, video draft) for each technique.
+  return <Detail key={id} id={id} />;
+}
+
+function Detail({ id }: { id: string }) {
   const t = TECH_BY_ID[id];
   const { data, update } = useStore();
   const navigate = useNavigate();
@@ -16,6 +23,9 @@ export default function TechniqueDetail() {
   const [mirror, setMirror] = useState(data.settings.stance === 'southpaw');
   const [phase, setPhase] = useState(0);
   const [videoDraft, setVideoDraft] = useState(data.videos[id] ?? '');
+  const [view, setView] = useState<CameraView>('angle');
+  const is3d = data.settings.figure === '3d';
+  const setFigure = (figure: '2d' | '3d') => update((d) => ({ ...d, settings: { ...d.settings, figure } }));
 
   if (!t) {
     return (
@@ -58,7 +68,34 @@ export default function TechniqueDetail() {
       <p className="lead">{t.summary}</p>
 
       <div className="stage card">
-        <Figure
+        <div className="stage-top">
+          <div className="seg" role="group" aria-label="Illustration style">
+            <button className={`seg-btn ${!is3d ? 'on' : ''}`} onClick={() => setFigure('2d')}>
+              2D
+            </button>
+            <button className={`seg-btn ${is3d ? 'on' : ''}`} onClick={() => setFigure('3d')}>
+              3D
+            </button>
+          </div>
+          {is3d && (
+            <div className="seg" role="group" aria-label="Camera view">
+              {(
+                [
+                  ['side', 'Side'],
+                  ['angle', '3/4'],
+                  ['front', 'Front'],
+                ] as [CameraView, string][]
+              ).map(([v, l]) => (
+                <button key={v} className={`seg-btn ${view === v ? 'on' : ''}`} onClick={() => setView(v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {is3d && <FighterPicker compact />}
+        <FigureView
+          view={view}
           phases={t.phases}
           playing={playing}
           speed={speed}
