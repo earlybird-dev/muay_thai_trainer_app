@@ -160,7 +160,8 @@ function Setup() {
     unlockAudio();
     primeTrainingMusic();
     const config = sessionConfig();
-    if (!tech) update((d) => ({ ...d, lastSession: config }));
+    // One-off drills (a single technique or combo) shouldn't overwrite your usual settings.
+    if (!tech && !comboParam) update((d) => ({ ...d, lastSession: config }));
     const state: LaunchState = { config, pool, ...(editing ? { workoutId: editing.id } : {}) };
     navigate('/train/session', { state });
   };
@@ -362,9 +363,12 @@ function Setup() {
               </button>
             </div>
           </div>
-          <p className="total-time">
-            Total time <b>{formatClock(totalSec * 1000)}</b>
-          </p>
+          <div className="field">
+            <span>Total time</span>
+            <div className="seg total-time">
+              <b>{formatClock(totalSec * 1000)}</b>
+            </div>
+          </div>
         </div>
         {!drill && (
           <label className="check">
