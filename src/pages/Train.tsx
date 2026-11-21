@@ -94,6 +94,19 @@ function TimeStepper({ label, value, step, min, max, onChange }: { label: string
   );
 }
 
+const SMART_POOLS: { id: PoolKind; icon: string; name: string; hint: string }[] = [
+  { id: 'essentials', icon: '★', name: 'Essentials', hint: 'The core combos to drill every session' },
+  { id: 'favorites', icon: '♥', name: 'Favourites', hint: 'Combos you’ve starred' },
+  { id: 'due', icon: '⏱', name: 'Due for practice', hint: 'Not drilled in the last week' },
+];
+const LIBRARY_POOLS: { id: Exclude<PoolKind, 'pick'>; name: string }[] = [
+  { id: 'all', name: 'All' },
+  { id: 'beginner', name: 'Beginner' },
+  { id: 'intermediate', name: 'Intermediate' },
+  { id: 'advanced', name: 'Advanced' },
+  { id: 'mine', name: 'My combos' },
+];
+
 const EMPTY_POOL: Partial<Record<PoolKind, string>> = {
   mine: 'You have no combos of your own yet.',
   favorites: 'No favourites yet — tap ♡ on a combo (here or on the Combos page) to add it.',
@@ -209,6 +222,7 @@ function Setup() {
     () => (poolMode === 'pick' ? allCombos : poolBase(poolMode, allCombos, data.combos, poolCtx)),
     [poolMode, allCombos, data.combos, poolCtx],
   );
+  const poolCount = (kind: PoolKind) => (kind === 'pick' ? picked.size : poolBase(kind, allCombos, data.combos, poolCtx).length);
   const isTicked = (id: string) => (poolMode === 'pick' ? picked.has(id) : !excluded.has(id));
   const sessionConfig = (): SessionConfig => ({
     ...cfg,
@@ -437,24 +451,51 @@ function Setup() {
       {!tech && (
         <section className="card">
           <h2>{drill ? 'Combos to drill' : 'Combos to call'}</h2>
-          <div className="seg wrap">
-            {(
-              [
-                ['essentials', '★ Essentials'],
-                ['favorites', '♥ Favourites'],
-                ['due', 'Due for practice'],
-                ['all', 'All'],
-                ['beginner', 'Beginner'],
-                ['intermediate', 'Intermediate'],
-                ['advanced', 'Advanced'],
-                ['mine', 'My combos'],
-                ['pick', 'Choose…'],
-              ] as [PoolMode, string][]
-            ).map(([m, label]) => (
-              <button key={m} className={`seg-btn ${poolMode === m ? 'on' : ''}`} onClick={() => setPoolMode(m)}>
-                {label}
-              </button>
-            ))}
+          <div className="pool-picker">
+            <div className="pool-cards" role="group" aria-label="Suggested combo pools">
+              {SMART_POOLS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`pool-card pool-${p.id} ${poolMode === p.id ? 'on' : ''}`}
+                  aria-pressed={poolMode === p.id}
+                  onClick={() => setPoolMode(p.id)}
+                >
+                  <span className="pool-icon" aria-hidden>
+                    {p.icon}
+                  </span>
+                  <span className="pool-text">
+                    <b>{p.name}</b>
+                    <small>{p.hint}</small>
+                  </span>
+                  <span className="pool-count">{poolCount(p.id)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="pool-library">
+              <span className="pool-label">Library</span>
+              <div className="pool-chips" role="group" aria-label="Combo library">
+                {LIBRARY_POOLS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`pool-chip ${poolMode === p.id ? 'on' : ''}`}
+                    aria-pressed={poolMode === p.id}
+                    onClick={() => setPoolMode(p.id)}
+                  >
+                    {p.name} <span className="pool-chip-count">{poolCount(p.id)}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`pool-chip pool-choose ${poolMode === 'pick' ? 'on' : ''}`}
+                  aria-pressed={poolMode === 'pick'}
+                  onClick={() => setPoolMode('pick')}
+                >
+                  ✎ Choose… {poolMode === 'pick' || picked.size ? <span className="pool-chip-count">{picked.size}</span> : null}
+                </button>
+              </div>
+            </div>
           </div>
           <div className="pick-search">
             <input
