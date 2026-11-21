@@ -566,3 +566,64 @@ describe('voice speed', () => {
     expect(parseData({ settings: { rate: 0.9 } }).settings.rate).toBe(0.9);
   });
 });
+
+describe('essentials, favourites and practice', () => {
+  it('marks a core set of starter combos as essential', async () => {
+    const { ESSENTIAL_IDS, PRESET_COMBOS: P } = await import('../data/combos');
+    const ess = P.filter((c) => c.essential);
+    expect(ess.map((c) => c.id).sort()).toEqual([...ESSENTIAL_IDS].sort()); // every id exists
+    expect(ess.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('counts sessions per combo and finds what is due', async () => {
+    const { practiceStats, daysSince } = await import('./stats');
+    const { dueCombos, resolvePool } = await import('./plans');
+    const now = new Date('2026-06-15T12:00:00');
+    const h = (daysAgo: number, combos: string[]) => ({ date: new Date(now.getTime() - daysAgo * 86_400_000).toISOString(), combos }) as SessionLog;
+    const history = [h(1, ['Jab Cross', 'Jab Cross Kick']), h(10, ['Jab Cross', 'Classic Four']), h(3, ['jab cross'])];
+    const stats = practiceStats(history);
+    expect(stats.get('jab cross')?.sessions).toBe(3);
+    expect(daysSince(stats.get('jab cross'), now)).toBe(1);
+    expect(daysSince(stats.get('classic four'), now)).toBe(10);
+    expect(daysSince(undefined, now)).toBe(Infinity);
+
+    const fav = PRESET_COMBOS.find((c) => c.level === 'advanced')!;
+    const due = dueCombos(PRESET_COMBOS, [], { favorites: [fav.id], history, now }).map((c) => c.name);
+    expect(due).toContain(fav.name); // favourite, never drilled
+    expect(due).toContain('Classic Four'); // essential, 10 days ago
+    expect(due).not.toContain('Jab Cross'); // drilled yesterday
+    expect(due.indexOf('Classic Four')).toBeGreaterThan(due.indexOf(fav.name)); // never-drilled first
+    expect(resolvePool({ kind: 'favorites', comboIds: [] }, PRESET_COMBOS, [], { favorites: [fav.id], history: [] })).toEqual([fav]);
+  });
+
+  it('keeps favourites as a clean list of ids', () => {
+    expect(parseData({ settings: { favorites: ['a', 3, 'b'] } }).settings.favorites).toEqual(['a', 'b']);
+    expect(parseData({}).settings.favorites).toEqual([]);
+  });
+});
+
+describe('own combos', () => {
+  it('are not part of level pools, only All and My combos', async () => {
+    const { resolvePool } = await import('./plans');
+    const own: Combo = { id: 'c-x', name: 'My Thing', items: ['jab'], level: 'beginner', style: 'numbers' };
+    const all = [...PRESET_COMBOS, own];
+    expect(resolvePool({ kind: 'beginner', comboIds: [] }, all, [own]).map((c) => c.id)).not.toContain('c-x');
+    expect(resolvePool({ kind: 'all', comboIds: [] }, all, [own]).map((c) => c.id)).toContain('c-x');
+    expect(resolvePool({ kind: 'mine', comboIds: [] }, all, [own])).toEqual([own]);
+  });
+});
+
+describe('tightening strike clips', () => {
+  it('shortens a long pause inside a word but keeps short stops', async () => {
+    const { pauseCuts, spliceRanges } = await import('./timeStretch');
+    const sr = 8000;
+    const tone = (sec: number) => Array.from({ length: Math.round(sec * sr) }, (_, i) => Math.sin((2 * Math.PI * 220 * i) / sr) * 0.5);
+    const gap = (sec: number) => Array.from({ length: Math.round(sec * sr) }, () => 0);
+    const long = new Float32Array([...tone(0.3), ...gap(0.2), ...tone(0.3)]);
+    const out = spliceRanges(long, pauseCuts(long, sr), sr);
+    expect(out.length / sr).toBeGreaterThan(0.6 + 0.07);
+    expect(out.length / sr).toBeLessThan(0.6 + 0.11); // 200 ms pause → ~90 ms
+    const short = new Float32Array([...tone(0.3), ...gap(0.06), ...tone(0.3)]);
+    expect(pauseCuts(short, sr)).toHaveLength(1); // untouched
+  });
+});

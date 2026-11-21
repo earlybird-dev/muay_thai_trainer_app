@@ -21,7 +21,7 @@ export function useStartWorkout() {
   const { allCombos, data } = useStore();
   return useCallback(
     (w: Workout, planId?: string): boolean => {
-      const pool = resolvePool(w.pool, allCombos, data.combos);
+      const pool = resolvePool(w.pool, allCombos, data.combos, { favorites: data.settings.favorites, history: data.history });
       if (!pool.length) return false;
       unlockAudio();
       primeTrainingMusic();
@@ -29,6 +29,6 @@ export function useStartWorkout() {
       navigate('/train/session', { state });
       return true;
     },
-    [navigate, allCombos, data.combos],
+    [navigate, allCombos, data.combos, data.settings.favorites, data.history],
   );
 }

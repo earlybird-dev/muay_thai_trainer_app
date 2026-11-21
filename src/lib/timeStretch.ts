@@ -65,3 +65,63 @@ export function audibleRange(data: Float32Array, sampleRate: number, threshold =
   const pad = Math.round(padSec * sampleRate);
   return [Math.max(0, start - pad), Math.min(data.length, end + pad)];
 }
+
+/**
+ * Sample ranges to keep so that no pause inside the speech is longer than `maxGapSec`
+ * (e.g. the gap in "Rear … teep"). Short natural stops (k, t, p) are left alone.
+ */
+export function pauseCuts(data: Float32Array, sampleRate: number, maxGapSec = 0.09, rel = 0.08): [number, number][] {
+  const win = Math.max(1, Math.round(0.01 * sampleRate));
+  const env: number[] = [];
+  for (let i = 0; i < data.length; i += win) {
+    let m = 0;
+    for (let j = i; j < Math.min(data.length, i + win); j++) m = Math.max(m, Math.abs(data[j]));
+    env.push(m);
+  }
+  const peak = Math.max(0, ...env);
+  if (!peak) return [[0, data.length]];
+  const th = peak * rel;
+  const maxWins = Math.max(1, Math.round(maxGapSec / 0.01));
+  const keep: [number, number][] = [];
+  let start = 0;
+  let i = 0;
+  while (i < env.length) {
+    if (env[i] >= th) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < env.length && env[j] < th) j++;
+    // Only pauses between speech (not leading/trailing) longer than the limit get shortened.
+    if (i > 0 && j < env.length && j - i > maxWins) {
+      const half = Math.floor(maxWins / 2);
+      keep.push([start, (i + half) * win]);
+      start = (j - (maxWins - half)) * win;
+    }
+    i = j;
+  }
+  keep.push([start, data.length]);
+  return keep;
+}
+
+/** Join kept ranges with a short crossfade at each cut so there are no clicks. */
+export function spliceRanges(data: Float32Array, ranges: [number, number][], sampleRate: number): Float32Array {
+  if (ranges.length === 1 && ranges[0][0] === 0 && ranges[0][1] === data.length) return data;
+  const minLen = Math.min(...ranges.map(([a, b]) => b - a));
+  const fade = Math.max(0, Math.min(Math.round(0.005 * sampleRate), minLen));
+  const total = ranges.reduce((n, [a, b]) => n + (b - a), 0) - fade * (ranges.length - 1);
+  const out = new Float32Array(Math.max(0, total));
+  let pos = 0; // where the next range starts in `out`
+  ranges.forEach(([a, b], k) => {
+    const start = k === 0 ? 0 : pos - fade;
+    for (let i = 0; i < b - a; i++) {
+      const x = data[a + i];
+      if (k > 0 && i < fade) {
+        const w = (i + 1) / (fade + 1);
+        out[start + i] = out[start + i] * (1 - w) + x * w;
+      } else out[start + i] = x;
+    }
+    pos = start + (b - a);
+  });
+  return out;
+}

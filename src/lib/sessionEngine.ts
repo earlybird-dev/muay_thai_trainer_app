@@ -29,6 +29,8 @@ export interface SessionConfig {
   comboIds: string[];
   /** Combos unticked from a level/all/mine pool (remembered for the next session). */
   excludedIds?: string[];
+  /** Which pool the Train screen used last (see PoolKind in plans.ts). */
+  poolKind?: 'all' | 'beginner' | 'intermediate' | 'advanced' | 'mine' | 'essentials' | 'favorites' | 'due' | 'pick';
 }
 
 export const DEFAULT_CONFIG: SessionConfig = {

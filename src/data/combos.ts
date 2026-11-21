@@ -9,6 +9,8 @@ export interface Combo {
   level: Level;
   style: CalloutStyle;
   preset?: boolean;
+  /** A core combo coaches drill every session (starter combos only). */
+  essential?: boolean;
   /** ISO time of the last local change; used to resolve sync conflicts (newest wins). */
   updatedAt?: string;
 }
@@ -52,7 +54,7 @@ const I = 'intermediate';
 const A = 'advanced';
 
 // The first 18 ids are kept stable: saved training selections refer to them.
-export const PRESET_COMBOS: Combo[] = [
+const ALL_PRESETS: Combo[] = [
   // ---------- Beginner (37): fundamentals, short punch/kick chains, simple counters ----------
   p('1-2', 'Jab Cross', 'J C'),
   p('1-1-2', 'Double Jab Cross', 'J J C'),
@@ -165,6 +167,24 @@ export const PRESET_COMBOS: Combo[] = [
   p('a-1-2-3-rear-teep-head', 'Punches Rear Teep Head Kick', 'J C LH RT HK', A),
   p('a-parry-2-rear-teep-switch', 'Parry Cross Rear Teep Switch Kick', 'P C RT SK', A),
 ];
+
+/** The core set most gyms drill every session: fundamentals, mixed levels, range control and a counter. */
+export const ESSENTIAL_IDS = [
+  'preset-1-2',
+  'preset-1-2-3',
+  'preset-1-2-kick',
+  'preset-1-2-3-kick',
+  'preset-jab-teep',
+  'preset-teep-kick',
+  'preset-1-2-low',
+  'preset-b-1-low',
+  'preset-1-2-knee',
+  'preset-b-2-3-kick',
+  'preset-check-kick',
+  'preset-parry-2',
+];
+
+export const PRESET_COMBOS: Combo[] = ALL_PRESETS.map((c) => (ESSENTIAL_IDS.includes(c.id) ? { ...c, essential: true } : c));
 
 /** Tokens to show/say for a combo, e.g. ["1", "2", "Kick"] or ["Jab", "Cross", "Kick"]. */
 export function calloutTokens(items: string[], style: CalloutStyle): string[] {

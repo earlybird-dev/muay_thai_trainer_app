@@ -1,6 +1,7 @@
 /** Voice callouts (recorded coach clips, else the Web Speech API) and generated sounds (Web Audio API). */
-import { clipKey } from '../data/phrases';
-import { audibleRange, wsola } from './timeStretch';
+import { clipKey, strikeCalls } from '../data/phrases';
+import { TECH_BY_ID } from '../data/techniques';
+import { audibleRange, pauseCuts, spliceRanges, wsola } from './timeStretch';
 
 let ctx: AudioContext | null = null;
 
@@ -167,6 +168,19 @@ export function loadVoiceManifest(): Promise<void> {
 /** Whether a recorded clip exists for this text (once the manifest has loaded). */
 export const hasClip = (text: string) => !!clipFiles?.[clipKey(text)];
 
+/**
+ * How to say a combo: its name when the coach voice has it recorded (starter combos), otherwise its strikes
+ * one by one ("Jab · Teep · Rear teep") so your own combos still get the coach voice. With no recordings at
+ * all, the device voice reads the name.
+ */
+export function comboSpeech(name: string, items: string[]): string[] {
+  const label = name.trim();
+  if (label && hasClip(label)) return [label];
+  const strikes = items.map((i) => TECH_BY_ID[i]?.call).filter((x): x is string => !!x);
+  if (strikes.length && strikes.every(hasClip)) return strikes;
+  return [label || strikes.join(', ')];
+}
+
 /** Download + decode the clips for these phrases so they can play instantly. */
 export async function preloadVoice(texts: string[]) {
   await loadVoiceManifest();
@@ -182,7 +196,7 @@ export async function preloadVoice(texts: string[]) {
         p = fetch(`${import.meta.env.BASE_URL}voice/${file}`)
           .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
           .then((buf) => c.decodeAudioData(buf))
-          .then((b) => void clipBuffers.set(key, normalize(trim(c, b))))
+          .then((b) => void clipBuffers.set(key, normalize(tighten(c, key, trim(c, b)))))
           .catch(() => void clipLoads.delete(key));
         clipLoads.set(key, p);
       }
@@ -198,6 +212,18 @@ function trim(c: BaseAudioContext, b: AudioBuffer): AudioBuffer {
   const t = c.createBuffer(b.numberOfChannels, end - start, b.sampleRate);
   for (let ch = 0; ch < b.numberOfChannels; ch++) t.copyToChannel(b.getChannelData(ch).subarray(start, end), ch);
   return t;
+}
+
+/** Strike callouts are said as one word: shorten long pauses inside them ("Rear … teep" → "Rear teep"). */
+function tighten(c: BaseAudioContext, key: string, b: AudioBuffer): AudioBuffer {
+  if (!STRIKE_KEYS.has(key)) return b;
+  const ranges = pauseCuts(b.getChannelData(0), b.sampleRate);
+  if (ranges.length < 2) return b;
+  const first = spliceRanges(b.getChannelData(0), ranges, b.sampleRate);
+  const out = c.createBuffer(b.numberOfChannels, first.length, b.sampleRate);
+  out.copyToChannel(first, 0);
+  for (let ch = 1; ch < b.numberOfChannels; ch++) out.copyToChannel(spliceRanges(b.getChannelData(ch), ranges, b.sampleRate), ch);
+  return out;
 }
 
 /** Clips sped up/slowed down to the speech-rate setting (pitch unchanged), cached per rate. */
@@ -258,6 +284,10 @@ function voiceOutput(c: AudioContext): AudioNode {
   return lim;
 }
 
+/** Strike callouts ("Jab", "Rear teep", …): said with a beat between them, like a coach calling pads. */
+const STRIKE_KEYS = new Set(strikeCalls().map(clipKey));
+const STRIKE_GAP = 0.32; // seconds at 1x; scaled with the speech rate
+
 function stopClips() {
   for (const s of clipSources) {
     try {
@@ -282,14 +312,17 @@ function playClips(parts: string[], volume: number, rate = 1): boolean {
   gain.gain.value = volume;
   gain.connect(voiceOutput(c));
   let t = c.currentTime + 0.02;
-  for (const b of bufs as AudioBuffer[]) {
+  bufs.forEach((b, i) => {
     const src = c.createBufferSource();
     src.buffer = b;
     src.connect(gain);
     src.start(t);
     clipSources.push(src);
-    t += b.duration + 0.06;
-  }
+    // A clear beat between strikes ("Jab" … "Cross" … "Teep"); a shorter one elsewhere ("First up" … name).
+    const next = parts[i + 1];
+    const gap = next === undefined ? 0 : STRIKE_KEYS.has(clipKey(parts[i])) && STRIKE_KEYS.has(clipKey(next)) ? STRIKE_GAP : 0.14;
+    t += b.duration + gap / Math.max(0.7, rate);
+  });
   if (speechListener) {
     const listener = speechListener;
     let open = true;

@@ -6,8 +6,20 @@ import type { Combo } from '../data/combos';
 import type { Level } from '../data/techniques';
 import { formatClock, type SessionConfig } from './sessionEngine';
 import type { SessionLog } from './storage';
+import { DUE_AFTER_DAYS, daysSince, practiceStats } from './stats';
 
-export type PoolKind = 'all' | Level | 'mine' | 'pick';
+/**
+ * Which combos a session draws from: everything, a level, your own, the coach's essentials, your favourites,
+ * the ones due for practice, or a hand-picked list ("pick").
+ */
+export type PoolKind = 'all' | Level | 'mine' | 'essentials' | 'favorites' | 'due' | 'pick';
+
+/** What the smart pools need to know about the user. */
+export interface PoolContext {
+  favorites: string[];
+  history: SessionLog[];
+  now?: Date;
+}
 
 export interface Workout {
   id: string;
@@ -70,24 +82,33 @@ export const WEEKDAYS = [
 
 // ---------- workouts ----------
 
-export function resolvePool(pool: Workout['pool'], allCombos: Combo[], myCombos: Combo[]): Combo[] {
+export function resolvePool(pool: Workout['pool'], allCombos: Combo[], myCombos: Combo[], ctx?: PoolContext): Combo[] {
   if (pool.kind === 'pick') {
     const byId = new Map(allCombos.map((c) => [c.id, c]));
     return pool.comboIds.map((id) => byId.get(id)).filter((c): c is Combo => !!c);
   }
   const out = new Set(pool.excluded ?? []);
-  return poolBase(pool.kind, allCombos, myCombos).filter((c) => !out.has(c.id));
+  return poolBase(pool.kind, allCombos, myCombos, ctx).filter((c) => !out.has(c.id));
 }
 
 /** Every combo a level/all/mine pool draws from, before unticked ones are removed. */
-export function poolBase(kind: Exclude<PoolKind, 'pick'>, allCombos: Combo[], myCombos: Combo[]): Combo[] {
+export function poolBase(kind: Exclude<PoolKind, 'pick'>, allCombos: Combo[], myCombos: Combo[], ctx?: PoolContext): Combo[] {
   switch (kind) {
     case 'all':
       return allCombos;
     case 'mine':
       return myCombos;
+    case 'essentials':
+      return allCombos.filter((c) => c.essential);
+    case 'favorites': {
+      const fav = new Set(ctx?.favorites ?? []);
+      return allCombos.filter((c) => fav.has(c.id));
+    }
+    case 'due':
+      return dueCombos(allCombos, myCombos, ctx);
     default:
-      return allCombos.filter((c) => c.level === kind);
+      // Levels describe the starter library; your own combos have no level.
+      return allCombos.filter((c) => c.preset && c.level === kind);
   }
 }
 
@@ -109,7 +130,13 @@ export function workoutSummary(w: Workout): string {
         ? 'all combos'
         : w.pool.kind === 'mine'
           ? 'my combos'
-          : `${w.pool.kind} combos`;
+          : w.pool.kind === 'essentials'
+            ? 'essential combos'
+            : w.pool.kind === 'favorites'
+              ? 'favourite combos'
+              : w.pool.kind === 'due'
+                ? 'combos due for practice'
+                : `${w.pool.kind} combos`;
   const left = w.pool.kind !== 'pick' && w.pool.excluded?.length ? ` (−${w.pool.excluded.length})` : '';
   return `${c.mode === 'drill' ? 'Drill' : 'Rounds'} · ${shape} · ${pool}${left} · ${formatClock(workoutSeconds(c) * 1000)}`;
 }
@@ -212,4 +239,21 @@ export function planWeeks(p: TrainPlan): (string | null)[][] {
   const weeks: (string | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
+}
+
+/**
+ * Combos you care about (essentials, favourites, your own) not drilled for DUE_AFTER_DAYS days —
+ * never-drilled first, then the longest ago.
+ */
+export function dueCombos(allCombos: Combo[], myCombos: Combo[], ctx?: PoolContext): Combo[] {
+  const fav = new Set(ctx?.favorites ?? []);
+  const mine = new Set(myCombos.map((c) => c.id));
+  const stats = practiceStats(ctx?.history ?? []);
+  const now = ctx?.now ?? new Date();
+  return allCombos
+    .filter((c) => c.essential || fav.has(c.id) || mine.has(c.id))
+    .map((c) => ({ c, age: daysSince(stats.get(c.name.toLowerCase()), now) }))
+    .filter((x) => x.age >= DUE_AFTER_DAYS)
+    .sort((a, b) => (a.age === b.age ? 0 : b.age > a.age ? 1 : -1))
+    .map((x) => x.c);
 }

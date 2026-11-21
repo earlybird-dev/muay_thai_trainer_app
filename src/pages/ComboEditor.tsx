@@ -3,10 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type CalloutStyle, type Combo } from '../data/combos';
-import { CATEGORIES, LEVELS, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
+import { CATEGORIES, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
-import { preloadVoice, speak, unlockAudio } from '../lib/audio';
-import { calloutSpeech } from '../data/combos';
+import { comboSpeech, loadVoiceManifest, preloadVoice, speak, unlockAudio } from '../lib/audio';
 
 export default function ComboEditor() {
   const { id } = useParams();
@@ -16,7 +15,8 @@ export default function ComboEditor() {
 
   const [name, setName] = useState(existing?.name ?? '');
   const [items, setItems] = useState<string[]>(existing?.items ?? []);
-  const [level, setLevel] = useState<Level>(existing?.level ?? 'beginner');
+  // Your own combos have no level (they're their own section); the stored field is kept for sync.
+  const level: Level = existing?.level ?? 'beginner';
   const [style, setStyle] = useState<CalloutStyle>(existing?.style ?? 'numbers');
   const [previewKey, setPreviewKey] = useState(0);
 
@@ -96,11 +96,13 @@ export default function ComboEditor() {
                 <button
                   className="btn small"
                   onClick={() => {
-                    const phrase = name.trim() || calloutSpeech(items, style);
                     unlockAudio();
-                    void preloadVoice([phrase]).then(() =>
-                      speak(phrase, { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume }),
-                    );
+                    const strikes = items.map((i) => TECH_BY_ID[i]?.call ?? '');
+                    void loadVoiceManifest()
+                      .then(() => preloadVoice([name.trim(), ...strikes].filter(Boolean)))
+                      .then(() =>
+                        speak(comboSpeech(name, items), { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume }),
+                      );
                   }}
                 >
                   🔊 Hear callout
@@ -140,16 +142,6 @@ export default function ComboEditor() {
             <span>Name</span>
             <input className="input" value={name} placeholder={autoName || 'e.g. My 1-2 kick'} onChange={(e) => setName(e.target.value)} />
           </label>
-          <div className="field">
-            <span>Level</span>
-            <div className="seg">
-              {LEVELS.map(({ id: l }) => (
-                <button key={l} className={`seg-btn ${level === l ? 'on' : ''}`} onClick={() => setLevel(l)}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="field">
             <span>Callout style</span>
             <div className="seg">

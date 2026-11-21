@@ -2,6 +2,8 @@
  * Everything the coach voice says, apart from combo names. Shared by the app and by
  * scripts/generate-voice.ts, which records one clip per phrase (plus every preset combo name).
  */
+import { TECHNIQUES } from './techniques';
+
 export const PHRASES = {
   getReady: 'Get ready',
   firstUp: 'First up',
@@ -21,10 +23,14 @@ export const countPhrase = (n: number) => COUNT_WORDS[n] ?? String(n);
 export const MAX_ROUNDS = 20;
 export const roundPhrase = (n: number) => `Round ${n}`;
 
+/** Each strike's callout ("Jab", "Rear teep", …), so any combo can be called strike by strike. */
+export const strikeCalls = (): string[] => [...new Set(TECHNIQUES.filter((t) => t.strike).map((t) => t.call))];
+
 /** Every fixed phrase, for recording. */
 export function fixedPhrases(): string[] {
   return [
     ...Object.values(PHRASES),
+    ...strikeCalls(),
     ...[1, 2, 3].map(countPhrase),
     ...Array.from({ length: MAX_ROUNDS }, (_, i) => roundPhrase(i + 1)),
   ];

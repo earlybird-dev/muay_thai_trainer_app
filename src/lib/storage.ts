@@ -17,6 +17,8 @@ export interface Settings {
   /** Background music (calm while browsing, fight music while training). Per device. */
   music: boolean;
   musicVolume: number;
+  /** Favourite combo ids (starred). */
+  favorites: string[];
   /** Training music: a track id from TRAINING_TRACKS in lib/music.ts, or 'shuffle' for all of them. */
   trainingTrack: string;
 }
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   music: true,
   musicVolume: 0.4,
   trainingTrack: 'shuffle',
+  favorites: [],
 };
 
 export const emptyData = (): AppData => ({
@@ -98,7 +101,7 @@ export const emptyData = (): AppData => ({
 });
 
 /** Settings that follow the account across devices (voice choice is device-specific). */
-export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter'] as const;
+export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter', 'favorites'] as const;
 export type SyncedSettings = Pick<Settings, (typeof SYNCED_SETTING_KEYS)[number]>;
 export const pickSyncedSettings = (s: Settings): SyncedSettings =>
   Object.fromEntries(SYNCED_SETTING_KEYS.map((k) => [k, s[k]])) as SyncedSettings;
@@ -132,6 +135,7 @@ export function parseData(raw: unknown): AppData {
   const settings = { ...DEFAULT_SETTINGS, ...(isObj(raw.settings) ? (raw.settings as Partial<Settings>) : {}) };
   // 1.05 was the old default speech rate; move it to the new, brisker default.
   if (settings.rate === 1.05) settings.rate = DEFAULT_SETTINGS.rate;
+  settings.favorites = Array.isArray(settings.favorites) ? settings.favorites.filter((x): x is string => typeof x === 'string') : [];
   const lastSession = isObj(raw.lastSession) ? (raw.lastSession as Partial<SessionConfig>) : null;
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
   const strMap = (v: unknown): Record<string, string> =>
@@ -156,7 +160,7 @@ export function parseData(raw: unknown): AppData {
   };
 }
 
-const POOL_KINDS = ['all', 'beginner', 'intermediate', 'advanced', 'mine', 'pick'];
+const POOL_KINDS = ['all', 'beginner', 'intermediate', 'advanced', 'mine', 'essentials', 'favorites', 'due', 'pick'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Validate a workout from storage, a backup file or the server. */

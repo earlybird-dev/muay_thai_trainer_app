@@ -1523,3 +1523,50 @@ input[type='range'] {
   touch-action: manipulation;
   -webkit-touch-callout: none;
 }
+
+/* ---------- Favourites, essentials, practice ---------- */
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.fav-btn.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.tag-essential {
+  margin-left: 6px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+}
+.essential-tag {
+  margin-left: 6px;
+  color: var(--warn);
+}
+.practice {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.practice.due {
+  color: var(--warn);
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pick-row .check {
+  flex: 1;
+  min-width: 0;
+}

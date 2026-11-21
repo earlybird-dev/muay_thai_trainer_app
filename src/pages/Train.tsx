@@ -4,7 +4,7 @@ import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
-import { beep, bell, clap, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
+import { beep, bell, clap, comboSpeech, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
@@ -13,6 +13,7 @@ import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } fr
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import TodayCard from '../components/TodayCard';
 import MusicToggle from '../components/MusicToggle';
+import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
 import { useDialog } from '../components/Dialog';
 import { primeTrainingMusic, setMusicScene } from '../lib/music';
 
@@ -93,6 +94,12 @@ function TimeStepper({ label, value, step, min, max, onChange }: { label: string
   );
 }
 
+const EMPTY_POOL: Partial<Record<PoolKind, string>> = {
+  mine: 'You have no combos of your own yet.',
+  favorites: 'No favourites yet — tap ♡ on a combo (here or on the Combos page) to add it.',
+  due: 'Nothing due — you’ve drilled all your essentials, favourites and own combos in the last week. 👊',
+};
+
 function Setup() {
   const { data, update, allCombos } = useStore();
   const navigate = useNavigate();
@@ -117,7 +124,7 @@ function Setup() {
           : saved,
   );
   const [poolMode, setPoolMode] = useState<PoolMode>(() =>
-    editing0 ? editing0.pool.kind : comboParam ? 'pick' : saved.comboIds.length ? 'pick' : 'all',
+    editing0 ? editing0.pool.kind : comboParam ? 'pick' : saved.comboIds.length ? 'pick' : (saved.poolKind ?? 'essentials'),
   );
   const [pickQuery, setPickQuery] = useState('');
   /** Choose…: list only the picked combos (in the order they were picked). */
@@ -190,18 +197,24 @@ function Setup() {
 
   const set = <K extends keyof SessionConfig>(k: K, v: SessionConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
 
+  const practice = usePractice();
+  const poolCtx = useMemo(() => ({ favorites: data.settings.favorites, history: data.history }), [data.settings.favorites, data.history]);
   const pool: Combo[] = useMemo(() => {
     if (tech) return [{ id: `tech-${tech.id}`, name: tech.name, items: [tech.id], level: tech.level, style: 'numbers' }];
     // "pick" keeps the order the combos were picked in (a fixed, ordered list).
-    return resolvePool({ kind: poolMode, comboIds: [...picked], excluded: [...excluded] }, allCombos, data.combos);
-  }, [tech, poolMode, picked, excluded, allCombos, data.combos]);
+    return resolvePool({ kind: poolMode, comboIds: [...picked], excluded: [...excluded] }, allCombos, data.combos, poolCtx);
+  }, [tech, poolMode, picked, excluded, allCombos, data.combos, poolCtx]);
   /** The combos listed with tick boxes: the level/all/mine pool, or every combo when choosing. */
-  const listed = useMemo(() => (poolMode === 'pick' ? allCombos : poolBase(poolMode, allCombos, data.combos)), [poolMode, allCombos, data.combos]);
+  const listed = useMemo(
+    () => (poolMode === 'pick' ? allCombos : poolBase(poolMode, allCombos, data.combos, poolCtx)),
+    [poolMode, allCombos, data.combos, poolCtx],
+  );
   const isTicked = (id: string) => (poolMode === 'pick' ? picked.has(id) : !excluded.has(id));
   const sessionConfig = (): SessionConfig => ({
     ...cfg,
     comboIds: poolMode === 'pick' ? [...picked] : [],
     excludedIds: poolMode === 'pick' ? [] : [...excluded],
+    poolKind: poolMode,
   });
 
   const pace = PACES.find((p) => p.min === cfg.minGap && p.max === cfg.maxGap)?.id;
@@ -235,7 +248,7 @@ function Setup() {
     const base = poolMode === 'pick' && selectedOnly ? pool : listed;
     if (!words.length) return base;
     return base.filter((c) => {
-      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.level ?? '', c.preset ? '' : 'mine my']
+      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.preset ? c.level : 'mine my']
         .join(' ')
         .toLowerCase();
       return words.every((w) => hay.includes(w));
@@ -427,6 +440,9 @@ function Setup() {
           <div className="seg wrap">
             {(
               [
+                ['essentials', '★ Essentials'],
+                ['favorites', '♥ Favourites'],
+                ['due', 'Due for practice'],
                 ['all', 'All'],
                 ['beginner', 'Beginner'],
                 ['intermediate', 'Intermediate'],
@@ -472,7 +488,7 @@ function Setup() {
             </span>
           </div>
           {listed.length === 0 ? (
-            <p className="muted small">{poolMode === 'mine' ? 'You have no combos of your own yet.' : 'No combos here.'}</p>
+            <p className="muted small">{EMPTY_POOL[poolMode] ?? 'No combos here.'}</p>
           ) : shownPicks.length === 0 ? (
             <p className="muted small">
               {poolMode === 'pick' && selectedOnly && !pickQuery.trim() ? 'Nothing selected yet.' : `No combos match “${pickQuery.trim()}”.`}
@@ -480,13 +496,24 @@ function Setup() {
           ) : (
             <ul className="pick-list">
               {shownPicks.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} className="pick-row">
                   <label className="check">
                     <input type="checkbox" checked={isTicked(c.id)} onChange={() => togglePick(c.id)} />
                     <span>
-                      <b>{c.name}</b> <span className="muted">{calloutDisplay(c.items, c.style)}</span>
+                      <b>{c.name}</b>
+                      {c.essential && (
+                        <span className="essential-tag" title="Essential combo">
+                          ★
+                        </span>
+                      )}{' '}
+                      <span className="muted">{calloutDisplay(c.items, c.style)}</span>
+                      {(() => {
+                        const l = practiceLabel(practice.get(c.name.toLowerCase()));
+                        return <span className={`practice ${l.due ? 'due' : ''}`}>{l.text}</span>;
+                      })()}
                     </span>
                   </label>
+                  <FavButton id={c.id} name={c.name} />
                 </li>
               ))}
             </ul>
@@ -562,7 +589,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
 
   // Get the recorded coach clips for this session ready (no-op without clips).
   useEffect(() => {
-    void preloadVoice([...fixedPhrases(), ...pool.map((c) => c.name)]);
+    void preloadVoice([...fixedPhrases(), ...pool.map((c) => c.name)]); // strike calls are in fixedPhrases
   }, [pool]);
 
   const log = (completed: number, early: boolean, elapsed: number) => {
@@ -641,7 +668,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             if (!combo) break;
             const seg = stateAt(plan, e.at).segment;
             const lead = seg?.kind === 'prep' ? PHRASES.firstUp : seg?.kind === 'rest' ? PHRASES.restNext : PHRASES.next;
-            sayRef.current([lead, combo.name]);
+            sayRef.current([lead, ...comboSpeech(combo.name, combo.items)]);
             break;
           }
           case 'count':
@@ -667,7 +694,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
               setBanner(null);
               setCurrent({ combo, index: e.index, rep: e.rep });
               // Combos are called by name (the strikes are on screen).
-              if (!drill) sayRef.current(combo.name);
+              if (!drill) sayRef.current(comboSpeech(combo.name, combo.items));
             }
             break;
           case 'done':
