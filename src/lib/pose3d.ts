@@ -3,7 +3,7 @@
  *
  * The 2D poses only describe the sagittal plane (forward/back, up/down). For the 3D view we add
  * the third axis with a few rules that match how the techniques really look:
- *  - each side sits at its own depth (lead side toward the camera's default side view, +z)
+ *  - each side sits at its own depth (lead side at +z)
  *  - extended hands travel toward the centre line (straight punches)
  *  - raised, bent arms flare the elbow outward (hooks, elbows, the guard)
  *  - shoulders turn with whichever hand is punching
@@ -11,6 +11,8 @@
  *  - `facing` spins the whole body around the vertical axis (spinning elbow)
  *
  * Coordinates: x = forward, y = up (ground at 0), z = toward the fighter's lead side.
+ * With x forward and y up, +z is the fighter's right, so this frame is a southpaw; Figure3D flips z
+ * for orthodox.
  */
 import { LIMB, solve, type Point, type Pose } from './pose';
 

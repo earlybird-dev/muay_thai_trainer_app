@@ -1,5 +1,6 @@
 /**
- * 2D side-view skeleton for a fighter facing right (orthodox: lead = left side, nearest the viewer).
+ * 2D side-view skeleton, solved facing right with the lead side nearest the viewer. Facing right shows
+ * the fighter's right side, so this frame is a southpaw; the renderers flip it for orthodox (lead = left).
  *
  * Angles are in degrees, measured from "pointing straight down", positive = rotating toward the
  * direction the fighter faces. So 90 = pointing forward, 180 = pointing up, -90 = pointing back.

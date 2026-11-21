@@ -214,7 +214,6 @@ export default function Figure3D({
     waistband.rotation.x = Math.PI / 2;
     const gloves = { lead: joint(8, glove), rear: joint(8, glove) };
     rigRef.current = { segs, joints, headRoot, waistband, gloves, body, mats: { skin, skinRear, shorts, trim, glove, wrap } };
-
     // Resize
     const resize = () => {
       const w = host.clientWidth || 1;
@@ -251,15 +250,16 @@ export default function Figure3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive]);
 
-  // ---- camera presets ----
+  // ---- camera presets (always from the fighter's lead side, so the jab hand is nearest) ----
   useEffect(() => {
     const c = camRef.current;
     if (!c) return;
-    c.camera.position.set(...VIEWS[view]);
+    const [x, y, z] = VIEWS[view];
+    c.camera.position.set(x, y, mirror ? z : -z);
     c.camera.lookAt(TARGET);
     c.controls?.target.copy(TARGET);
     c.controls?.update();
-  }, [view]);
+  }, [view, mirror]);
 
   // ---- fighter look (colours + head). Declared before the pose effect so the head exists first. ----
   useEffect(() => {
@@ -286,7 +286,9 @@ export default function Figure3D({
     if (!rig) return;
     const k = to3D(pose);
     const { segs, joints } = rig;
-    rig.body.scale.z = mirror ? -1 : 1;
+    // to3D puts the lead side at +z. Facing +x with y up, +z is the fighter's RIGHT side, so the
+    // unflipped skeleton is a southpaw. Orthodox (lead = left) flips z.
+    rig.body.scale.z = mirror ? 1 : -1;
 
     place(segs.torso, k.pelvis, k.chest);
     place(segs.shoulders, k.lead.shoulder, k.rear.shoulder);

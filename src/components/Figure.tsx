@@ -37,7 +37,9 @@ export default function Figure({ mirror = false, className, label, look, ...anim
       aria-label={label ?? 'Animated fighter demonstrating the technique'}
     >
       <line x1={-90} y1={0} x2={110} y2={0} className="fig-ground" />
-      <g transform={mirror ? 'translate(20,0) scale(-1,1) translate(-20,0)' : undefined}>
+      {/* The skeleton is solved facing right with the lead side drawn nearest the viewer. A figure
+          facing right shows its RIGHT side, so unflipped = southpaw. Orthodox (lead = left) faces left. */}
+      <g transform={mirror ? undefined : 'translate(20,0) scale(-1,1) translate(-20,0)'}>
         <g transform={`translate(${s.hip.x},0) scale(${Math.abs(f) < 0.15 ? 0.15 * Math.sign(f || 1) : f},1) translate(${-s.hip.x},0)`}>
           {/* rear side (far from viewer) */}
           <path d={limb(s.hip, s.rear.knee, s.rear.ankle)} className="fig-limb fig-rear fig-leg" />
