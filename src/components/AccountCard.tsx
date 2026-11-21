@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth, type SyncStatus } from '../lib/auth';
 import { useStore } from '../lib/store';
+import { useDialog } from './Dialog';
 
 export function timeAgo(iso: string | null, now = Date.now()): string {
   if (!iso) return 'never';
@@ -46,6 +47,7 @@ export function Avatar({ src, name, size = 36 }: { src: string | null; name: str
 
 /** Sign in with Google / account + sync status, for the Settings page. */
 export default function AccountCard() {
+  const dialog = useDialog();
   const { enabled, ready, account, status, error, signIn, signOut, syncNow } = useAuth();
   const { data } = useStore();
   const [, tick] = useState(0);
@@ -103,7 +105,15 @@ export default function AccountCard() {
               className="btn danger"
               disabled={busy}
               onClick={async () => {
-                if (!confirm('Sign out? Your data stays in your account, and is removed from this device.')) return;
+                if (
+                  !(await dialog.confirm({
+                    title: 'Sign out?',
+                    message: 'Your data stays in your account, and is removed from this device.',
+                    confirmLabel: 'Sign out',
+                    danger: true,
+                  }))
+                )
+                  return;
                 setBusy(true);
                 await signOut();
                 setBusy(false);

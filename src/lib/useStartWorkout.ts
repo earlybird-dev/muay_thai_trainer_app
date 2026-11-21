@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Combo } from '../data/combos';
 import { unlockAudio } from './audio';
+import { primeTrainingMusic } from './music';
 import { resolvePool, type Workout } from './plans';
 import type { SessionConfig } from './sessionEngine';
 import { useStore } from './store';
@@ -23,6 +24,7 @@ export function useStartWorkout() {
       const pool = resolvePool(w.pool, allCombos, data.combos);
       if (!pool.length) return false;
       unlockAudio();
+      primeTrainingMusic();
       const state: LaunchState = { config: w.config, pool, workoutId: w.id, ...(planId ? { planId } : {}) };
       navigate('/train/session', { state });
       return true;

@@ -12,7 +12,8 @@ import { workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import TodayCard from '../components/TodayCard';
 import MusicToggle from '../components/MusicToggle';
-import { setMusicScene } from '../lib/music';
+import { useDialog } from '../components/Dialog';
+import { primeTrainingMusic, setMusicScene } from '../lib/music';
 
 type PoolMode = PoolKind;
 
@@ -41,6 +42,7 @@ function Setup() {
   const tech = techParam ? TECH_BY_ID[techParam] : undefined;
   const editParam = params.get('edit');
   const startWorkout = useStartWorkout();
+  const dialog = useDialog();
 
   const saved = { ...DEFAULT_CONFIG, ...(data.lastSession ?? {}) };
   const editing0 = editParam ? data.workouts.find((w) => w.id === editParam) : undefined;
@@ -71,8 +73,13 @@ function Setup() {
     config: { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] },
     pool: { kind: poolMode, comboIds: poolMode === 'pick' ? [...picked] : [] },
   });
-  const saveAsNew = () => {
-    const name = prompt('Name this workout', editing ? `${editing.name} (copy)` : drill ? 'Combo drill' : 'Rounds')?.trim();
+  const saveAsNew = async () => {
+    const name = await dialog.prompt({
+      title: 'Name this workout',
+      message: 'Saved workouts can be started in one tap and added to a plan.',
+      defaultValue: editing ? `${editing.name} (copy)` : drill ? 'Combo drill' : 'Rounds',
+      confirmLabel: 'Save workout',
+    });
     if (!name) return;
     const w = currentWorkout(newId().replace('c-', 'w-'), name);
     update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
@@ -93,10 +100,18 @@ function Setup() {
     setSavedMsg(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const deleteWorkout = (w: Workout) => {
+  const deleteWorkout = async (w: Workout) => {
     const usedBy = data.plans.filter((p) => p.workoutId === w.id && !p.archived);
-    const extra = usedBy.length ? ` It is used by ${usedBy.length} plan${usedBy.length === 1 ? '' : 's'}.` : '';
-    if (!confirm(`Delete workout "${w.name}"?${extra}`)) return;
+    const extra = usedBy.length ? ` It is used by ${usedBy.length} plan${usedBy.length === 1 ? '' : 's'}, which won't be able to start it.` : '';
+    if (
+      !(await dialog.confirm({
+        title: `Delete “${w.name}”?`,
+        message: `The saved workout is removed. Your training history is kept.${extra}`,
+        confirmLabel: 'Delete workout',
+        danger: true,
+      }))
+    )
+      return;
     update((d) => ({ ...d, workouts: d.workouts.filter((x) => x.id !== w.id) }));
     if (editingId === w.id) setEditingId(null);
   };
@@ -136,6 +151,7 @@ function Setup() {
 
   const start = () => {
     unlockAudio();
+    primeTrainingMusic();
     const config = { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] };
     if (!tech) update((d) => ({ ...d, lastSession: config }));
     const state: LaunchState = { config, pool, ...(editing ? { workoutId: editing.id } : {}) };
@@ -177,7 +193,8 @@ function Setup() {
                   <button
                     className="btn small primary"
                     onClick={() => {
-                      if (!startWorkout(w)) alert('This workout has no combos left to call. Edit it and pick some combos.');
+                      if (!startWorkout(w))
+                        void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
                     }}
                   >
                     Start
@@ -363,15 +380,15 @@ function Setup() {
         {!tech &&
           (editing ? (
             <>
-              <button className="btn" onClick={saveChanges} disabled={pool.length === 0}>
+              <button className="btn big" onClick={saveChanges} disabled={pool.length === 0}>
                 Save changes
               </button>
-              <button className="btn" onClick={saveAsNew} disabled={pool.length === 0}>
+              <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
                 Save as new
               </button>
             </>
           ) : (
-            <button className="btn" onClick={saveAsNew} disabled={pool.length === 0}>
+            <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
               Save as workout
             </button>
           ))}
@@ -388,6 +405,7 @@ function Session() {
 }
 
 function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
+  const dialog = useDialog();
   const { data, update } = useStore();
   const navigate = useNavigate();
   const settings = data.settings;
@@ -555,11 +573,25 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     setMusicScene(finished ? 'calm' : paused ? 'off' : kind === 'round' ? 'fight' : kind === 'done' ? 'calm' : 'fight-rest');
   }, [finished, paused, kind]);
 
-  const end = () => {
-    if (!finished && !confirm('End the session now?')) return;
+  const end = async () => {
     if (!finished) {
-      const completed = plan.segments.filter((s) => s.kind === 'round' && s.end <= t).length;
-      logRef.current(completed, true, t);
+      // Hold the clock while the question is up.
+      const wasPaused = paused;
+      setPaused(true);
+      const ok = await dialog.confirm({
+        title: 'End the session?',
+        message: "What you've done so far is saved to your history.",
+        confirmLabel: 'End session',
+        cancelLabel: 'Keep going',
+        danger: true,
+      });
+      if (!ok) {
+        setPaused(wasPaused);
+        return;
+      }
+      const now = lastT.current;
+      const completed = plan.segments.filter((s) => s.kind === 'round' && s.end <= now).length;
+      logRef.current(completed, true, now);
     }
     stopSpeech();
     navigate('/train');

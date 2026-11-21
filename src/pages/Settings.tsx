@@ -1,18 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
-import { bell, getVoices, speak, unlockAudio } from '../lib/audio';
+import { bell, ensureAudioContext, getVoices, speak, unlockAudio } from '../lib/audio';
 import { useStore } from '../lib/store';
 import FighterPicker from '../components/FighterPicker';
 import AccountCard from '../components/AccountCard';
 import { useAuth } from '../lib/auth';
+import { TRAINING_TRACKS, primeTrainingMusic, setMusicScene } from '../lib/music';
+import { useDialog } from '../components/Dialog';
 import { downloadBackup, emptyData, parseData, type Settings as S } from '../lib/storage';
 
 export default function Settings() {
   const { data, update, replace } = useStore();
   const { account, clearRemoteHistory } = useAuth();
+  const dialog = useDialog();
   const s = data.settings;
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(getVoices);
   const [msg, setMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [previewing, setPreviewing] = useState(false);
+
+  // Preview the chosen training track; back to calm music when stopped or leaving Settings.
+  useEffect(() => {
+    if (!previewing) return;
+    setMusicScene('fight');
+    return () => setMusicScene('calm');
+  }, [previewing]);
+  useEffect(() => {
+    if (!s.music) setPreviewing(false);
+  }, [s.music]);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -34,7 +48,15 @@ export default function Settings() {
   const onImport = async (file: File) => {
     try {
       const parsed = parseData(JSON.parse(await file.text()));
-      if (!confirm(`Replace current data with this backup (${parsed.combos.length} combos, ${parsed.history.length} sessions)?`)) return;
+      if (
+        !(await dialog.confirm({
+          title: 'Import this backup?',
+          message: `It replaces everything on this device with ${parsed.combos.length} combos and ${parsed.history.length} sessions from the file.`,
+          confirmLabel: 'Replace data',
+          danger: true,
+        }))
+      )
+        return;
       replace(parsed);
       setMsg('Backup imported.');
     } catch (e) {
@@ -95,6 +117,29 @@ export default function Settings() {
             <span>Music volume: {Math.round(s.musicVolume * 100)}%</span>
             <input type="range" min={0.05} max={1} step={0.05} value={s.musicVolume} onChange={(e) => set('musicVolume', Number(e.target.value))} />
           </label>
+        )}
+        {s.music && (
+          <div className="field">
+            <span>Training music</span>
+            <div className="seg" role="group" aria-label="Training music">
+              {TRAINING_TRACKS.map((t) => (
+                <button key={t.id} className={`seg-btn ${s.trainingTrack === t.id ? 'on' : ''}`} aria-pressed={s.trainingTrack === t.id} onClick={() => set('trainingTrack', t.id)}>
+                  {t.name}
+                </button>
+              ))}
+            </div>
+            <button
+              className="btn small music-preview"
+              aria-pressed={previewing}
+              onClick={() => {
+                ensureAudioContext();
+                primeTrainingMusic();
+                setPreviewing((p) => !p);
+              }}
+            >
+              {previewing ? '■ Stop preview' : '▶ Preview'}
+            </button>
+          </div>
         )}
         <label className="field">
           <span>Voice</span>
@@ -158,7 +203,15 @@ export default function Settings() {
             className="btn danger"
             onClick={async () => {
               const where = account ? 'on this device and in your account' : 'on this device';
-              if (!confirm(`Erase all combos, progress, history and settings ${where}? This cannot be undone.`)) return;
+              if (
+                !(await dialog.confirm({
+                  title: 'Reset everything?',
+                  message: `This erases all combos, progress, history and settings ${where}. It cannot be undone.`,
+                  confirmLabel: 'Erase everything',
+                  danger: true,
+                }))
+              )
+                return;
               if (account) {
                 try {
                   await clearRemoteHistory();

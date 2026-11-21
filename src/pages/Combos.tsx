@@ -5,10 +5,12 @@ import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type Combo } from '../data/combos';
 import { LEVELS, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
+import { useDialog } from '../components/Dialog';
 
 export default function Combos() {
   const { data, update, allCombos } = useStore();
   const navigate = useNavigate();
+  const dialog = useDialog();
   const [preview, setPreview] = useState<string | null>(null);
   const [level, setLevel] = useState<Level | 'all'>('all');
   const byLevel = (c: Combo) => level === 'all' || c.level === level;
@@ -22,8 +24,16 @@ export default function Combos() {
     update((d) => ({ ...d, combos: [copy, ...d.combos] }));
     navigate(`/combos/${copy.id}`);
   };
-  const remove = (c: Combo) => {
-    if (!confirm(`Delete "${c.name}"?`)) return;
+  const remove = async (c: Combo) => {
+    if (
+      !(await dialog.confirm({
+        title: `Delete “${c.name}”?`,
+        message: 'This combo is removed from your list. Saved workouts that picked it will skip it.',
+        confirmLabel: 'Delete combo',
+        danger: true,
+      }))
+    )
+      return;
     update((d) => ({ ...d, combos: d.combos.filter((x) => x.id !== c.id) }));
   };
 

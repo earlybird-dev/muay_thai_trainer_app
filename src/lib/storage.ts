@@ -17,6 +17,8 @@ export interface Settings {
   /** Background music (calm while browsing, fight music while training). Per device. */
   music: boolean;
   musicVolume: number;
+  /** Training music track id (see TRAINING_TRACKS in lib/music.ts). */
+  trainingTrack: string;
 }
 
 export interface SessionLog {
@@ -75,6 +77,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fighter: 'technician',
   music: true,
   musicVolume: 0.4,
+  trainingTrack: 'fight-night',
 };
 
 export const emptyData = (): AppData => ({

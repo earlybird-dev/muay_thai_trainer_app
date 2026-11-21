@@ -1377,3 +1377,97 @@ input[type='range'] {
     transform: scale(1);
   }
 }
+
+/* ---------- In-app dialogs (replace native confirm/alert/prompt) ---------- */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 8, 10, 0.62);
+  backdrop-filter: blur(4px);
+  animation: dialog-fade 0.15s ease-out;
+}
+.dialog {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 20px 18px 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: dialog-in 0.18s ease-out;
+}
+.dialog-title {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+.dialog-message {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.dialog-input {
+  width: 100%;
+  margin-top: 12px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.dialog-actions .btn {
+  min-width: 96px;
+}
+.btn.danger.solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+@media (max-width: 420px) {
+  .dialog-backdrop {
+    align-items: flex-end;
+  }
+  .dialog-actions .btn {
+    flex: 1;
+  }
+}
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog,
+  .dialog-backdrop {
+    animation: none;
+  }
+}
+/* Start + save buttons share the row equally, same height. */
+.sticky-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+.history-actions {
+  margin-top: 20px;
+  margin-bottom: 16px;
+}
+.music-preview {
+  align-self: flex-start;
+  margin-top: 8px;
+}

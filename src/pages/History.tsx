@@ -4,8 +4,10 @@ import { useAuth } from '../lib/auth';
 import { formatClock } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { streakDays } from '../lib/stats';
+import { useDialog } from '../components/Dialog';
 
 export default function History() {
+  const dialog = useDialog();
   const { data, update } = useStore();
   const { account, clearRemoteHistory } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +18,15 @@ export default function History() {
 
   const clear = async () => {
     const where = account ? ' from this device and your account' : '';
-    if (!confirm(`Delete all training history${where}? This cannot be undone (export a backup in Settings first if you want one).`)) return;
+    if (
+      !(await dialog.confirm({
+        title: 'Clear all history?',
+        message: `This deletes every logged session${where}. It cannot be undone — export a backup in Settings first if you want one.`,
+        confirmLabel: 'Delete history',
+        danger: true,
+      }))
+    )
+      return;
     if (account) {
       try {
         await clearRemoteHistory();
@@ -69,9 +79,11 @@ export default function History() {
               </li>
             ))}
           </ul>
-          <button className="btn danger small" onClick={() => void clear()}>
-            Clear history
-          </button>
+          <div className="row actions history-actions">
+            <button className="btn danger small" onClick={() => void clear()}>
+              Clear history
+            </button>
+          </div>
           {error && <p className="small error-text">{error}</p>}
         </>
       )}

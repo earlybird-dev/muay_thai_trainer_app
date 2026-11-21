@@ -47,10 +47,10 @@ export default function App() {
   const { pathname } = useLocation();
   const inSession = pathname.startsWith('/train/session');
   const { data } = useStore();
-  const { music, musicVolume } = data.settings;
+  const { music, musicVolume, trainingTrack } = data.settings;
 
   // Background music: calm everywhere except the session screen, which sets its own scene.
-  useEffect(() => configureMusic({ enabled: music, volume: musicVolume }), [music, musicVolume]);
+  useEffect(() => configureMusic({ enabled: music, volume: musicVolume, trainingTrack }), [music, musicVolume, trainingTrack]);
   useEffect(() => {
     if (!inSession) setMusicScene('calm');
   }, [inSession]);

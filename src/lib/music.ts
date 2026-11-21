@@ -1,9 +1,12 @@
 /**
- * Background music, generated live with the Web Audio API (no audio files, nothing to license).
+ * Background music.
  *
- *  - calm:  slow, soft pentatonic mallets over a warm pad — for browsing, learning, building combos.
- *  - fight: a driving, sarama-style fight groove — klong drums, ching/chap cymbals and a reedy pi-like
- *           lead — for training rounds. `fight-rest` keeps the groove but drops the lead and backs off.
+ *  - calm:  public/music/calm.mp3, looped, for browsing and learning.
+ *  - fight: public/music/training.mp3, looped, while training; quieter during prep/rest (`fight-rest`).
+ *
+ * If a track can't load (e.g. offline before it was ever fetched), generated music stands in: soft
+ * pentatonic mallets over a pad (calm), or a sarama-style groove — klong drums, ching/chap and a reedy
+ * pi-like lead (fight).
  *
  * Notes are scheduled slightly ahead of time on the audio clock, so timing stays tight even when the
  * main thread is busy. Music ducks under voice callouts.
@@ -37,9 +40,42 @@ let timer: number | null = null;
 let speaking = 0;
 let noise: AudioBuffer | null = null;
 
+// Recorded tracks: <audio> elements streamed through the audio graph (volume, fades, ducking).
+interface Track {
+  url: string;
+  el: HTMLAudioElement | null;
+  bus: GainNode | null;
+  failed: boolean;
+  wanted: boolean;
+  pauseTimer: number | null;
+}
+const newTrack = (file: string): Track => ({
+  url: `${import.meta.env.BASE_URL}music/${file}`,
+  el: null,
+  bus: null,
+  failed: false,
+  wanted: false,
+  pauseTimer: null,
+});
+/** Training tracks the user can pick from (Settings → Voice & sound). */
+export const TRAINING_TRACKS = [
+  { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },
+  { id: 'ring-walk', name: 'Ring Walk', file: 'training-2.mp3' },
+] as const;
+export type TrainingTrackId = (typeof TRAINING_TRACKS)[number]['id'];
+const CALM_FILE = 'calm.mp3';
+let trainingFile: string = TRAINING_TRACKS[0].file;
+
+const TRACKS: Record<string, Track> = {};
+const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
+/** Track level per scene (before the user's music volume). */
+const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.55, fight: 1, 'fight-rest': 0.45 };
+let trackDuck: GainNode | null = null;
+
 // ---------- public API ----------
 
-export function configureMusic(opts: { enabled: boolean; volume: number }) {
+export function configureMusic(opts: { enabled: boolean; volume: number; trainingTrack?: string }) {
+  trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
   enabled = opts.enabled;
   volume = Math.max(0, Math.min(1, opts.volume));
   refresh();
@@ -52,6 +88,30 @@ export function setMusicScene(next: MusicScene) {
 }
 
 export const getMusicScene = () => scene;
+
+/**
+ * Call from the tap that starts a session (after unlockAudio): starts the training track silently from
+ * the top inside the gesture, so mobile browsers allow it to play once the session scene asks for it.
+ */
+export function primeTrainingMusic() {
+  const ctx = getAudioContext();
+  const t = getTrack(trainingFile);
+  if (!ctx || !enabled || !ensureTrack(ctx, t) || !t.el) return;
+  const el = t.el;
+  if (!t.wanted) {
+    try {
+      el.currentTime = 0;
+    } catch {
+      /* not loaded yet */
+    }
+  }
+  if (el.paused)
+    el.play()
+      .then(() => {
+        if (!t.wanted) el.pause();
+      })
+      .catch(() => {});
+}
 
 /** Call after a user gesture created the audio context, so music can start. */
 export function refreshMusic() {
@@ -68,10 +128,13 @@ if (typeof document !== 'undefined') {
 setSpeechListener((on) => {
   speaking = Math.max(0, speaking + (on ? 1 : -1));
   const ctx = getAudioContext();
-  if (!ctx || !duck) return;
+  if (!ctx) return;
   const now = ctx.currentTime;
-  duck.gain.cancelScheduledValues(now);
-  duck.gain.setTargetAtTime(speaking > 0 ? 0.3 : 1, now, speaking > 0 ? 0.04 : 0.35);
+  for (const d of [duck, trackDuck]) {
+    if (!d) continue;
+    d.gain.cancelScheduledValues(now);
+    d.gain.setTargetAtTime(speaking > 0 ? 0.3 : 1, now, speaking > 0 ? 0.04 : 0.35);
+  }
 });
 
 // ---------- engine ----------
@@ -92,6 +155,65 @@ function ensureGraph(ctx: AudioContext) {
   out = ctx.createGain();
   out.gain.value = 0;
   out.connect(duck).connect(comp).connect(ctx.destination);
+  // The track is already mastered, so it skips the compressor.
+  trackDuck = ctx.createGain();
+  trackDuck.connect(ctx.destination);
+}
+
+function ensureTrack(ctx: AudioContext, t: Track): boolean {
+  if (t.failed) return false;
+  if (t.el && t.bus) return true;
+  ensureGraph(ctx);
+  try {
+    const el = new Audio(t.url);
+    el.loop = true;
+    el.preload = 'auto';
+    el.addEventListener('error', () => {
+      t.failed = true;
+      refresh();
+    });
+    const bus = ctx.createGain();
+    bus.gain.value = 0;
+    ctx.createMediaElementSource(el).connect(bus).connect(trackDuck!);
+    t.el = el;
+    t.bus = bus;
+    return true;
+  } catch {
+    t.failed = true;
+    return false;
+  }
+}
+
+/** Fade one recorded track in/out for the scene. Returns whether it is playing the music. */
+function updateTrack(ctx: AudioContext, t: Track, want: boolean, level: number): boolean {
+  want = want && ensureTrack(ctx, t);
+  t.wanted = want;
+  if (!t.el || !t.bus) return false;
+  const now = ctx.currentTime;
+  t.bus.gain.cancelScheduledValues(now);
+  if (t.pauseTimer !== null) window.clearTimeout(t.pauseTimer);
+  t.pauseTimer = null;
+  if (want) {
+    t.bus.gain.setTargetAtTime(level * Math.min(1, volume * 2), now, 0.3);
+    if (t.el.paused)
+      t.el.play().catch((e: DOMException) => {
+        if (e?.name === 'AbortError') return;
+        if (e?.name === 'NotAllowedError') {
+          // No user gesture yet; the next tap's refresh tries again.
+          t.wanted = false;
+          return;
+        }
+        t.failed = true; // unplayable: fall back to generated music
+        refresh();
+      });
+    return true;
+  }
+  t.bus.gain.setTargetAtTime(0, now, 0.4);
+  const el = t.el;
+  t.pauseTimer = window.setTimeout(() => {
+    if (!t.wanted) el.pause();
+  }, 2000);
+  return false;
 }
 
 function refresh() {
@@ -99,7 +221,17 @@ function refresh() {
   if (!ctx) return; // no gesture yet — App calls refreshMusic() after the first one
   ensureGraph(ctx);
   const now = ctx.currentTime;
-  const target = effectiveScene();
+  const wanted = effectiveScene();
+  const fight = wanted === 'fight' || wanted === 'fight-rest';
+  const level = TRACK_LEVEL[wanted] ?? 0;
+  const calmT = getTrack(CALM_FILE);
+  const fightT = getTrack(trainingFile);
+  const calmTrack = updateTrack(ctx, calmT, wanted === 'calm', level);
+  const fightTrack = updateTrack(ctx, fightT, fight, level);
+  // Fade out a training track that was just swapped for another.
+  for (const t of Object.values(TRACKS)) if (t !== calmT && t !== fightT && t.el) updateTrack(ctx, t, false, 0);
+  // While a recorded track plays, the generated music stays silent.
+  const target: MusicScene = calmTrack || fightTrack ? 'off' : wanted;
 
   out!.gain.cancelScheduledValues(now);
   out!.gain.setTargetAtTime(target === 'off' ? 0 : volume * 0.6, now, 0.25);
@@ -392,3 +524,12 @@ function fightStep(ctx: AudioContext, dest: AudioNode, step: number, t: number, 
     lastReed = f;
   }
 }
+
+/** For diagnostics: what each recorded track is doing. */
+export const trackState = () =>
+  Object.fromEntries(
+    Object.keys(TRACKS).map((k) => {
+      const t = TRACKS[k];
+      return [k, { loaded: !!t.el, playing: !!t.el && !t.el.paused, time: t.el?.currentTime ?? 0, failed: t.failed }];
+    }),
+  );

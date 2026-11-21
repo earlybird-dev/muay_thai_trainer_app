@@ -17,6 +17,7 @@ import {
 import { ensureNotificationPermission } from '../lib/reminders';
 import { useStore } from '../lib/store';
 import { useStartWorkout } from '../lib/useStartWorkout';
+import { useDialog } from '../components/Dialog';
 
 export default function Plans() {
   return (
@@ -267,6 +268,7 @@ function PlanDetail() {
   const { data, update } = useStore();
   const navigate = useNavigate();
   const startWorkout = useStartWorkout();
+  const dialog = useDialog();
   const plan = data.plans.find((p) => p.id === id);
   const today = dateKey(new Date());
   const done = useMemo(() => (plan ? completedDays(plan, data.history) : new Set<string>()), [plan, data.history]);
@@ -289,8 +291,16 @@ function PlanDetail() {
     });
   };
 
-  const remove = () => {
-    if (!confirm(`Delete plan "${plan.name}"? Your training history is kept.`)) return;
+  const remove = async () => {
+    if (
+      !(await dialog.confirm({
+        title: `Delete “${plan.name}”?`,
+        message: 'The plan and its calendar are removed. Your training history is kept.',
+        confirmLabel: 'Delete plan',
+        danger: true,
+      }))
+    )
+      return;
     update((d) => ({ ...d, plans: d.plans.filter((p) => p.id !== plan.id) }));
     navigate('/plans', { replace: true });
   };
@@ -337,7 +347,7 @@ function PlanDetail() {
           {todayStatus === 'done' ? (
             <span className="today-done">✓ Today's session is done</span>
           ) : (
-            <button className="btn primary big" onClick={() => startWorkout(w, plan.id) || alert('This workout has no combos to call.')}>
+            <button className="btn primary big" onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}>
               {todayStatus === 'today' ? "Start today's workout" : 'Train anyway (extra session)'}
             </button>
           )}

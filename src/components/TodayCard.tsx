@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { addDays, dateKey, dueToday, isTrainingDay, planEnd, planStats, parseDay } from '../lib/plans';
 import { useStore } from '../lib/store';
 import { useStartWorkout } from '../lib/useStartWorkout';
+import { useDialog } from './Dialog';
 
 const dayName = (key: string) => parseDay(key).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -9,6 +10,7 @@ const dayName = (key: string) => parseDay(key).toLocaleDateString(undefined, { w
 export default function TodayCard({ compact = false }: { compact?: boolean }) {
   const { data } = useStore();
   const startWorkout = useStartWorkout();
+  const dialog = useDialog();
   const today = dateKey(new Date());
   const active = data.plans.filter((p) => !p.archived && today >= p.start && today <= planEnd(p));
   if (!active.length) return null;
@@ -39,7 +41,7 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
             {status === 'done' ? (
               <span className="today-done">✓ Done</span>
             ) : w ? (
-              <button className="btn primary" onClick={() => startWorkout(w, plan.id) || alert('This workout has no combos to call.')}>
+              <button className="btn primary" onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}>
                 Start
               </button>
             ) : (
