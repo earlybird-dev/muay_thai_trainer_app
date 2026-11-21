@@ -95,7 +95,7 @@ export default function ComboEditor() {
                 </button>
                 <button
                   className="btn small"
-                  onClick={() => speak(calloutSpeech(items, style), { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume })}
+                  onClick={() => speak(name.trim() || calloutSpeech(items, style), { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume })}
                 >
                   🔊 Hear callout
                 </button>

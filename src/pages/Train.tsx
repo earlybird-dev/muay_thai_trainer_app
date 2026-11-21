@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
-import { calloutDisplay, calloutSpeech, type Combo } from '../data/combos';
+import { calloutDisplay, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { beep, bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
@@ -596,7 +596,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             if (!combo) break;
             const seg = stateAt(plan, e.at).segment;
             const lead = seg?.kind === 'prep' ? 'First up' : seg?.kind === 'rest' ? 'Rest. Next' : 'Next';
-            sayRef.current(`${lead}: ${combo.name}. ${calloutSpeech(combo.items, combo.style)}`);
+            sayRef.current(`${lead}: ${combo.name}`);
             break;
           }
           case 'count':
@@ -621,7 +621,8 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
               used.current.add(combo.name);
               setBanner(null);
               setCurrent({ combo, index: e.index, rep: e.rep });
-              if (!drill) sayRef.current(calloutSpeech(combo.items, combo.style));
+              // Combos are called by name (the strikes are on screen).
+              if (!drill) sayRef.current(combo.name);
             }
             break;
           case 'done':
