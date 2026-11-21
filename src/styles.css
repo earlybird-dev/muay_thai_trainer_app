@@ -1494,3 +1494,44 @@ input[type='range'] {
   border-color: var(--accent);
   color: var(--accent);
 }
+.total-time {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 16px 0 4px;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.total-time b {
+  color: var(--text);
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* Pace · Order · Total time on one line (wraps on narrow screens). */
+.setup-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px 24px;
+}
+.setup-line .seg {
+  width: fit-content;
+}
+.setup-line .total-time {
+  margin: 10px 0 10px auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  line-height: 1.1;
+  font-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  .setup-line .total-time {
+    margin-left: 0;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+  }
+}

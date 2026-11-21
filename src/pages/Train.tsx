@@ -340,26 +340,31 @@ function Setup() {
             </select>
           </label>
         </div>
-        <div className="field">
-          <span>{drill ? 'Rep pace (rest between reps)' : 'Callout pace'}</span>
-          <div className="seg">
-            {PACES.map((p) => (
-              <button key={p.id} className={`seg-btn ${pace === p.id ? 'on' : ''}`} onClick={() => setCfg((c) => ({ ...c, minGap: p.min, maxGap: p.max }))}>
-                {p.label}
+        <div className="setup-line">
+          <div className="field">
+            <span>{drill ? 'Rep pace (rest between reps)' : 'Callout pace'}</span>
+            <div className="seg">
+              {PACES.map((p) => (
+                <button key={p.id} className={`seg-btn ${pace === p.id ? 'on' : ''}`} onClick={() => setCfg((c) => ({ ...c, minGap: p.min, maxGap: p.max }))}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <span>Order</span>
+            <div className="seg">
+              <button className={`seg-btn ${cfg.order === 'random' ? 'on' : ''}`} onClick={() => set('order', 'random')}>
+                Random
               </button>
-            ))}
+              <button className={`seg-btn ${cfg.order === 'sequential' ? 'on' : ''}`} onClick={() => set('order', 'sequential')}>
+                In order
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="field">
-          <span>Order</span>
-          <div className="seg">
-            <button className={`seg-btn ${cfg.order === 'random' ? 'on' : ''}`} onClick={() => set('order', 'random')}>
-              Random
-            </button>
-            <button className={`seg-btn ${cfg.order === 'sequential' ? 'on' : ''}`} onClick={() => set('order', 'sequential')}>
-              In order
-            </button>
-          </div>
+          <p className="total-time">
+            Total time <b>{formatClock(totalSec * 1000)}</b>
+          </p>
         </div>
         {!drill && (
           <label className="check">
@@ -370,7 +375,6 @@ function Setup() {
         {drill && pool.length > 0 && cfg.drillCount > pool.length && (
           <p className="muted small">The pool has {pool.length} combo{pool.length === 1 ? '' : 's'}, so some will come round again.</p>
         )}
-        <p className="muted small">Total time: {formatClock(totalSec * 1000)}</p>
       </section>
 
       {!tech && (

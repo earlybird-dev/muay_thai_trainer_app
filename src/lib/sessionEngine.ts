@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: SessionConfig = {
   mode: 'drill',
   drillSec: 30,
   drillRestSec: 15,
-  drillCount: 6,
+  drillCount: 10,
   rounds: 3,
   roundSec: 180,
   restSec: 60,
