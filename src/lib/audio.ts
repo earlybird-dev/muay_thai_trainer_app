@@ -246,7 +246,26 @@ function playClips(parts: string[], volume: number): boolean {
 export function speak(text: string | string[], opts: { voiceURI?: string | null; rate?: number; volume?: number } = {}) {
   const parts = (Array.isArray(text) ? text : [text]).filter(Boolean);
   if (!parts.length) return;
-  if (!opts.voiceURI && playClips(parts, opts.volume ?? 1)) return;
+  const ticket = ++speakTicket;
+  if (!opts.voiceURI) {
+    if (playClips(parts, opts.volume ?? 1)) return;
+    // Recorded, but still downloading: wait briefly rather than switch voices.
+    if (ctx && parts.every(hasClip)) {
+      const timeout = new Promise<void>((r) => window.setTimeout(r, 1500));
+      void Promise.race([preloadVoice(parts), timeout]).then(() => {
+        if (ticket !== speakTicket) return; // something newer was said meanwhile
+        if (!playClips(parts, opts.volume ?? 1)) speakDevice(parts, opts);
+      });
+      return;
+    }
+  }
+  speakDevice(parts, opts);
+}
+
+/** Incremented on every speak() so a delayed clip doesn't talk over something newer. */
+let speakTicket = 0;
+
+function speakDevice(parts: string[], opts: { voiceURI?: string | null; rate?: number; volume?: number }) {
   if (!('speechSynthesis' in window)) return;
   const line = parts.join('. ');
   try {
@@ -277,6 +296,7 @@ export function speak(text: string | string[], opts: { voiceURI?: string | null;
 }
 
 export function stopSpeech() {
+  speakTicket++;
   if (clipSources.length) stopClips();
   try {
     if ('speechSynthesis' in window) speechSynthesis.cancel();
