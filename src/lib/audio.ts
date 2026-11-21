@@ -1,5 +1,6 @@
 /** Voice callouts (recorded coach clips, else the Web Speech API) and generated sounds (Web Audio API). */
 import { clipKey } from '../data/phrases';
+import { audibleRange, wsola } from './timeStretch';
 
 let ctx: AudioContext | null = null;
 
@@ -181,13 +182,38 @@ export async function preloadVoice(texts: string[]) {
         p = fetch(`${import.meta.env.BASE_URL}voice/${file}`)
           .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
           .then((buf) => c.decodeAudioData(buf))
-          .then((b) => void clipBuffers.set(key, normalize(b)))
+          .then((b) => void clipBuffers.set(key, normalize(trim(c, b))))
           .catch(() => void clipLoads.delete(key));
         clipLoads.set(key, p);
       }
       return p;
     }),
   );
+}
+
+/** Cut the silence before and after the words, so callouts land straight away. */
+function trim(c: BaseAudioContext, b: AudioBuffer): AudioBuffer {
+  const [start, end] = audibleRange(b.getChannelData(0), b.sampleRate);
+  if (start === 0 && end === b.length) return b;
+  const t = c.createBuffer(b.numberOfChannels, end - start, b.sampleRate);
+  for (let ch = 0; ch < b.numberOfChannels; ch++) t.copyToChannel(b.getChannelData(ch).subarray(start, end), ch);
+  return t;
+}
+
+/** Clips sped up/slowed down to the speech-rate setting (pitch unchanged), cached per rate. */
+const stretchedClips = new Map<string, AudioBuffer>();
+function atRate(c: BaseAudioContext, key: string, b: AudioBuffer, rate: number): AudioBuffer {
+  const r = Math.min(1.6, Math.max(0.7, Math.round(rate * 100) / 100));
+  if (Math.abs(r - 1) < 0.02) return b;
+  const id = `${key}@${r}`;
+  const hit = stretchedClips.get(id);
+  if (hit) return hit;
+  const first = wsola(b.getChannelData(0), r, b.sampleRate);
+  const out = c.createBuffer(b.numberOfChannels, first.out.length, b.sampleRate);
+  out.copyToChannel(first.out, 0);
+  for (let ch = 1; ch < b.numberOfChannels; ch++) out.copyToChannel(wsola(b.getChannelData(ch), r, b.sampleRate, first.positions).out, ch);
+  stretchedClips.set(id, out);
+  return out;
 }
 
 /** Make every clip loud and even: speech level to about -13 dB RMS, peaks kept under -0.5 dB. */
@@ -245,11 +271,12 @@ function stopClips() {
 }
 
 /** Play recorded clips back to back. Returns false (playing nothing) unless every part has a clip ready. */
-function playClips(parts: string[], volume: number): boolean {
+function playClips(parts: string[], volume: number, rate = 1): boolean {
   const c = ctx;
   if (!c || c.state !== 'running') return false;
-  const bufs = parts.map((p) => clipBuffers.get(clipKey(p)));
-  if (!bufs.length || bufs.some((b) => !b)) return false;
+  const raw = parts.map((p) => clipBuffers.get(clipKey(p)));
+  if (!raw.length || raw.some((b) => !b)) return false;
+  const bufs = raw.map((b, i) => atRate(c, clipKey(parts[i]), b!, rate));
   stopSpeech();
   const gain = c.createGain();
   gain.gain.value = volume;
@@ -290,13 +317,13 @@ export function speak(text: string | string[], opts: { voiceURI?: string | null;
   if (!parts.length) return;
   const ticket = ++speakTicket;
   if (!opts.voiceURI) {
-    if (playClips(parts, opts.volume ?? 1)) return;
+    if (playClips(parts, opts.volume ?? 1, opts.rate ?? 1)) return;
     // Recorded, but still downloading: wait briefly rather than switch voices.
     if (ctx && parts.every(hasClip)) {
       const timeout = new Promise<void>((r) => window.setTimeout(r, 1500));
       void Promise.race([preloadVoice(parts), timeout]).then(() => {
         if (ticket !== speakTicket) return; // something newer was said meanwhile
-        if (!playClips(parts, opts.volume ?? 1)) speakDevice(parts, opts);
+        if (!playClips(parts, opts.volume ?? 1, opts.rate ?? 1)) speakDevice(parts, opts);
       });
       return;
     }

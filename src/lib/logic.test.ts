@@ -528,3 +528,34 @@ describe('voice', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 });
+
+describe('voice speed', () => {
+  it('time-stretches without changing pitch', async () => {
+    const { wsola, audibleRange } = await import('./timeStretch');
+    const sr = 8000;
+    const f = 200; // Hz
+    const input = new Float32Array(sr); // 1 s tone
+    for (let i = 0; i < input.length; i++) input[i] = Math.sin((2 * Math.PI * f * i) / sr) * 0.5;
+    const { out } = wsola(input, 1.25, sr);
+    expect(out.length).toBe(Math.round(sr / 1.25));
+    // Same pitch: count zero crossings in the steady middle part.
+    const crossings = (d: Float32Array, a: number, b: number) => {
+      let n = 0;
+      for (let i = a + 1; i < b; i++) if (d[i - 1] < 0 !== d[i] < 0) n++;
+      return n / ((b - a) / sr);
+    };
+    expect(crossings(out, 800, 5600)).toBeGreaterThan(2 * f * 0.95);
+    expect(crossings(out, 800, 5600)).toBeLessThan(2 * f * 1.05);
+    // Silence trimming keeps a little padding.
+    const padded = new Float32Array(sr * 2);
+    padded.set(input, sr / 2);
+    const [a, b] = audibleRange(padded, sr);
+    expect(a).toBeGreaterThan(sr / 2 - 0.05 * sr);
+    expect(b).toBeLessThan(sr / 2 + sr + 0.05 * sr);
+  });
+  it('moves the old default speech rate to 1.25', () => {
+    const d = parseData({ settings: { rate: 1.05 } });
+    expect(d.settings.rate).toBe(1.25);
+    expect(parseData({ settings: { rate: 0.9 } }).settings.rate).toBe(0.9);
+  });
+});

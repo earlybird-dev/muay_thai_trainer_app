@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stance: 'orthodox',
   voice: true,
   voiceURI: null,
-  rate: 1.05,
+  rate: 1.25,
   volume: 1,
   sounds: true,
   theme: 'system',
@@ -130,6 +130,8 @@ export function parseData(raw: unknown): AppData {
     : base.videos;
   const history = Array.isArray(raw.history) ? (raw.history.filter((h) => isObj(h) && typeof h.date === 'string') as SessionLog[]) : base.history;
   const settings = { ...DEFAULT_SETTINGS, ...(isObj(raw.settings) ? (raw.settings as Partial<Settings>) : {}) };
+  // 1.05 was the old default speech rate; move it to the new, brisker default.
+  if (settings.rate === 1.05) settings.rate = DEFAULT_SETTINGS.rate;
   const lastSession = isObj(raw.lastSession) ? (raw.lastSession as Partial<SessionConfig>) : null;
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
   const strMap = (v: unknown): Record<string, string> =>
