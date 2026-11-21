@@ -4,7 +4,7 @@ import { useStore } from '../lib/store';
 import FighterPicker from '../components/FighterPicker';
 import AccountCard from '../components/AccountCard';
 import { useAuth } from '../lib/auth';
-import { TRAINING_TRACKS, primeTrainingMusic, setMusicScene } from '../lib/music';
+import { SHUFFLE_TRAINING, TRAINING_TRACKS, primeTrainingMusic, setMusicScene } from '../lib/music';
 import { useDialog } from '../components/Dialog';
 import { downloadBackup, emptyData, parseData, type Settings as S } from '../lib/storage';
 
@@ -122,12 +122,13 @@ export default function Settings() {
           <div className="field">
             <span>Training music</span>
             <div className="seg" role="group" aria-label="Training music">
-              {TRAINING_TRACKS.map((t) => (
+              {[{ id: SHUFFLE_TRAINING, name: 'Shuffle all' }, ...TRAINING_TRACKS].map((t) => (
                 <button key={t.id} className={`seg-btn ${s.trainingTrack === t.id ? 'on' : ''}`} aria-pressed={s.trainingTrack === t.id} onClick={() => set('trainingTrack', t.id)}>
                   {t.name}
                 </button>
               ))}
             </div>
+            {s.trainingTrack === SHUFFLE_TRAINING && <p className="muted small">Plays every training track, one after another in random order.</p>}
             <button
               className="btn small music-preview"
               aria-pressed={previewing}

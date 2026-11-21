@@ -64,7 +64,18 @@ export const TRAINING_TRACKS = [
 ] as const;
 export type TrainingTrackId = (typeof TRAINING_TRACKS)[number]['id'];
 const CALM_FILE = 'calm.mp3';
-let trainingFile: string = TRAINING_TRACKS[0].file;
+/** Setting value that plays every training track, one after another in random order. */
+export const SHUFFLE_TRAINING = 'shuffle';
+let shuffle = true;
+let trainingFile: string = TRAINING_TRACKS[Math.floor(Math.random() * TRAINING_TRACKS.length)].file;
+
+/** A random training track, different from `avoid` when there's a choice and skipping broken ones. */
+function pickTrainingFile(avoid?: string): string {
+  const ok = TRAINING_TRACKS.map((t) => t.file).filter((f) => !TRACKS[f]?.failed);
+  const pool = ok.filter((f) => f !== avoid);
+  const from = pool.length ? pool : ok.length ? ok : [TRAINING_TRACKS[0].file];
+  return from[Math.floor(Math.random() * from.length)];
+}
 
 const TRACKS: Record<string, Track> = {};
 const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
@@ -75,7 +86,11 @@ let trackDuck: GainNode | null = null;
 // ---------- public API ----------
 
 export function configureMusic(opts: { enabled: boolean; volume: number; trainingTrack?: string }) {
-  trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
+  const wasShuffle = shuffle;
+  shuffle = opts.trainingTrack === SHUFFLE_TRAINING;
+  if (shuffle) {
+    if (!wasShuffle) trainingFile = pickTrainingFile();
+  } else trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
   enabled = opts.enabled;
   volume = Math.max(0, Math.min(1, opts.volume));
   refresh();
@@ -95,22 +110,30 @@ export const getMusicScene = () => scene;
  */
 export function primeTrainingMusic() {
   const ctx = getAudioContext();
-  const t = getTrack(trainingFile);
-  if (!ctx || !enabled || !ensureTrack(ctx, t) || !t.el) return;
-  const el = t.el;
-  if (!t.wanted) {
-    try {
-      el.currentTime = 0;
-    } catch {
-      /* not loaded yet */
+  if (!ctx || !enabled) return;
+  const fresh = !getTrack(trainingFile).wanted;
+  // Shuffle: each new session starts on a random track.
+  if (shuffle && fresh) trainingFile = pickTrainingFile();
+  // In shuffle mode every track may need to start later without a tap, so unlock them all now.
+  const files = shuffle ? TRAINING_TRACKS.map((x) => x.file) : [trainingFile];
+  for (const file of files) {
+    const t = getTrack(file);
+    if (!ensureTrack(ctx, t) || !t.el) continue;
+    const el = t.el;
+    if (!t.wanted) {
+      try {
+        el.currentTime = 0;
+      } catch {
+        /* not loaded yet */
+      }
     }
+    if (el.paused)
+      el.play()
+        .then(() => {
+          if (!t.wanted) el.pause();
+        })
+        .catch(() => {});
   }
-  if (el.paused)
-    el.play()
-      .then(() => {
-        if (!t.wanted) el.pause();
-      })
-      .catch(() => {});
 }
 
 /** Call after a user gesture created the audio context, so music can start. */
@@ -166,10 +189,30 @@ function ensureTrack(ctx: AudioContext, t: Track): boolean {
   ensureGraph(ctx);
   try {
     const el = new Audio(t.url);
-    el.loop = true;
+    // Shuffled training tracks play once and hand over to the next; everything else loops.
+    el.loop = !(shuffle && TRAINING_TRACKS.some((x) => t.url.endsWith(`/${x.file}`)));
     el.preload = 'auto';
     el.addEventListener('error', () => {
       t.failed = true;
+      if (shuffle && t.url.endsWith(`/${trainingFile}`)) trainingFile = pickTrainingFile(trainingFile);
+      refresh();
+    });
+    // Shuffle mode doesn't loop: when a training track ends, move on to another one.
+    el.addEventListener('ended', () => {
+      if (!shuffle || !t.wanted) return;
+      const next = pickTrainingFile(trainingFile);
+      t.wanted = false;
+      const n = getTrack(next);
+      if (n.el && n !== t) {
+        try {
+          n.el.currentTime = 0;
+        } catch {
+          /* not loaded yet */
+        }
+      } else {
+        el.currentTime = 0; // only one playable track: start it again
+      }
+      trainingFile = next;
       refresh();
     });
     const bus = ctx.createGain();
@@ -226,6 +269,10 @@ function refresh() {
   const level = TRACK_LEVEL[wanted] ?? 0;
   const calmT = getTrack(CALM_FILE);
   const fightT = getTrack(trainingFile);
+  for (const x of TRAINING_TRACKS) {
+    const el = TRACKS[x.file]?.el;
+    if (el) el.loop = !shuffle;
+  }
   const calmTrack = updateTrack(ctx, calmT, wanted === 'calm', level);
   const fightTrack = updateTrack(ctx, fightT, fight, level);
   // Fade out a training track that was just swapped for another.
