@@ -168,9 +168,23 @@ describe('3D pose mapping', () => {
 
   it('the roundhouse swings the rear shin across the body, the straight knee does not', () => {
     const kick = at('rear-kick', 'Swing');
-    expect(kick.rear.ankle.z).toBeGreaterThan(guard.rear.ankle.z + 15);
+    expect(kick.rear.ankle.z).toBeGreaterThan(guard.rear.ankle.z + 12); // shin sweeps past the centre line
     const knee = at('knee', 'Hips');
     expect(Math.abs(knee.rear.ankle.z - guard.rear.ankle.z)).toBeLessThan(3);
+  });
+
+  it('roundhouse kicks turn the hips over and pivot the standing foot', () => {
+    const kick = at('rear-kick', 'Swing');
+    expect(kick.rear.hip.x).toBeGreaterThan(kick.lead.hip.x + 10); // rear hip turned forward
+    expect(kick.rear.shoulder.x).toBeGreaterThan(kick.lead.shoulder.x); // shoulders follow
+    // Lead (standing) foot: toes turned out to the lead side, heel toward the target.
+    expect(kick.lead.toe.z - kick.lead.ankle.z).toBeGreaterThan(9);
+    expect(kick.lead.toe.x).toBeLessThan(kick.lead.ankle.x);
+    // Switch kick mirrors it: the lead hip comes forward and the rear foot pivots the other way.
+    const sw = at('switch-kick', 'Swing');
+    expect(sw.lead.hip.x).toBeGreaterThan(sw.rear.hip.x + 10);
+    expect(sw.rear.toe.z - sw.rear.ankle.z).toBeLessThan(-9);
+    expect(sw.lead.ankle.z).toBeLessThan(0); // lead shin sweeps across toward the rear side
   });
 
   it('the rear teep pushes straight forward instead of swinging across', () => {

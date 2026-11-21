@@ -24,6 +24,11 @@ export interface Pose {
   facing: number;
   /** 0..1: an extended rear leg pushes straight forward (rear teep) instead of swinging across (roundhouse). 3D only. */
   rearPush: number;
+  /**
+   * Roundhouse turn, -1..1: the hips turn over and the standing foot pivots (heel toward the target).
+   * Positive = rear-leg kick (lead foot pivots), negative = lead-leg kick (rear foot pivots).
+   */
+  turn: number;
 }
 
 export type PartialPose = Partial<Pose>;
@@ -41,6 +46,7 @@ export const GUARD: Pose = {
   rearKnee: -8,
   facing: 1,
   rearPush: 0,
+  turn: 0,
 };
 
 export const LIMB = {

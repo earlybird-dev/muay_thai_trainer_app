@@ -17,6 +17,17 @@ export default function Figure({ mirror = false, className, label, look, ...anim
   const current = useAnimatedPose(anim);
   const s = solve(current);
   const line = (a: Point, b: Point) => `M${a.x},${a.y} L${b.x},${b.y}`;
+  // Roundhouse pivot: the standing foot turns out on the ball, heel toward the target. Seen from the side it
+  // foreshortens, then points backward.
+  const turn = current.turn ?? 0;
+  const pivot = (ankle: Point, toe: Point, on: boolean): [Point, Point] => {
+    const a = Math.min(1, Math.abs(turn)) * (110 * Math.PI) / 180;
+    if (!on || a < 0.01) return [ankle, toe];
+    const k = Math.cos(a);
+    return [ankle, { x: ankle.x + (toe.x - ankle.x) * k, y: toe.y }];
+  };
+  const [leadAnkle, leadToe] = pivot(s.lead.ankle, s.lead.toe, turn > 0);
+  const [rearAnkle, rearToe] = pivot(s.rear.ankle, s.rear.toe, turn < 0);
   const limb = (a: Point, b: Point, c: Point) => `M${a.x},${a.y} L${b.x},${b.y} L${c.x},${c.y}`;
   const f = current.facing;
   const colors = look
@@ -43,7 +54,7 @@ export default function Figure({ mirror = false, className, label, look, ...anim
         <g transform={`translate(${s.hip.x},0) scale(${Math.abs(f) < 0.15 ? 0.15 * Math.sign(f || 1) : f},1) translate(${-s.hip.x},0)`}>
           {/* rear side (far from viewer) */}
           <path d={limb(s.hip, s.rear.knee, s.rear.ankle)} className="fig-limb fig-rear fig-leg" />
-          <path d={line(s.rear.ankle, s.rear.toe)} className="fig-limb fig-rear fig-foot" />
+          <path d={line(rearAnkle, rearToe)} className="fig-limb fig-rear fig-foot" />
           <path d={limb(s.shoulder, s.rear.elbow, s.rear.hand)} className="fig-limb fig-rear fig-arm" />
           <circle cx={s.rear.hand.x} cy={s.rear.hand.y} r={7.5} className="fig-glove fig-glove-rear" />
 
@@ -59,7 +70,7 @@ export default function Figure({ mirror = false, className, label, look, ...anim
 
           {/* lead side (near viewer) */}
           <path d={limb(s.hip, s.lead.knee, s.lead.ankle)} className="fig-limb fig-lead fig-leg" />
-          <path d={line(s.lead.ankle, s.lead.toe)} className="fig-limb fig-lead fig-foot" />
+          <path d={line(leadAnkle, leadToe)} className="fig-limb fig-lead fig-foot" />
           <path d={limb(s.shoulder, s.lead.elbow, s.lead.hand)} className="fig-limb fig-lead fig-arm" />
           <circle cx={s.lead.hand.x} cy={s.lead.hand.y} r={7.5} className="fig-glove" />
         </g>

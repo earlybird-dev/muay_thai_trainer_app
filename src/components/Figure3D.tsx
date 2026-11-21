@@ -332,7 +332,7 @@ export default function Figure3D({
       at(rig.gloves[side], s.hand);
     }
     at(joints.pelvis, k.pelvis);
-    at(joints.chest, { x: k.chest.x * 0.85 + k.pelvis.x * 0.15, y: k.chest.y * 0.85 + k.pelvis.y * 0.15, z: 0 });
+    at(joints.chest, { x: k.chest.x * 0.85 + k.pelvis.x * 0.15, y: k.chest.y * 0.85 + k.pelvis.y * 0.15, z: k.chest.z * 0.85 + k.pelvis.z * 0.15 });
     at(rig.waistband, { x: k.pelvis.x, y: k.pelvis.y + 7, z: k.pelvis.z });
     // Head turns with spins and tilts with half the torso lean (forward lean = nod forward)
     at(rig.headRoot, k.head);

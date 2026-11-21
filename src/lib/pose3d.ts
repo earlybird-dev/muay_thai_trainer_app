@@ -7,7 +7,8 @@
  *  - extended hands travel toward the centre line (straight punches)
  *  - raised, bent arms flare the elbow outward (hooks, elbows, the guard)
  *  - shoulders turn with whichever hand is punching
- *  - an extended rear leg swings across the body and turns the hips over (roundhouse kicks)
+ *  - roundhouse kicks (`turn`): the body turns over around the standing foot, which pivots so the
+ *    heel faces the target, and the kicking shin sweeps across to the centre line
  *  - `facing` spins the whole body around the vertical axis (spinning elbow)
  *
  * Coordinates: x = forward, y = up (ground at 0), z = toward the fighter's lead side.
@@ -97,34 +98,82 @@ export function to3D(p: Pose): Skeleton3D {
   const leadArm = arm(1, p.leadShoulder + torsoArm, p.leadElbow, s.lead.elbow, s.lead.hand, fLead);
   const rearArm = arm(-1, p.rearShoulder + torsoArm, p.rearElbow, s.rear.elbow, s.rear.hand, fRear);
 
-  // Roundhouse: an extended, raised rear leg swings across the body and the hips turn over
-  // (unless it's a push kick, which drives straight forward).
-  const cross = Math.pow(clamp01(Math.sin(rad(p.rearHip))), 2) * clamp01(Math.cos(rad(p.rearKnee))) * (1 - clamp01(p.rearPush ?? 0));
-  const hipTurn = rad(45 * cross);
-  const hipDx = HIP_Z * Math.sin(hipTurn);
-  const hipZ = HIP_Z * Math.cos(hipTurn);
+  // ---- Roundhouse kicks: hip turnover + pivot on the standing foot ----
+  // `turn` > 0: rear-leg kick, the lead foot is the standing foot; < 0: lead-leg kick (switch kick).
+  const turn = Math.max(-1.2, Math.min(1.2, p.turn ?? 0));
+  const rearKick = turn > 0;
+  const amount = Math.abs(turn);
+  const ext = (hip: number, knee: number) => Math.pow(clamp01(Math.sin(rad(hip))), 2) * clamp01(Math.cos(rad(knee)));
+  const kickExt = amount * (rearKick ? ext(p.rearHip, p.rearKnee) : ext(p.leadHip, p.leadKnee));
 
-  const leadLeg = {
-    hip: v(s.hip, hipZ, -hipDx),
+  const leadLeg: Pick<Side3, 'hip' | 'knee' | 'ankle' | 'toe'> = {
+    hip: v(s.hip, HIP_Z),
     knee: v(s.lead.knee, HIP_Z),
     ankle: v(s.lead.ankle, HIP_Z),
     toe: v(s.lead.toe, HIP_Z),
   };
-  const rearLeg = {
-    hip: v(s.hip, -hipZ, hipDx),
-    knee: v(s.rear.knee, -HIP_Z + 10 * cross, hipDx),
-    ankle: v(s.rear.ankle, -HIP_Z + 24 * cross, hipDx),
-    toe: v(s.rear.toe, -HIP_Z + 28 * cross, hipDx),
+  const rearLeg: Pick<Side3, 'hip' | 'knee' | 'ankle' | 'toe'> = {
+    hip: v(s.hip, -HIP_Z),
+    knee: v(s.rear.knee, -HIP_Z),
+    ankle: v(s.rear.ankle, -HIP_Z),
+    toe: v(s.rear.toe, -HIP_Z),
   };
+  const pelvis = v(s.hip, 0);
+  const chest = v(s.shoulder, 0);
+  const head = v(s.head, 0);
+  let lArm = leadArm;
+  let rArm = rearArm;
+  let headTurn = 0;
+
+  if (amount > 1e-3) {
+    const stand = rearKick ? leadLeg : rearLeg;
+    const kick = rearKick ? rearLeg : leadLeg;
+    // Turn around the spine (vertical axis): positive brings the rear side forward. The hips turn over
+    // fully; the shoulders a little less. The lean away from the target stays as drawn in 2D.
+    const spin = (q: V3, about: V3, deg: number): V3 => {
+      const a = rad(deg);
+      const dx = q.x - about.x;
+      const dz = q.z - about.z;
+      return { x: about.x + dx * Math.cos(a) - dz * Math.sin(a), y: q.y, z: about.z + dx * Math.sin(a) + dz * Math.cos(a) };
+    };
+    const hipDeg = 80 * turn;
+    const shoulderDeg = 60 * turn;
+    const kickHip0 = kick.hip;
+    stand.hip = spin(stand.hip, pelvis, hipDeg);
+    kick.hip = spin(kick.hip, pelvis, hipDeg);
+    lArm = { shoulder: spin(lArm.shoulder, chest, shoulderDeg), elbow: spin(lArm.elbow, chest, shoulderDeg), hand: spin(lArm.hand, chest, shoulderDeg) };
+    rArm = { shoulder: spin(rArm.shoulder, chest, shoulderDeg), elbow: spin(rArm.elbow, chest, shoulderDeg), hand: spin(rArm.hand, chest, shoulderDeg) };
+    // Standing knee follows the hip a little (knee points out over the pivoting foot).
+    stand.knee = { ...stand.knee, z: stand.knee.z + (stand.hip.z - HIP_Z * (rearKick ? 1 : -1)) * 0.5 };
+
+    // The kicking leg keeps its line toward the target from the turned hip, and its shin sweeps
+    // across to just past the centre line.
+    const shift = { x: kick.hip.x - kickHip0.x, z: kick.hip.z - kickHip0.z };
+    const targetZ = rearKick ? 8 : -8;
+    const along = (q: V3, f: number): V3 => {
+      const z = q.z + shift.z;
+      return { x: q.x + shift.x, y: q.y, z: z + (targetZ - z) * f * clamp01(kickExt * 1.4) };
+    };
+    kick.knee = along(kick.knee, 0.45);
+    kick.ankle = along(kick.ankle, 0.85);
+    kick.toe = along(kick.toe, 0.95);
+
+    // Standing foot pivots on the ball: toes turn out (further than the hips), heel toward the target.
+    const theta = rad(110 * Math.min(1, amount)) * (rearKick ? 1 : -1);
+    const fx = stand.toe.x - stand.ankle.x;
+    stand.toe = { x: stand.ankle.x + fx * Math.cos(theta), y: stand.toe.y, z: stand.ankle.z + fx * Math.sin(theta) };
+
+    headTurn = rad(hipDeg) * 0.35; // eyes stay mostly on the target
+  }
 
   const phi = Math.acos(Math.max(-1, Math.min(1, p.facing)));
   const sk: Skeleton3D = {
-    yaw: phi,
-    pelvis: v(s.hip, 0),
-    chest: v(s.shoulder, 0),
-    head: v(s.head, 0),
-    lead: { ...leadArm, ...leadLeg },
-    rear: { ...rearArm, ...rearLeg },
+    yaw: phi - headTurn,
+    pelvis,
+    chest,
+    head,
+    lead: { ...lArm, ...leadLeg },
+    rear: { ...rArm, ...rearLeg },
   };
 
   // Spin around the vertical axis through the hips (facing 1 → 0°, -1 → 180°).
