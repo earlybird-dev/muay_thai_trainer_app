@@ -26,7 +26,7 @@ interface Layer {
 
 const BPM: Record<StyleId, number> = { calm: 72, fight: 138 };
 /** Relative loudness of each scene before the user's music volume. */
-const SCENE_LEVEL: Record<MusicScene, number> = { off: 0, calm: 0.55, fight: 1.9, 'fight-rest': 1 };
+const SCENE_LEVEL: Record<MusicScene, number> = { off: 0, calm: 0.25, fight: 1.9, 'fight-rest': 1 };
 
 let scene: MusicScene = 'off';
 let enabled = true;
@@ -80,7 +80,9 @@ function pickTrainingFile(avoid?: string): string {
 const TRACKS: Record<string, Track> = {};
 const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
 /** Track level per scene (before the user's music volume). */
-const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.55, fight: 1, 'fight-rest': 0.45 };
+// Track gain = level × min(1, 2 × music volume). At the default volume (40%) the background music
+// outside training plays at 20%; training music at 80%.
+const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.25, fight: 1, 'fight-rest': 0.45 };
 let trackDuck: GainNode | null = null;
 
 // ---------- public API ----------
@@ -103,6 +105,16 @@ export function setMusicScene(next: MusicScene) {
 }
 
 export const getMusicScene = () => scene;
+
+/** Reasons the music is held silent right now (e.g. a YouTube video playing). */
+const holds = new Set<string>();
+/** Silence the music while something else needs the speakers; release it to bring the music back. */
+export function holdMusic(reason: string, on: boolean) {
+  if (on === holds.has(reason)) return;
+  if (on) holds.add(reason);
+  else holds.delete(reason);
+  refresh();
+}
 
 /**
  * Call from the tap that starts a session (after unlockAudio): starts the training track silently from
@@ -164,7 +176,7 @@ setSpeechListener((on) => {
 
 /** What should be playing right now. Calm music pauses in a background tab; training keeps going. */
 function effectiveScene(): MusicScene {
-  if (!enabled || volume <= 0) return 'off';
+  if (!enabled || volume <= 0 || holds.size) return 'off';
   if (hidden && scene === 'calm') return 'off';
   return scene;
 }

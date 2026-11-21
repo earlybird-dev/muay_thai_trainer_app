@@ -5,6 +5,7 @@ import FighterPicker from '../components/FighterPicker';
 import type { CameraView } from '../components/Figure3D';
 import { CATEGORIES, TECH_BY_ID, youtubeId, youtubeSearchUrl } from '../data/techniques';
 import { useStore } from '../lib/store';
+import YouTubeEmbed from '../components/YouTubeEmbed';
 
 const SPEEDS = [0.25, 0.5, 1];
 
@@ -172,14 +173,7 @@ function Detail({ id }: { id: string }) {
       <section className="card">
         <h2>Video</h2>
         {vid ? (
-          <div className="video">
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${vid}`}
-              title={`${t.name} video`}
-              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
+          <YouTubeEmbed id={vid} title={`${t.name} video`} />
         ) : savedVideo ? (
           <p>
             <a href={savedVideo} target="_blank" rel="noreferrer">
