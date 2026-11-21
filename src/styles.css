@@ -1546,12 +1546,12 @@ input[type='range'] {
 }
 .tag-essential {
   margin-left: 6px;
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
 }
 .essential-tag {
   margin-left: 6px;
-  color: var(--warn);
+  color: var(--ok);
 }
 .practice {
   display: block;
