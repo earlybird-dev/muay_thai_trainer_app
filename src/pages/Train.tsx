@@ -248,7 +248,7 @@ function Setup() {
     const base = poolMode === 'pick' && selectedOnly ? pool : listed;
     if (!words.length) return base;
     return base.filter((c) => {
-      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.preset ? c.level : 'mine my']
+      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.level, c.preset ? '' : 'mine my']
         .join(' ')
         .toLowerCase();
       return words.every((w) => hay.includes(w));

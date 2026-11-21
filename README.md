@@ -1,6 +1,6 @@
 # Muay Thai Trainer
 
-[![CI/CD](https://github.com/earlybird-dev/muay_thai_training_app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/earlybird-dev/muay_thai_training_app/actions/workflows/ci-cd.yml)
+[![CI/CD](https://github.com/earlybird-dev/muay_thai_trainer_app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/earlybird-dev/muay_thai_trainer_app/actions/workflows/ci-cd.yml)
 
 Live: https://muaythaitrainer.app
 

@@ -617,10 +617,11 @@ describe('essentials, favourites and practice', () => {
 });
 
 describe('own combos', () => {
-  it('are not part of level pools, only All and My combos', async () => {
+  it('join the pool for the level you gave them', async () => {
     const { resolvePool } = await import('./plans');
-    const own: Combo = { id: 'c-x', name: 'My Thing', items: ['jab'], level: 'beginner', style: 'numbers' };
+    const own: Combo = { id: 'c-x', name: 'My Thing', items: ['jab'], level: 'intermediate', style: 'numbers' };
     const all = [...PRESET_COMBOS, own];
+    expect(resolvePool({ kind: 'intermediate', comboIds: [] }, all, [own]).map((c) => c.id)).toContain('c-x');
     expect(resolvePool({ kind: 'beginner', comboIds: [] }, all, [own]).map((c) => c.id)).not.toContain('c-x');
     expect(resolvePool({ kind: 'all', comboIds: [] }, all, [own]).map((c) => c.id)).toContain('c-x');
     expect(resolvePool({ kind: 'mine', comboIds: [] }, all, [own])).toEqual([own]);

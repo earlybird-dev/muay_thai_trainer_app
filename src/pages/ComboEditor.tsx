@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type CalloutStyle, type Combo } from '../data/combos';
-import { CATEGORIES, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
+import { CATEGORIES, LEVELS, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
 import { comboSpeech, loadVoiceManifest, preloadVoice, speak, unlockAudio } from '../lib/audio';
 
@@ -15,8 +15,7 @@ export default function ComboEditor() {
 
   const [name, setName] = useState(existing?.name ?? '');
   const [items, setItems] = useState<string[]>(existing?.items ?? []);
-  // Your own combos have no level (they're their own section); the stored field is kept for sync.
-  const level: Level = existing?.level ?? 'beginner';
+  const [level, setLevel] = useState<Level>(existing?.level ?? 'beginner');
   const [style, setStyle] = useState<CalloutStyle>(existing?.style ?? 'numbers');
   const [previewKey, setPreviewKey] = useState(0);
 
@@ -142,6 +141,16 @@ export default function ComboEditor() {
             <span>Name</span>
             <input className="input" value={name} placeholder={autoName || 'e.g. My 1-2 kick'} onChange={(e) => setName(e.target.value)} />
           </label>
+          <div className="field">
+            <span>Level</span>
+            <div className="seg" role="group" aria-label="Level">
+              {LEVELS.map((l) => (
+                <button key={l.id} type="button" className={`seg-btn ${level === l.id ? 'on' : ''}`} aria-pressed={level === l.id} onClick={() => setLevel(l.id)}>
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="field">
             <span>Callout style</span>
             <div className="seg">

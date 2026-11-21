@@ -107,8 +107,7 @@ export function poolBase(kind: Exclude<PoolKind, 'pick'>, allCombos: Combo[], my
     case 'due':
       return dueCombos(allCombos, myCombos, ctx);
     default:
-      // Levels describe the starter library; your own combos have no level.
-      return allCombos.filter((c) => c.preset && c.level === kind);
+      return allCombos.filter((c) => c.level === kind);
   }
 }
 

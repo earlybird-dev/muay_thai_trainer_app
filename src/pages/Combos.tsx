@@ -74,7 +74,7 @@ export default function Combos() {
         }}
       >
         <div className="combo-name">
-          {c.name} {c.preset && <span className={`tag tag-${c.level}`}>{c.level}</span>}
+          {c.name} <span className={`tag tag-${c.level}`}>{c.level}</span>
           {c.essential && <span className="tag tag-essential">★ essential</span>}
         </div>
         <div className="combo-call">{calloutDisplay(c.items, c.style)}</div>
