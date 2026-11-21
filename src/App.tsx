@@ -1,0 +1,63 @@
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import Learn from './pages/Learn';
+import TechniqueDetail from './pages/TechniqueDetail';
+import Combos from './pages/Combos';
+import ComboEditor from './pages/ComboEditor';
+import Train from './pages/Train';
+import History from './pages/History';
+import Settings from './pages/Settings';
+
+const NAV = [
+  { to: '/learn', label: 'Learn', icon: 'M4 5h7v14H4zM13 5h7v14h-7z' },
+  { to: '/combos', label: 'Combos', icon: 'M5 12h4m2 0h2m2 0h4M7 8l-2 4 2 4M17 8l2 4-2 4' },
+  { to: '/train', label: 'Train', icon: 'M12 3v3M12 13l3-3M5 13a7 7 0 1 0 14 0 7 7 0 0 0-14 0' },
+  { to: '/history', label: 'History', icon: 'M4 19V9m5 10V5m5 14v-7m5 7v-4' },
+  { to: '/settings', label: 'Settings', icon: 'M4 7h10m4 0h2M4 17h4m4 0h8M16 5v4M10 15v4' },
+];
+
+export default function App() {
+  const { pathname } = useLocation();
+  const inSession = pathname.startsWith('/train/session');
+
+  return (
+    <div className={`app ${inSession ? 'app-session' : ''}`}>
+      {!inSession && (
+        <header className="topbar">
+          <span className="brand">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+              <circle cx="12" cy="12" r="9" fill="none" stroke="var(--accent)" strokeWidth="2.2" />
+              <path d="M8.5 16c0-3 1.2-5.5 3.5-7.5 2.3 2 3.5 4.5 3.5 7.5" fill="none" stroke="var(--accent-2)" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+            Muay Thai Trainer
+          </span>
+        </header>
+      )}
+      <main className="content">
+        <Routes>
+          <Route path="/" element={<Navigate to="/learn" replace />} />
+          <Route path="/learn" element={<Learn />} />
+          <Route path="/learn/:id" element={<TechniqueDetail />} />
+          <Route path="/combos" element={<Combos />} />
+          <Route path="/combos/new" element={<ComboEditor />} />
+          <Route path="/combos/:id" element={<ComboEditor />} />
+          <Route path="/train/*" element={<Train />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/learn" replace />} />
+        </Routes>
+      </main>
+      {!inSession && (
+        <nav className="tabbar" aria-label="Main">
+          {NAV.map((n) => (
+            <NavLink key={n.to} to={n.to} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+                <path d={n.icon} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>{n.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
+    </div>
+  );
+}
