@@ -5,7 +5,7 @@ import FigureView from '../components/FigureView';
 import { calloutDisplay, newId, type CalloutStyle, type Combo } from '../data/combos';
 import { CATEGORIES, LEVELS, STRIKES, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
-import { speak } from '../lib/audio';
+import { preloadVoice, speak, unlockAudio } from '../lib/audio';
 import { calloutSpeech } from '../data/combos';
 
 export default function ComboEditor() {
@@ -95,7 +95,13 @@ export default function ComboEditor() {
                 </button>
                 <button
                   className="btn small"
-                  onClick={() => speak(name.trim() || calloutSpeech(items, style), { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume })}
+                  onClick={() => {
+                    const phrase = name.trim() || calloutSpeech(items, style);
+                    unlockAudio();
+                    void preloadVoice([phrase]).then(() =>
+                      speak(phrase, { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume }),
+                    );
+                  }}
                 >
                   🔊 Hear callout
                 </button>

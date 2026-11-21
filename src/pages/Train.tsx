@@ -4,7 +4,8 @@ import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
-import { beep, bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
+import { beep, bell, clap, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
+import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
@@ -30,6 +31,65 @@ export default function Train() {
       <Route path="session" element={<Session />} />
       <Route path="*" element={<Navigate to="/train" replace />} />
     </Routes>
+  );
+}
+
+/** − value + control for a time in seconds. Hold a button to keep changing. */
+function TimeStepper({ label, value, step, min, max, onChange }: { label: string; value: number; step: number; min: number; max: number; onChange: (v: number) => void }) {
+  const ref = useRef({ value, onChange });
+  ref.current = { value, onChange };
+  const timers = useRef<number[]>([]);
+  const stop = () => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+  };
+  useEffect(() => stop, []);
+  /** One step; false when already at the limit. */
+  const nudge = (dir: 1 | -1): boolean => {
+    const { value: v, onChange: on } = ref.current;
+    // Snap onto the step grid, then move one step.
+    const next = Math.min(max, Math.max(min, dir > 0 ? Math.floor(v / step) * step + step : Math.ceil(v / step) * step - step));
+    if (next === v) return false;
+    ref.current.value = next;
+    on(next);
+    return true;
+  };
+  const press = (dir: 1 | -1) => {
+    stop();
+    nudge(dir);
+    const repeat = () => {
+      timers.current = nudge(dir) ? [window.setTimeout(repeat, 90)] : [];
+    };
+    timers.current = [window.setTimeout(repeat, 450)];
+  };
+  const btn = (dir: 1 | -1) => (
+    <button
+      type="button"
+      className="btn icon"
+      aria-label={`${dir > 0 ? 'More' : 'Less'} ${label.toLowerCase()}`}
+      disabled={dir > 0 ? value >= max : value <= min}
+      onPointerDown={(e) => {
+        if (e.button === 0) press(dir);
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          nudge(dir);
+        }
+      }}
+    >
+      {dir > 0 ? '+' : '−'}
+    </button>
+  );
+  return (
+    <div className="stepper">
+      {btn(-1)}
+      <b className="stepper-time">{value === 0 ? 'Off' : value < 60 ? `${value}s` : formatClock(value * 1000)}</b>
+      {btn(1)}
+    </div>
   );
 }
 
@@ -149,12 +209,6 @@ function Setup() {
   const totalSec = drill
     ? cfg.prepSec + cfg.drillCount * cfg.drillSec + (cfg.drillCount - 1) * cfg.drillRestSec
     : cfg.prepSec + cfg.rounds * cfg.roundSec + (cfg.rounds - 1) * cfg.restSec;
-  const timeOptions = (values: number[]) =>
-    values.map((s) => (
-      <option key={s} value={s}>
-        {s < 60 ? `${s}s` : formatClock(s * 1000)}
-      </option>
-    ));
 
   const start = () => {
     unlockAudio();
@@ -277,18 +331,14 @@ function Setup() {
         <div className="form-grid">
           {drill ? (
             <>
-              <label className="field">
+              <div className="field">
                 <span>Time per combo</span>
-                <select className="input" value={cfg.drillSec} onChange={(e) => set('drillSec', Number(e.target.value))}>
-                  {timeOptions([15, 20, 30, 45, 60, 90, 120, 180])}
-                </select>
-              </label>
-              <label className="field">
+                <TimeStepper label="Time per combo" value={cfg.drillSec} step={5} min={10} max={600} onChange={(v) => set('drillSec', v)} />
+              </div>
+              <div className="field">
                 <span>Rest between combos</span>
-                <select className="input" value={cfg.drillRestSec} onChange={(e) => set('drillRestSec', Number(e.target.value))}>
-                  {timeOptions([5, 10, 15, 20, 30, 45, 60, 90])}
-                </select>
-              </label>
+                <TimeStepper label="Rest between combos" value={cfg.drillRestSec} step={5} min={0} max={300} onChange={(v) => set('drillRestSec', v)} />
+              </div>
               <label className="field">
                 <span>Number of combos</span>
                 <div className="stepper">
@@ -316,30 +366,20 @@ function Setup() {
                   </button>
                 </div>
               </label>
-              <label className="field">
+              <div className="field">
                 <span>Round length</span>
-                <select className="input" value={cfg.roundSec} onChange={(e) => set('roundSec', Number(e.target.value))}>
-                  {timeOptions([30, 60, 90, 120, 150, 180, 240, 300])}
-                </select>
-              </label>
-              <label className="field">
+                <TimeStepper label="Round length" value={cfg.roundSec} step={15} min={30} max={600} onChange={(v) => set('roundSec', v)} />
+              </div>
+              <div className="field">
                 <span>Rest</span>
-                <select className="input" value={cfg.restSec} onChange={(e) => set('restSec', Number(e.target.value))}>
-                  {timeOptions([10, 20, 30, 45, 60, 90, 120])}
-                </select>
-              </label>
+                <TimeStepper label="Rest" value={cfg.restSec} step={5} min={5} max={300} onChange={(v) => set('restSec', v)} />
+              </div>
             </>
           )}
-          <label className="field">
+          <div className="field">
             <span>Get-ready countdown</span>
-            <select className="input" value={cfg.prepSec} onChange={(e) => set('prepSec', Number(e.target.value))}>
-              {[3, 5, 10, 15].map((s) => (
-                <option key={s} value={s}>
-                  {s}s
-                </option>
-              ))}
-            </select>
-          </label>
+            <TimeStepper label="Get-ready countdown" value={cfg.prepSec} step={1} min={0} max={30} onChange={(v) => set('prepSec', v)} />
+          </div>
         </div>
         <div className="setup-line">
           <div className="field">
@@ -514,11 +554,16 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   const used = useRef(new Set<string>());
   const logged = useRef(false);
 
-  const say = (text: string) => {
+  const say = (text: string | string[]) => {
     if (settings.voice) speak(text, { voiceURI: settings.voiceURI, rate: settings.rate, volume: settings.volume });
   };
   const sayRef = useRef(say);
   sayRef.current = say;
+
+  // Get the recorded coach clips for this session ready (no-op without clips).
+  useEffect(() => {
+    void preloadVoice([...fixedPhrases(), ...pool.map((c) => c.name)]);
+  }, [pool]);
 
   const log = (completed: number, early: boolean, elapsed: number) => {
     if (logged.current) return;
@@ -554,7 +599,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     let lock: { release: () => void } | null = null;
     void requestWakeLock().then((l) => (lock = l));
     // Drill mode announces the first combo during prep instead.
-    if (config.prepSec > 0 && config.mode !== 'drill') sayRef.current('Get ready');
+    if (config.prepSec > 0 && config.mode !== 'drill') sayRef.current(PHRASES.getReady);
     return () => {
       lock?.release();
       stopSpeech();
@@ -580,7 +625,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             setBanner(drill ? null : `Round ${e.round}`);
             setCurrent(null);
             // Drill: the first rep is called straight away, no extra announcement.
-            if (!drill) window.setTimeout(() => sayRef.current(`Round ${e.round}. Fight!`), 700);
+            if (!drill) window.setTimeout(() => sayRef.current([roundPhrase(e.round), PHRASES.fight]), 700);
             break;
           case 'round-end':
             setCount(null);
@@ -588,20 +633,20 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             setCurrent(null);
             setBanner(e.round < blocks ? 'Rest' : 'Time!');
             // Drill rests are announced by the "next" event instead.
-            if (!drill && e.round < blocks) window.setTimeout(() => sayRef.current('Rest. Breathe.'), 1100);
+            if (!drill && e.round < blocks) window.setTimeout(() => sayRef.current(PHRASES.restBreathe), 1100);
             break;
           case 'next': {
             // Drill mode only speaks to announce each combo; reps are shown, not read out.
             const combo = byId[e.comboId];
             if (!combo) break;
             const seg = stateAt(plan, e.at).segment;
-            const lead = seg?.kind === 'prep' ? 'First up' : seg?.kind === 'rest' ? 'Rest. Next' : 'Next';
-            sayRef.current(`${lead}: ${combo.name}`);
+            const lead = seg?.kind === 'prep' ? PHRASES.firstUp : seg?.kind === 'rest' ? PHRASES.restNext : PHRASES.next;
+            sayRef.current([lead, combo.name]);
             break;
           }
           case 'count':
             setCount(e.n);
-            if (settings.voice) sayRef.current(String(e.n));
+            if (settings.voice) sayRef.current(countPhrase(e.n));
             else if (settings.sounds) beep(settings.volume);
             break;
           case 'warning':
@@ -610,7 +655,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
           case 'freestyle':
             setCurrent(null);
             setBanner('Freestyle!');
-            sayRef.current('Freestyle! Everything you have!');
+            sayRef.current(PHRASES.freestyle);
             break;
           case 'callout':
             if (e !== lastCallout) break; // after a throttled tab, only call the latest one
@@ -627,7 +672,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             break;
           case 'done':
             if (settings.sounds && drill) bell(3, settings.volume);
-            sayRef.current('Great work. Session complete.');
+            sayRef.current(PHRASES.done);
             logRef.current(blocks, false, plan.total);
             break;
         }

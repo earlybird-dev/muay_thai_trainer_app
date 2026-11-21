@@ -9,6 +9,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
+      // Recorded coach voice clips are small: keep them for offline training.
+      workbox: { globPatterns: ['**/*.{js,css,html,svg}', 'voice/*.{mp3,json}'] },
       manifest: {
         name: 'Muay Thai Trainer',
         short_name: 'Nak Muay',

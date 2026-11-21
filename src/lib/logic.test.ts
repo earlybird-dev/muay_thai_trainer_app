@@ -507,3 +507,24 @@ describe('music', () => {
     expect(DEFAULT_SETTINGS.musicVolume).toBeGreaterThan(0);
   });
 });
+
+describe('voice', () => {
+  const v = (name: string, lang = 'en-US') => ({ name, lang, voiceURI: name, default: false, localService: true }) as SpeechSynthesisVoice;
+  it('prefers natural voices over robotic defaults', async () => {
+    const { bestVoice, isNaturalVoice } = await import('./audio');
+    const list = [v('Microsoft David - English (United States)'), v('Google UK English Male', 'en-GB'), v('Microsoft Ava Online (Natural) - English (United States)'), v('Google français', 'fr-FR')];
+    expect(bestVoice(list)?.name).toMatch(/Ava Online \(Natural\)/);
+    expect(isNaturalVoice(list[0])).toBe(false);
+    expect(isNaturalVoice(list[1])).toBe(true);
+    expect(bestVoice([v('Google français', 'fr-FR')])).toBeUndefined();
+  });
+  it('keys clips by words only and covers every fixed phrase', async () => {
+    const { clipKey, fixedPhrases, countPhrase } = await import('../data/phrases');
+    expect(clipKey('Rest. Next')).toBe('rest next');
+    expect(clipKey('One, two, kick!')).toBe('one two kick');
+    expect(countPhrase(3)).toBe('Three');
+    const all = fixedPhrases().map(clipKey);
+    expect(all).toContain('round 12');
+    expect(new Set(all).size).toBe(all.length);
+  });
+});

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { bell, ensureAudioContext, getVoices, speak, unlockAudio } from '../lib/audio';
+import { bell, bestVoice, ensureAudioContext, getVoices, hasClip, isNaturalVoice, loadVoiceManifest, preloadVoice, speak, unlockAudio, voiceScore } from '../lib/audio';
 import { useStore } from '../lib/store';
 import FighterPicker from '../components/FighterPicker';
 import AccountCard from '../components/AccountCard';
 import { useAuth } from '../lib/auth';
+import { PHRASES } from '../data/phrases';
 import { SHUFFLE_TRAINING, TRAINING_TRACKS, primeTrainingMusic, setMusicScene } from '../lib/music';
 import { useDialog } from '../components/Dialog';
 import { downloadBackup, emptyData, parseData, type Settings as S } from '../lib/storage';
@@ -32,17 +33,25 @@ export default function Settings() {
     if (!('speechSynthesis' in window)) return;
     const load = () => setVoices(getVoices());
     speechSynthesis.addEventListener('voiceschanged', load);
+    load(); // voices may have loaded before this listener was added
     return () => speechSynthesis.removeEventListener('voiceschanged', load);
   }, []);
 
   const set = <K extends keyof S>(k: K, v: S[K]) => update((d) => ({ ...d, settings: { ...d.settings, [k]: v } }));
   const english = voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
-  const list = english.length ? english : voices;
+  // Most natural first.
+  const list = [...(english.length ? english : voices)].sort((a, b) => voiceScore(b) - voiceScore(a));
+  const auto = bestVoice(voices);
+  const [coachVoice, setCoachVoice] = useState(false);
+  useEffect(() => {
+    void loadVoiceManifest().then(() => setCoachVoice(hasClip(PHRASES.test)));
+  }, []);
 
   const test = () => {
     unlockAudio();
     if (s.sounds) bell(1, s.volume);
-    setTimeout(() => speak('One, two, kick!', { voiceURI: s.voiceURI, rate: s.rate, volume: s.volume }), 600);
+    const ready = preloadVoice([PHRASES.test]);
+    setTimeout(() => void ready.then(() => speak(PHRASES.test, { voiceURI: s.voiceURI, rate: s.rate, volume: s.volume })), 600);
   };
 
   const onImport = async (file: File) => {
@@ -145,14 +154,23 @@ export default function Settings() {
         <label className="field">
           <span>Voice</span>
           <select className="input" value={s.voiceURI ?? ''} onChange={(e) => set('voiceURI', e.target.value || null)}>
-            <option value="">Default</option>
+            <option value="">
+              {coachVoice ? 'Auto — recorded coach voice' : `Auto — best on this device${auto ? ` (${auto.name})` : ''}`}
+            </option>
             {list.map((v) => (
               <option key={v.voiceURI} value={v.voiceURI}>
+                {isNaturalVoice(v) ? '★ ' : ''}
                 {v.name} ({v.lang})
               </option>
             ))}
           </select>
         </label>
+        <p className="muted small">
+          {coachVoice
+            ? 'Auto uses the recorded coach voice for every built-in phrase and starter combo; your own combo names use the best voice on this device.'
+            : '★ = natural-sounding voice.'}{' '}
+          On iPhone, download an Enhanced or Premium voice in iOS Settings → Accessibility → Spoken Content → Voices for a more natural sound.
+        </p>
         <label className="field">
           <span>Speech rate: {s.rate.toFixed(2)}x</span>
           <input type="range" min={0.7} max={1.6} step={0.05} value={s.rate} onChange={(e) => set('rate', Number(e.target.value))} />

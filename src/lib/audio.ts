@@ -1,4 +1,5 @@
-/** Voice callouts (Web Speech API) and generated sounds (Web Audio API). No audio files needed. */
+/** Voice callouts (recorded coach clips, else the Web Speech API) and generated sounds (Web Audio API). */
+import { clipKey } from '../data/phrases';
 
 let ctx: AudioContext | null = null;
 
@@ -25,6 +26,7 @@ export const setSpeechListener = (fn: ((speaking: boolean) => void) | null) => {
 /** Must be called from a user gesture (e.g. the Start button) so browsers allow audio. */
 export function unlockAudio() {
   ensureAudioContext();
+  void loadVoiceManifest();
   // Prime speech synthesis on iOS/Safari.
   try {
     if ('speechSynthesis' in window) {
@@ -109,12 +111,148 @@ export function getVoices(): SpeechSynthesisVoice[] {
   return speechSynthesis.getVoices();
 }
 
-export function speak(text: string, opts: { voiceURI?: string | null; rate?: number; volume?: number } = {}) {
+// ---------- picking the most natural device voice ----------
+
+/** Old, robotic or novelty voices that browsers often list first. */
+const ROBOTIC = /\b(david|zira|mark|hazel|george|susan|fred|albert|bad news|bahh|bells|boing|bubbles|cellos|jester|organ|trinoids|whisper|wobble|zarvox|superstar|good news|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|junior|ralph|kathy|princess|espeak)\b/i;
+
+/** Higher = more natural sounding. English voices only score above zero. */
+export function voiceScore(v: SpeechSynthesisVoice): number {
+  if (!v.lang.toLowerCase().startsWith('en')) return -100;
+  const name = v.name;
+  let s = 0;
+  if (/natural|neural|premium|enhanced/i.test(name)) s += 60; // Edge "Online (Natural)", Apple Premium/Enhanced
+  if (/microsoft/i.test(name) && /online/i.test(name)) s += 20;
+  if (/^google/i.test(name)) s += 40; // Chrome's cloud voices
+  if (/siri/i.test(name)) s += 45;
+  if (/^(samantha|daniel|karen|moira|tessa|serena|alex|ava|evan|nathan|zoe|allison|tom)\b/i.test(name)) s += 15; // decent Apple voices
+  if (/en[-_](us|gb|au|ie|nz)/i.test(v.lang)) s += 5;
+  if (ROBOTIC.test(name)) s -= 40;
+  return s;
+}
+
+/** Natural enough to recommend in the voice picker. */
+export const isNaturalVoice = (v: SpeechSynthesisVoice) => voiceScore(v) >= 40;
+
+/** The most natural English voice on this device, if any. */
+export function bestVoice(voices = getVoices()): SpeechSynthesisVoice | undefined {
+  let best: SpeechSynthesisVoice | undefined;
+  for (const v of voices) if (voiceScore(v) > 0 && (!best || voiceScore(v) > voiceScore(best))) best = v;
+  return best;
+}
+
+// ---------- recorded coach clips (public/voice, made by scripts/generate-voice.ts) ----------
+
+let clipFiles: Record<string, string> | null = null;
+let manifestLoad: Promise<void> | null = null;
+const clipBuffers = new Map<string, AudioBuffer>();
+const clipLoads = new Map<string, Promise<void>>();
+let clipSources: AudioBufferSourceNode[] = [];
+let clipRelease: (() => void) | null = null;
+
+/** Fetch the list of recorded clips (once). Missing list = no clips; the device voice is used. */
+export function loadVoiceManifest(): Promise<void> {
+  manifestLoad ??= fetch(`${import.meta.env.BASE_URL}voice/manifest.json`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m: { clips?: Record<string, string> } | null) => {
+      clipFiles = m?.clips ?? {};
+    })
+    .catch(() => {
+      clipFiles = {};
+    });
+  return manifestLoad;
+}
+
+/** Whether a recorded clip exists for this text (once the manifest has loaded). */
+export const hasClip = (text: string) => !!clipFiles?.[clipKey(text)];
+
+/** Download + decode the clips for these phrases so they can play instantly. */
+export async function preloadVoice(texts: string[]) {
+  await loadVoiceManifest();
+  const c = ctx;
+  if (!c || !clipFiles) return;
+  await Promise.all(
+    texts.map((t) => {
+      const key = clipKey(t);
+      const file = clipFiles![key];
+      if (!file || clipBuffers.has(key)) return undefined;
+      let p = clipLoads.get(key);
+      if (!p) {
+        p = fetch(`${import.meta.env.BASE_URL}voice/${file}`)
+          .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+          .then((buf) => c.decodeAudioData(buf))
+          .then((b) => void clipBuffers.set(key, b))
+          .catch(() => void clipLoads.delete(key));
+        clipLoads.set(key, p);
+      }
+      return p;
+    }),
+  );
+}
+
+function stopClips() {
+  for (const s of clipSources) {
+    try {
+      s.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+  clipSources = [];
+  clipRelease?.();
+}
+
+/** Play recorded clips back to back. Returns false (playing nothing) unless every part has a clip ready. */
+function playClips(parts: string[], volume: number): boolean {
+  const c = ctx;
+  if (!c || c.state !== 'running') return false;
+  const bufs = parts.map((p) => clipBuffers.get(clipKey(p)));
+  if (!bufs.length || bufs.some((b) => !b)) return false;
+  stopSpeech();
+  const gain = c.createGain();
+  gain.gain.value = volume;
+  gain.connect(c.destination);
+  let t = c.currentTime + 0.02;
+  for (const b of bufs as AudioBuffer[]) {
+    const src = c.createBufferSource();
+    src.buffer = b;
+    src.connect(gain);
+    src.start(t);
+    clipSources.push(src);
+    t += b.duration + 0.06;
+  }
+  if (speechListener) {
+    const listener = speechListener;
+    let open = true;
+    const release = () => {
+      if (open) listener(false);
+      open = false;
+      if (clipRelease === release) clipRelease = null;
+    };
+    listener(true);
+    clipRelease = release;
+    window.setTimeout(release, (t - c.currentTime) * 1000 + 50);
+  }
+  return true;
+}
+
+// ---------- speaking ----------
+
+/**
+ * Say a phrase. Pass parts (e.g. ["First up", "Jab Cross"]) so recorded clips can be joined.
+ * voiceURI null = automatic: the recorded coach voice when every part has a clip, otherwise the most
+ * natural voice on this device. A chosen voiceURI always uses that device voice.
+ */
+export function speak(text: string | string[], opts: { voiceURI?: string | null; rate?: number; volume?: number } = {}) {
+  const parts = (Array.isArray(text) ? text : [text]).filter(Boolean);
+  if (!parts.length) return;
+  if (!opts.voiceURI && playClips(parts, opts.volume ?? 1)) return;
   if (!('speechSynthesis' in window)) return;
+  const line = parts.join('. ');
   try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const v = opts.voiceURI ? getVoices().find((x) => x.voiceURI === opts.voiceURI) : undefined;
+    stopSpeech();
+    const u = new SpeechSynthesisUtterance(line);
+    const v = opts.voiceURI ? getVoices().find((x) => x.voiceURI === opts.voiceURI) : bestVoice();
     if (v) u.voice = v;
     u.rate = opts.rate ?? 1;
     u.volume = opts.volume ?? 1;
@@ -130,7 +268,7 @@ export function speak(text: string, opts: { voiceURI?: string | null; rate?: num
       u.onend = release;
       u.onerror = release;
       // Some browsers never fire onend; don't leave the music ducked.
-      window.setTimeout(release, 1500 + text.length * 90);
+      window.setTimeout(release, 1500 + line.length * 90);
     }
     speechSynthesis.speak(u);
   } catch {
@@ -139,6 +277,7 @@ export function speak(text: string, opts: { voiceURI?: string | null; rate?: num
 }
 
 export function stopSpeech() {
+  if (clipSources.length) stopClips();
   try {
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   } catch {

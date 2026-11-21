@@ -40,3 +40,17 @@ Signing in with Google is optional. Without it, everything stays on the device. 
 - The app stays local-first. `src/lib/sync.ts` pulls, merges and pushes after every change. When the same combo was changed on two devices, the newest change wins, and deletions sync too. The first sign-in uploads any data the guest already had.
 - Signing out removes the account's data from the device. It stays in the account.
 - The sign-in button only appears once the Google provider is enabled in Supabase (Authentication → Sign In / Providers). Its redirect URLs need to include `https://muaythaitrainer.app/**` and `http://localhost:5173/**`.
+
+## Coach voice
+
+By default the app speaks with the most natural voice available on the device (★ in Settings → Voice).
+For a consistent, natural coach voice everywhere, record clips once with an AI voice service. They're saved in
+`public/voice/` and played instead of the device voice for every built-in phrase and starter combo:
+
+```powershell
+$env:OPENAI_API_KEY = "<your key>"   # or: $env:VOICE_PROVIDER = "elevenlabs"; $env:ELEVENLABS_API_KEY = "..."; $env:VOICE = "<voice id>"
+npm run voice
+```
+
+Optional: `$env:VOICE = "onyx"` picks the OpenAI voice; `$env:VOICE_FORCE = "1"` re-records everything.
+Only existing clips are skipped, so re-run it after adding starter combos. Never commit API keys.
