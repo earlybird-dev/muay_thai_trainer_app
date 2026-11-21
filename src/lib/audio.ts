@@ -181,13 +181,55 @@ export async function preloadVoice(texts: string[]) {
         p = fetch(`${import.meta.env.BASE_URL}voice/${file}`)
           .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
           .then((buf) => c.decodeAudioData(buf))
-          .then((b) => void clipBuffers.set(key, b))
+          .then((b) => void clipBuffers.set(key, normalize(b)))
           .catch(() => void clipLoads.delete(key));
         clipLoads.set(key, p);
       }
       return p;
     }),
   );
+}
+
+/** Make every clip loud and even: speech level to about -13 dB RMS, peaks kept under -0.5 dB. */
+function normalize(b: AudioBuffer): AudioBuffer {
+  let peak = 0;
+  let sum = 0;
+  let n = 0;
+  for (let ch = 0; ch < b.numberOfChannels; ch++) {
+    const d = b.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      const a = Math.abs(d[i]);
+      if (a > peak) peak = a;
+      if (a > 0.01) {
+        sum += d[i] * d[i];
+        n++;
+      }
+    }
+  }
+  if (!peak || !n) return b;
+  const rmsDb = 10 * Math.log10(sum / n);
+  const gain = Math.min(Math.pow(10, (-13 - rmsDb) / 20), 0.94 / peak);
+  if (gain <= 1.01) return b;
+  for (let ch = 0; ch < b.numberOfChannels; ch++) {
+    const d = b.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) d[i] *= gain;
+  }
+  return b;
+}
+
+/** Voice output: a fast limiter so a loud clip at full volume can't distort. */
+let voiceOut: AudioNode | null = null;
+function voiceOutput(c: AudioContext): AudioNode {
+  if (voiceOut && voiceOut.context === c) return voiceOut;
+  const lim = c.createDynamicsCompressor();
+  lim.threshold.value = -2;
+  lim.knee.value = 0;
+  lim.ratio.value = 20;
+  lim.attack.value = 0.002;
+  lim.release.value = 0.08;
+  lim.connect(c.destination);
+  voiceOut = lim;
+  return lim;
 }
 
 function stopClips() {
@@ -211,7 +253,7 @@ function playClips(parts: string[], volume: number): boolean {
   stopSpeech();
   const gain = c.createGain();
   gain.gain.value = volume;
-  gain.connect(c.destination);
+  gain.connect(voiceOutput(c));
   let t = c.currentTime + 0.02;
   for (const b of bufs as AudioBuffer[]) {
     const src = c.createBufferSource();

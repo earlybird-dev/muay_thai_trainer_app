@@ -156,7 +156,7 @@ setSpeechListener((on) => {
   for (const d of [duck, trackDuck]) {
     if (!d) continue;
     d.gain.cancelScheduledValues(now);
-    d.gain.setTargetAtTime(speaking > 0 ? 0.3 : 1, now, speaking > 0 ? 0.04 : 0.35);
+    d.gain.setTargetAtTime(speaking > 0 ? 0.15 : 1, now, speaking > 0 ? 0.03 : 0.4);
   }
 });
 
