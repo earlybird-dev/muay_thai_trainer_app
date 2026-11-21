@@ -38,7 +38,9 @@ function Detail({ id }: { id: string }) {
 
   const learned = data.learned.includes(t.id);
   const savedVideo = data.videos[t.id];
-  const vid = savedVideo ? youtubeId(savedVideo) : null;
+  // Your own saved video wins; otherwise the suggested tutorial for this technique.
+  const vid = savedVideo ? youtubeId(savedVideo) : (t.videoId ?? null);
+  const suggested = !savedVideo && !!t.videoId;
   const cat = CATEGORIES.find((c) => c.id === t.category);
 
   const stepTo = (i: number) => {
@@ -56,6 +58,15 @@ function Detail({ id }: { id: string }) {
       else delete videos[t.id];
       return { ...d, videos };
     });
+
+  const resetVideo = () => {
+    setVideoDraft('');
+    update((d) => {
+      const videos = { ...d.videos };
+      delete videos[t.id];
+      return { ...d, videos };
+    });
+  };
 
   return (
     <div className="page detail">
@@ -177,6 +188,12 @@ function Detail({ id }: { id: string }) {
           </p>
         ) : (
           <p className="muted small">Find a video you like, then paste its link below to keep it here.</p>
+        )}
+        {suggested && <p className="muted small video-note">Suggested tutorial. Prefer another one? Paste its link below to use it here instead.</p>}
+        {savedVideo && t.videoId && (
+          <button className="btn small video-reset" onClick={resetVideo}>
+            Use the suggested video again
+          </button>
         )}
         <a className="btn yt-search" href={youtubeSearchUrl(t.videoQuery)} target="_blank" rel="noreferrer">
           <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden>

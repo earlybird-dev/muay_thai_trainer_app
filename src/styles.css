@@ -1610,3 +1610,9 @@ input[type='range'] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.video-note {
+  margin: 8px 0 0;
+}
+.video-reset {
+  margin-top: 8px;
+}

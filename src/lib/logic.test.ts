@@ -641,3 +641,11 @@ describe('tightening strike clips', () => {
     expect(pauseCuts(short, sr)).toHaveLength(1); // untouched
   });
 });
+
+describe('technique videos', () => {
+  it('every technique has a suggested YouTube video', async () => {
+    const { TECHNIQUES } = await import('../data/techniques');
+    for (const t of TECHNIQUES) expect(t.videoId, t.id).toMatch(/^[A-Za-z0-9_-]{11}$/);
+    expect(new Set(TECHNIQUES.map((t) => t.videoId)).size).toBe(TECHNIQUES.length);
+  });
+});

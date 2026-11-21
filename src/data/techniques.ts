@@ -44,6 +44,8 @@ export interface Technique {
   /** Whether this can be used inside a combo. */
   strike: boolean;
   videoQuery: string;
+  /** A good YouTube tutorial embedded by default (users can replace it with their own). */
+  videoId?: string;
 }
 
 export const CATEGORIES: { id: Category; name: string; blurb: string }[] = [
@@ -84,6 +86,7 @@ export const TECHNIQUES: Technique[] = [
       { label: 'Guard', pose: {}, ms: 450 },
     ],
     videoQuery: 'muay thai stance and guard for beginners',
+    videoId: '0VGI-IQ8Z54',
   },
 
   // ---------- Footwork ----------
@@ -109,6 +112,7 @@ export const TECHNIQUES: Technique[] = [
       { label: 'Lead foot follows', pose: { x: 0 }, ms: 300 },
     ],
     videoQuery: 'muay thai footwork basics step and slide',
+    videoId: '7E6B3seSJMU',
   },
   {
     id: 'switch',
@@ -126,6 +130,7 @@ export const TECHNIQUES: Technique[] = [
       { label: 'Swap back', pose: {}, ms: 260 },
     ],
     videoQuery: 'muay thai switch stance footwork',
+    videoId: '52CXzNGDDV0',
   },
 
   // ---------- Punches ----------
@@ -150,6 +155,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai jab technique tutorial',
+    videoId: '6cQ7Z4tovME',
   },
   {
     id: 'cross',
@@ -172,6 +178,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai cross punch technique',
+    videoId: 'Lncq7xE3rcY',
   },
   {
     id: 'lead-hook',
@@ -195,6 +202,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai lead hook technique',
+    videoId: 'ahSbkncXEvQ',
   },
   {
     id: 'rear-hook',
@@ -212,6 +220,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai rear hook punch',
+    videoId: 'mFGOP_U892c',
   },
   {
     id: 'lead-uppercut',
@@ -230,6 +239,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai uppercut technique',
+    videoId: 'gxMg_IBihKM',
   },
   {
     id: 'rear-uppercut',
@@ -248,6 +258,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai rear uppercut',
+    videoId: 'gYPB-BlVLeI',
   },
 
   // ---------- Kicks ----------
@@ -273,6 +284,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai teep push kick tutorial',
+    videoId: 'xoxnkg_poU8',
   },
   {
     id: 'rear-teep',
@@ -296,6 +308,7 @@ export const TECHNIQUES: Technique[] = [
       { ...RETURN, pose: { ...RETURN.pose, rearPush: 1 } },
     ],
     videoQuery: 'muay thai rear teep push kick tutorial',
+    videoId: 'I4OTeGEBoxk',
   },
   {
     id: 'rear-kick',
@@ -320,6 +333,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai roundhouse kick tutorial for beginners',
+    videoId: 'J9dK0uIEXIM',
   },
   {
     id: 'head-kick',
@@ -338,6 +352,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai head kick technique',
+    videoId: 'xCWRe_ugJfI',
   },
   {
     id: 'low-kick',
@@ -355,6 +370,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai low kick tutorial',
+    videoId: 'mXb5Nolg30Y',
   },
   {
     id: 'switch-kick',
@@ -373,6 +389,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai switch kick tutorial',
+    videoId: 'saN1yQqFdx8',
   },
 
   // ---------- Knees ----------
@@ -392,6 +409,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai straight knee technique',
+    videoId: '4yUks9kpvto',
   },
   {
     id: 'diagonal-knee',
@@ -409,6 +427,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai diagonal knee',
+    videoId: 'iGlyEbd54D4',
   },
 
   // ---------- Elbows ----------
@@ -428,6 +447,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai horizontal elbow technique',
+    videoId: '2H-IS_EorCw',
   },
   {
     id: 'up-elbow',
@@ -445,6 +465,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai uppercut elbow',
+    videoId: 'r9_PfUxGseI',
   },
   {
     id: 'spin-elbow',
@@ -463,6 +484,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai spinning elbow tutorial',
+    videoId: '2Z1wLM4wsXE',
   },
 
   // ---------- Defense ----------
@@ -482,6 +504,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai how to check a kick',
+    videoId: 'nIzD8_I_hY0',
   },
   {
     id: 'parry',
@@ -498,6 +521,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai parry technique',
+    videoId: 'fqB_szSOQBk',
   },
   {
     id: 'block',
@@ -515,6 +539,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai high block defense',
+    videoId: 'x9YiOKELqdA',
   },
   {
     id: 'lean-back',
@@ -531,6 +556,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai lean back defense',
+    videoId: 'qywGkWcVcNc',
   },
 
   // ---------- Clinch ----------
@@ -551,6 +577,7 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai plum clinch knees tutorial',
+    videoId: 'z6argMW5Dtw',
   },
 ];
 
