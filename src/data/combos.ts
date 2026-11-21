@@ -22,6 +22,7 @@ const SHORT: Record<string, string> = {
   LU: 'lead-uppercut',
   RU: 'rear-uppercut',
   T: 'teep',
+  RT: 'rear-teep',
   K: 'rear-kick',
   HK: 'head-kick',
   LK: 'low-kick',
@@ -52,7 +53,7 @@ const A = 'advanced';
 
 // The first 18 ids are kept stable: saved training selections refer to them.
 export const PRESET_COMBOS: Combo[] = [
-  // ---------- Beginner (35): fundamentals, short punch/kick chains, simple counters ----------
+  // ---------- Beginner (37): fundamentals, short punch/kick chains, simple counters ----------
   p('1-2', 'Jab Cross', 'J C'),
   p('1-1-2', 'Double Jab Cross', 'J J C'),
   p('1-2-3', 'Jab Cross Hook', 'J C LH'),
@@ -88,8 +89,10 @@ export const PRESET_COMBOS: Combo[] = [
   p('b-1-2-knee-knee', 'Jab Cross Double Knee', 'J C KN KN'),
   p('b-teep-low', 'Teep Low Kick', 'T LK'),
   p('b-kick-2', 'Kick Return Cross', 'K C'),
+  p('b-1-rear-teep', 'Jab Rear Teep', 'J RT'),
+  p('b-1-2-rear-teep', 'Jab Cross Rear Teep', 'J C RT'),
 
-  // ---------- Intermediate (35): head/switch kicks, elbows, diagonal knees, defend-and-counter ----------
+  // ---------- Intermediate (37): head/switch kicks, elbows, diagonal knees, defend-and-counter ----------
   p('5-4-kick', 'Uppercut Hook Kick', 'LU RH K', I),
   p('1-2-elbow', 'Jab Cross Elbow', 'J C E', I),
   p('2-3-switch', 'Cross Hook Switch Kick', 'C LH SK', I),
@@ -125,8 +128,10 @@ export const PRESET_COMBOS: Combo[] = [
   p('i-1-2-1-low', 'Jab Cross Jab Low Kick', 'J C J LK', I),
   p('i-switch-2-3', 'Switch Kick Cross Hook', 'SK C LH', I),
   p('i-1-head', 'Jab Head Kick', 'J HK', I),
+  p('i-double-teep', 'Teep Rear Teep', 'T RT', I),
+  p('i-rear-teep-1-2-kick', 'Rear Teep Jab Cross Kick', 'RT J C K', I),
 
-  // ---------- Advanced (30): long chains, spinning elbows, clinch work, layered counters ----------
+  // ---------- Advanced (32): long chains, spinning elbows, clinch work, layered counters ----------
   p('a-1-2-3-2-head', 'Five-Strike Head Kick', 'J C LH C HK', A),
   p('a-1-2-spin', 'Jab Cross Spinning Elbow', 'J C SE', A),
   p('a-3-spin', 'Hook Spinning Elbow', 'LH SE', A),
@@ -157,6 +162,8 @@ export const PRESET_COMBOS: Combo[] = [
   p('a-clinch-triple', 'Clinch Knee Barrage', 'CL KN DK KN E', A),
   p('a-6-3-spin', 'Uppercut Hook Spinning Elbow', 'RU LH SE', A),
   p('a-1-2-3-low-switch', 'Punches Low Kick Switch Kick', 'J C LH LK SK', A),
+  p('a-1-2-3-rear-teep-head', 'Punches Rear Teep Head Kick', 'J C LH RT HK', A),
+  p('a-parry-2-rear-teep-switch', 'Parry Cross Rear Teep Switch Kick', 'P C RT SK', A),
 ];
 
 /** Tokens to show/say for a combo, e.g. ["1", "2", "Kick"] or ["Jab", "Cross", "Kick"]. */

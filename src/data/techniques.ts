@@ -253,7 +253,7 @@ export const TECHNIQUES: Technique[] = [
   // ---------- Kicks ----------
   {
     id: 'teep',
-    name: 'Teep (Push Kick)',
+    name: 'Lead Teep (Push Kick)',
     call: 'Teep',
     category: 'kicks',
     level: 'beginner',
@@ -273,6 +273,29 @@ export const TECHNIQUES: Technique[] = [
       RETURN,
     ],
     videoQuery: 'muay thai teep push kick tutorial',
+  },
+  {
+    id: 'rear-teep',
+    name: 'Rear Teep',
+    call: 'Rear teep',
+    category: 'kicks',
+    level: 'beginner',
+    strike: true,
+    summary: 'A straight push kick with the rear leg. Slower than the lead teep but far heavier — it can knock an opponent back or off balance.',
+    cues: [
+      'Bring the rear knee straight up through the middle, high to the chest',
+      'Drive the hips forward and push through with the ball of the foot (or the heel)',
+      'Lean back over the support leg and keep both hands up',
+      'Re-chamber, then step down — either back to stance or forward into southpaw',
+    ],
+    mistakes: ['Swinging the leg round like a roundhouse', 'Kicking up instead of pushing through', 'Leaning forward into it and losing balance'],
+    phases: [
+      { label: 'Chamber the rear knee', pose: { rearHip: 95, rearKnee: -110, torso: -6, x: 3, rearPush: 1, rearShoulder: 10 }, ms: 260 },
+      { label: 'Drive the hips through', pose: { rearHip: 92, rearKnee: -4, torso: -24, x: 10, rearPush: 1, rearShoulder: -15, rearElbow: 100 }, ms: 190 },
+      { label: 'Re-chamber', pose: { rearHip: 92, rearKnee: -110, torso: -6, x: 4, rearPush: 1 }, ms: 210 },
+      { ...RETURN, pose: { ...RETURN.pose, rearPush: 1 } },
+    ],
+    videoQuery: 'muay thai rear teep push kick tutorial',
   },
   {
     id: 'rear-kick',

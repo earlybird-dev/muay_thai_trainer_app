@@ -173,6 +173,13 @@ describe('3D pose mapping', () => {
     expect(Math.abs(knee.rear.ankle.z - guard.rear.ankle.z)).toBeLessThan(3);
   });
 
+  it('the rear teep pushes straight forward instead of swinging across', () => {
+    const teep = at('rear-teep', 'Drive');
+    expect(Math.abs(teep.rear.ankle.z - guard.rear.ankle.z)).toBeLessThan(3);
+    expect(teep.rear.ankle.x).toBeGreaterThan(guard.rear.ankle.x + 40); // foot well out in front
+    expect(teep.yaw).toBeCloseTo(guard.yaw);
+  });
+
   it('a half spin puts the lead side on the far side', () => {
     const spun = to3D(withGuard({ facing: -1 }));
     expect(spun.lead.shoulder.z).toBeLessThan(0);
@@ -291,13 +298,13 @@ describe('cloud sync', () => {
 });
 
 describe('starter combo library', () => {
-  it('has 100 combos across all three levels with unique ids and names', () => {
-    expect(PRESET_COMBOS).toHaveLength(100);
+  it('has 106 combos across all three levels with unique ids and names', () => {
+    expect(PRESET_COMBOS).toHaveLength(106);
     const count = (l: string) => PRESET_COMBOS.filter((c) => c.level === l).length;
-    expect([count('beginner'), count('intermediate'), count('advanced')]).toEqual([35, 35, 30]);
-    expect(new Set(PRESET_COMBOS.map((c) => c.id)).size).toBe(100);
-    expect(new Set(PRESET_COMBOS.map((c) => c.name.toLowerCase())).size).toBe(100);
-    expect(new Set(PRESET_COMBOS.map((c) => c.items.join(','))).size).toBe(100);
+    expect([count('beginner'), count('intermediate'), count('advanced')]).toEqual([37, 37, 32]);
+    expect(new Set(PRESET_COMBOS.map((c) => c.id)).size).toBe(PRESET_COMBOS.length);
+    expect(new Set(PRESET_COMBOS.map((c) => c.name.toLowerCase())).size).toBe(PRESET_COMBOS.length);
+    expect(new Set(PRESET_COMBOS.map((c) => c.items.join(','))).size).toBe(PRESET_COMBOS.length);
   });
 
   it('only uses techniques that can be combo strikes', () => {
@@ -433,12 +440,12 @@ describe('training plans', () => {
   it('resolves workout pools and describes workouts', () => {
     const w: Workout = { id: 'w1', name: 'Kicks', config: { ...DEFAULT_CONFIG, mode: 'drill', drillCount: 4, drillSec: 30, drillRestSec: 15, prepSec: 5 }, pool: { kind: 'pick', comboIds: ['preset-teep-kick', 'preset-1-2'] } };
     expect(resolvePool(w.pool, PRESET_COMBOS, []).map((c) => c.id)).toEqual(['preset-teep-kick', 'preset-1-2']);
-    expect(resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, [])).toHaveLength(30);
+    expect(resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, [])).toHaveLength(32);
     // Unticked combos are left out of a level pool, and survive a save/load round trip.
     const adv = resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, []);
     const out = [adv[0].id, adv[1].id];
     expect(resolvePool({ kind: 'advanced', comboIds: [], excluded: out }, PRESET_COMBOS, []).map((c) => c.id)).not.toContain(out[0]);
-    expect(resolvePool({ kind: 'advanced', comboIds: [], excluded: out }, PRESET_COMBOS, [])).toHaveLength(28);
+    expect(resolvePool({ kind: 'advanced', comboIds: [], excluded: out }, PRESET_COMBOS, [])).toHaveLength(30);
     expect(parseWorkout({ id: 'w', name: 'x', config: {}, pool: { kind: 'advanced', comboIds: [], excluded: out } })?.pool.excluded).toEqual(out);
     expect(workoutSummary(w)).toBe('Drill · 4 combos × 30s, 15s rest · 2 picked combos · 2:50');
   });

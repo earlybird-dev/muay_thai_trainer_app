@@ -22,6 +22,8 @@ export interface Pose {
   rearHip: number;
   rearKnee: number;
   facing: number;
+  /** 0..1: an extended rear leg pushes straight forward (rear teep) instead of swinging across (roundhouse). 3D only. */
+  rearPush: number;
 }
 
 export type PartialPose = Partial<Pose>;
@@ -38,6 +40,7 @@ export const GUARD: Pose = {
   rearHip: -22,
   rearKnee: -8,
   facing: 1,
+  rearPush: 0,
 };
 
 export const LIMB = {

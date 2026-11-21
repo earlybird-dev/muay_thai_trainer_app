@@ -97,8 +97,9 @@ export function to3D(p: Pose): Skeleton3D {
   const leadArm = arm(1, p.leadShoulder + torsoArm, p.leadElbow, s.lead.elbow, s.lead.hand, fLead);
   const rearArm = arm(-1, p.rearShoulder + torsoArm, p.rearElbow, s.rear.elbow, s.rear.hand, fRear);
 
-  // Roundhouse: an extended, raised rear leg swings across the body and the hips turn over.
-  const cross = Math.pow(clamp01(Math.sin(rad(p.rearHip))), 2) * clamp01(Math.cos(rad(p.rearKnee)));
+  // Roundhouse: an extended, raised rear leg swings across the body and the hips turn over
+  // (unless it's a push kick, which drives straight forward).
+  const cross = Math.pow(clamp01(Math.sin(rad(p.rearHip))), 2) * clamp01(Math.cos(rad(p.rearKnee))) * (1 - clamp01(p.rearPush ?? 0));
   const hipTurn = rad(45 * cross);
   const hipDx = HIP_Z * Math.sin(hipTurn);
   const hipZ = HIP_Z * Math.cos(hipTurn);
