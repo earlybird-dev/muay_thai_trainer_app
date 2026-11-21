@@ -1318,3 +1318,20 @@ input[type='range'] {
 .reminder-banner span {
   flex: 1;
 }
+
+.combo-main.clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  margin: -4px;
+  padding: 4px;
+}
+.combo-main.clickable:hover .combo-call {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.combo-main.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.combo-main .combo-preview {
+  cursor: default;
+}

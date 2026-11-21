@@ -30,7 +30,24 @@ export default function Combos() {
   // A plain render function (not a nested component) so rows aren't remounted on every render.
   const row = (c: Combo) => (
     <li key={c.id} className="card combo-row">
-      <div className="combo-main">
+      <div
+        className="combo-main clickable"
+        role="button"
+        tabIndex={0}
+        aria-expanded={preview === c.id}
+        aria-label={`${c.name}: ${preview === c.id ? 'hide' : 'show'} preview`}
+        onClick={(e) => {
+          // Dragging/tapping the animation itself (e.g. rotating the 3D fighter) shouldn't close it.
+          if ((e.target as HTMLElement).closest('.combo-preview')) return;
+          setPreview(preview === c.id ? null : c.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setPreview(preview === c.id ? null : c.id);
+          }
+        }}
+      >
         <div className="combo-name">
           {c.name} <span className={`tag tag-${c.level}`}>{c.level}</span>
         </div>
