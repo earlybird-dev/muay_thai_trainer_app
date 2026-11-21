@@ -1,6 +1,7 @@
 import type { Combo } from '../data/combos';
 import { toLevel } from '../data/techniques';
-import type { SessionConfig } from './sessionEngine';
+import { DEFAULT_CONFIG, type SessionConfig } from './sessionEngine';
+import type { TrainPlan, Workout } from './plans';
 
 export interface Settings {
   stance: 'orthodox' | 'southpaw';
@@ -18,6 +19,8 @@ export interface Settings {
 export interface SessionLog {
   id: string;
   date: string; // ISO
+  /** Training mode; older entries have none and were rounds. */
+  mode?: 'rounds' | 'drill';
   rounds: number;
   completedRounds: number;
   roundSec: number;
@@ -25,7 +28,13 @@ export interface SessionLog {
   callouts: number;
   combos: string[]; // combo names used
   durationSec: number;
+  /** Saved workout / plan this session was started from, if any. */
+  workoutId?: string;
+  planId?: string;
 }
+
+/** Synced document collections besides combos. */
+export type DocCollection = 'workouts' | 'plans';
 
 export interface AppData {
   version: 1;
@@ -35,9 +44,15 @@ export interface AppData {
   history: SessionLog[];
   settings: Settings;
   lastSession: Partial<SessionConfig> | null;
+  /** Saved training sessions. */
+  workouts: Workout[];
+  /** Training plans (weekly schedules of a workout). */
+  plans: TrainPlan[];
   // ---- cloud sync bookkeeping ----
   /** Deleted combo id -> ISO time, kept until the deletion has synced. */
   tombstones: Record<string, string>;
+  /** Same, for workouts and plans. */
+  docTombstones: Record<DocCollection, Record<string, string>>;
   /** When learned/videos/synced settings last changed locally. */
   stateUpdatedAt: string | null;
   /** Account whose data is on this device (null = guest / never signed in). */
@@ -65,7 +80,10 @@ export const emptyData = (): AppData => ({
   history: [],
   settings: { ...DEFAULT_SETTINGS },
   lastSession: null,
+  workouts: [],
+  plans: [],
   tombstones: {},
+  docTombstones: { workouts: {}, plans: {} },
   stateUpdatedAt: null,
   syncedUserId: null,
   lastSyncAt: null,
@@ -106,9 +124,10 @@ export function parseData(raw: unknown): AppData {
   const settings = { ...DEFAULT_SETTINGS, ...(isObj(raw.settings) ? (raw.settings as Partial<Settings>) : {}) };
   const lastSession = isObj(raw.lastSession) ? (raw.lastSession as Partial<SessionConfig>) : null;
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
-  const tombstones = isObj(raw.tombstones)
-    ? Object.fromEntries(Object.entries(raw.tombstones).filter((e): e is [string, string] => typeof e[1] === 'string'))
-    : {};
+  const strMap = (v: unknown): Record<string, string> =>
+    isObj(v) ? Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string')) : {};
+  const tombstones = strMap(raw.tombstones);
+  const dt = isObj(raw.docTombstones) ? raw.docTombstones : {};
   return {
     version: 1,
     combos,
@@ -117,10 +136,54 @@ export function parseData(raw: unknown): AppData {
     history,
     settings,
     lastSession,
+    workouts: Array.isArray(raw.workouts) ? raw.workouts.map(parseWorkout).filter((w): w is Workout => !!w) : [],
+    plans: Array.isArray(raw.plans) ? raw.plans.map(parsePlan).filter((p): p is TrainPlan => !!p) : [],
     tombstones,
+    docTombstones: { workouts: strMap(dt.workouts), plans: strMap(dt.plans) },
     stateUpdatedAt: str(raw.stateUpdatedAt),
     syncedUserId: str(raw.syncedUserId),
     lastSyncAt: str(raw.lastSyncAt),
+  };
+}
+
+const POOL_KINDS = ['all', 'beginner', 'intermediate', 'advanced', 'mine', 'pick'];
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validate a workout from storage, a backup file or the server. */
+export function parseWorkout(v: unknown): Workout | null {
+  if (!isObj(v) || typeof v.id !== 'string' || typeof v.name !== 'string' || !isObj(v.config)) return null;
+  const pool = isObj(v.pool) ? v.pool : {};
+  return {
+    id: v.id,
+    name: v.name,
+    config: { ...DEFAULT_CONFIG, ...(v.config as Partial<SessionConfig>) },
+    pool: {
+      kind: (POOL_KINDS.includes(pool.kind as string) ? pool.kind : 'all') as Workout['pool']['kind'],
+      comboIds: Array.isArray(pool.comboIds) ? pool.comboIds.filter((x): x is string => typeof x === 'string') : [],
+    },
+    ...(typeof v.updatedAt === 'string' ? { updatedAt: v.updatedAt } : {}),
+  };
+}
+
+/** Validate a plan from storage, a backup file or the server. */
+export function parsePlan(v: unknown): TrainPlan | null {
+  if (!isObj(v) || typeof v.id !== 'string' || typeof v.workoutId !== 'string' || typeof v.start !== 'string' || !DAY.test(v.start)) return null;
+  const reminder = isObj(v.reminder) ? v.reminder : {};
+  const marks = isObj(v.marks) ? v.marks : {};
+  return {
+    id: v.id,
+    name: typeof v.name === 'string' ? v.name : 'Training plan',
+    workoutId: v.workoutId,
+    start: v.start,
+    days: Math.min(366, Math.max(1, Math.round(Number(v.days) || 30))),
+    weekdays: Array.isArray(v.weekdays) ? [...new Set(v.weekdays.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6))] : [1, 3, 5],
+    reminder: {
+      enabled: reminder.enabled === true,
+      time: typeof reminder.time === 'string' && /^\d{2}:\d{2}$/.test(reminder.time) ? reminder.time : '18:00',
+    },
+    marks: Object.fromEntries(Object.entries(marks).filter(([k, m]) => DAY.test(k) && m === 'done')) as Record<string, 'done'>,
+    ...(v.archived === true ? { archived: true } : {}),
+    ...(typeof v.updatedAt === 'string' ? { updatedAt: v.updatedAt } : {}),
   };
 }
 

@@ -1068,3 +1068,253 @@ input[type='range'] {
   font-weight: 500;
   margin-left: 2px;
 }
+
+.mode-switch {
+  margin-bottom: 6px;
+}
+.next-label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--phase);
+  margin-bottom: 6px;
+}
+.callout.next {
+  font-size: clamp(2rem, 9vw, 4.5rem);
+}
+.rep-count {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* ---------- workouts, plans, today ---------- */
+.tab {
+  min-width: 0;
+}
+.tab span {
+  font-size: 0.7rem;
+}
+.workout-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.workout-row.is-editing {
+  border-color: var(--accent-2);
+}
+.workout-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.editing-banner {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-2) 16%, transparent);
+  font-size: 0.92rem;
+}
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.saved-msg {
+  color: var(--ok);
+  margin: 12px 0 0;
+}
+.today-card {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.today-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.today-head h2 {
+  margin: 0;
+}
+.today-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 0;
+}
+.today-item + .today-item {
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.today-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.today-done {
+  color: var(--ok);
+  font-weight: 800;
+}
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+.plan-card:hover {
+  border-color: var(--accent);
+}
+.plan-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.progress.slim {
+  height: 8px;
+  margin: 2px 0;
+}
+.weekday-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.weekday {
+  min-width: 48px;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.weekday.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.reminder-time .input {
+  max-width: 160px;
+}
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.cal-head {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-bottom: 2px;
+}
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0;
+  cursor: default;
+}
+.cal-cell:not(:disabled) {
+  cursor: pointer;
+}
+.cal-cell.pad {
+  border: 0;
+  background: none;
+}
+.cal-cell.rest {
+  color: var(--muted);
+  opacity: 0.55;
+  font-weight: 500;
+}
+.cal-cell.upcoming {
+  border-color: color-mix(in srgb, var(--info) 60%, var(--border));
+}
+.cal-cell.today {
+  border: 2px solid var(--accent);
+}
+.cal-cell.is-today {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.cal-cell.done,
+.cal-cell.bonus {
+  background: color-mix(in srgb, var(--ok) 28%, var(--bg));
+  border-color: var(--ok);
+}
+.cal-cell.missed {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  color: var(--muted);
+}
+.cal-mark {
+  position: absolute;
+  right: 3px;
+  top: 1px;
+  font-size: 0.68rem;
+  color: var(--ok);
+}
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.lg::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  border: 1px solid var(--border);
+}
+.lg.done::before {
+  background: var(--ok);
+}
+.lg.missed::before {
+  background: color-mix(in srgb, var(--accent) 40%, var(--bg));
+}
+.lg.today::before {
+  border: 2px solid var(--accent);
+}
+.lg.upcoming::before {
+  border-color: var(--info);
+}
+.lg.rest::before {
+  opacity: 0.5;
+}
+.reminder-banner {
+  position: sticky;
+  top: 51px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+.reminder-banner span {
+  flex: 1;
+}

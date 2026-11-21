@@ -10,7 +10,7 @@ const pool = [
   { id: 'a', items: ['jab', 'cross'] },
   { id: 'b', items: ['jab', 'cross', 'rear-kick'] },
 ];
-const cfg: SessionConfig = { ...DEFAULT_CONFIG, rounds: 2, roundSec: 30, restSec: 10, prepSec: 5 };
+const cfg: SessionConfig = { ...DEFAULT_CONFIG, mode: 'rounds', rounds: 2, roundSec: 30, restSec: 10, prepSec: 5 };
 
 describe('sessionEngine', () => {
   const plan = buildPlan(cfg, pool, 42);
@@ -306,5 +306,167 @@ describe('starter combo library', () => {
 
   it('keeps the original starter ids so saved selections still work', () => {
     for (const id of ['1-2', '1-1-2', '1-2-3-kick', 'clinch', 'lean-2-kick']) expect(PRESET_COMBOS.some((c) => c.id === `preset-${id}`)).toBe(true);
+  });
+});
+
+import { drillOrder, mulberry32 } from './sessionEngine';
+
+describe('combo drill mode', () => {
+  const pool3 = [
+    { id: 'a', items: ['jab', 'cross'] },
+    { id: 'b', items: ['jab', 'cross', 'rear-kick'] },
+    { id: 'c', items: ['teep'] },
+  ];
+  const drill: SessionConfig = { ...DEFAULT_CONFIG, mode: 'drill', drillSec: 30, drillRestSec: 10, drillCount: 3, prepSec: 5, order: 'sequential' };
+  const plan = buildPlan(drill, pool3, 7);
+
+  it('alternates work and rest blocks, with no rest after the last combo', () => {
+    expect(plan.segments.map((s) => `${s.kind}:${s.comboId}`)).toEqual(['prep:a', 'round:a', 'rest:b', 'round:b', 'rest:c', 'round:c']);
+    expect(plan.total).toBe(5000 + 3 * 30000 + 2 * 10000);
+  });
+
+  it('calls only the block’s own combo, repeatedly, inside the block', () => {
+    for (const seg of plan.segments.filter((s) => s.kind === 'round')) {
+      const calls = plan.events.filter((e) => e.type === 'callout' && e.at >= seg.start && e.at < seg.end);
+      expect(calls.length).toBeGreaterThanOrEqual(5);
+      for (const e of calls) expect(e.type === 'callout' && e.comboId).toBe(seg.comboId);
+      expect(calls.map((e) => (e.type === 'callout' ? e.rep : 0))).toEqual(calls.map((_, i) => i + 1));
+    }
+    expect(plan.events.some((e) => e.type === 'callout' && stateAt(plan, e.at).segment?.kind !== 'round')).toBe(false);
+  });
+
+  it('announces the next combo during each rest', () => {
+    const nexts = plan.events.filter((e) => e.type === 'next');
+    expect(nexts.map((e) => (e.type === 'next' ? e.comboId : ''))).toEqual(['b', 'c']);
+    for (const e of nexts) expect(stateAt(plan, e.at).segment?.kind).toBe('rest');
+  });
+
+  it('random order uses every combo before repeating and never repeats back-to-back', () => {
+    const order = drillOrder({ ...drill, order: 'random', drillCount: 9 }, pool3, mulberry32(3)).map((c) => c.id);
+    expect(order).toHaveLength(9);
+    for (let i = 0; i < 9; i += 3) expect(new Set(order.slice(i, i + 3)).size).toBe(3);
+    for (let i = 1; i < 9; i++) expect(order[i]).not.toBe(order[i - 1]);
+  });
+
+  it('a single combo drills for one block with no rest', () => {
+    const one = buildPlan({ ...drill, drillCount: 1 }, [pool3[1]], 1);
+    expect(one.segments.map((s) => s.kind)).toEqual(['prep', 'round']);
+    expect(one.events.some((e) => e.type === 'next')).toBe(false);
+  });
+});
+
+import { addDays, completedDays, dayStatus, dueToday, planStats, planWeeks, resolvePool, workoutSummary, type TrainPlan, type Workout } from './plans';
+import { mergeDocs } from './sync';
+import { parsePlan, parseWorkout, type SessionLog } from './storage';
+
+describe('training plans', () => {
+  // 2026-11-02 is a Monday
+  const plan: TrainPlan = {
+    id: 'p1', name: '30 days', workoutId: 'w1', start: '2026-11-02', days: 30,
+    weekdays: [1, 3, 5], reminder: { enabled: false, time: '18:00' }, marks: {},
+  };
+  const session = (day: string, extra: Partial<SessionLog> = {}): SessionLog => ({
+    id: `s-${day}`, date: new Date(`${day}T10:00:00`).toISOString(), rounds: 1, completedRounds: 1,
+    roundSec: 30, restSec: 10, callouts: 5, combos: [], durationSec: 60, workoutId: 'w1', ...extra,
+  });
+
+  it('marks training, rest, done, missed and upcoming days', () => {
+    const history = [session('2026-11-02'), session('2026-11-07')]; // Mon done, Sat bonus
+    const done = completedDays(plan, history);
+    const today = '2026-11-06'; // Friday
+    expect(dayStatus(plan, '2026-11-02', today, done)).toBe('done');
+    expect(dayStatus(plan, '2026-11-03', today, done)).toBe('rest');
+    expect(dayStatus(plan, '2026-11-04', today, done)).toBe('missed');
+    expect(dayStatus(plan, '2026-11-06', today, done)).toBe('today');
+    expect(dayStatus(plan, '2026-11-07', today, done)).toBe('bonus');
+    expect(dayStatus(plan, '2026-11-09', today, done)).toBe('upcoming');
+    expect(dayStatus(plan, '2026-11-01', today, done)).toBe('before');
+    expect(dayStatus(plan, addDays(plan.start, 30), today, done)).toBe('after');
+  });
+
+  it('counts progress and a streak that a pending today does not break', () => {
+    const history = ['2026-11-02', '2026-11-04', '2026-11-06'].map((d) => session(d));
+    const s = planStats(plan, history, '2026-11-09'); // Monday, not trained yet
+    expect(s.trainingDays).toBe(13); // Mon/Wed/Fri across 30 days from a Monday
+    expect(s.done).toBe(3);
+    expect(s.missed).toBe(0);
+    expect(s.streak).toBe(3);
+    expect(s.dayNumber).toBe(8);
+    expect(planStats(plan, history, '2026-11-12').streak).toBe(0); // missed Mon 9 & Wed 11
+  });
+
+  it('counts manual ticks and sessions started from the plan, ignores empty sessions', () => {
+    const p = { ...plan, marks: { '2026-11-04': 'done' as const } };
+    const done = completedDays(p, [session('2026-11-02', { workoutId: undefined, planId: 'p1' }), session('2026-11-06', { completedRounds: 0 })]);
+    expect([...done].sort()).toEqual(['2026-11-02', '2026-11-04']);
+  });
+
+  it('lists what is due today', () => {
+    expect(dueToday([plan], [], '2026-11-04').map((x) => x.status)).toEqual(['today']);
+    expect(dueToday([plan], [], '2026-11-03')).toEqual([]);
+    expect(dueToday([{ ...plan, archived: true }], [], '2026-11-04')).toEqual([]);
+  });
+
+  it('lays the plan out in Monday-first weeks', () => {
+    const weeks = planWeeks({ ...plan, start: '2026-11-04', days: 10 }); // starts on a Wednesday
+    expect(weeks[0]).toEqual([null, null, '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08']);
+    expect(weeks.flat().filter(Boolean)).toHaveLength(10);
+  });
+
+  it('resolves workout pools and describes workouts', () => {
+    const w: Workout = { id: 'w1', name: 'Kicks', config: { ...DEFAULT_CONFIG, mode: 'drill', drillCount: 4, drillSec: 30, drillRestSec: 15, prepSec: 5 }, pool: { kind: 'pick', comboIds: ['preset-teep-kick', 'preset-1-2'] } };
+    expect(resolvePool(w.pool, PRESET_COMBOS, []).map((c) => c.id)).toEqual(['preset-teep-kick', 'preset-1-2']);
+    expect(resolvePool({ kind: 'advanced', comboIds: [] }, PRESET_COMBOS, [])).toHaveLength(30);
+    expect(workoutSummary(w)).toBe('Drill · 4 combos × 30s, 15s rest · 2 picked combos · 2:50');
+  });
+
+  it('validates stored workouts and plans', () => {
+    expect(parseWorkout({ id: 'w', name: 'x', config: { mode: 'drill' }, pool: { kind: 'nope' } })?.pool.kind).toBe('all');
+    expect(parsePlan({ id: 'p', workoutId: 'w', start: 'bad' })).toBeNull();
+    const p = parsePlan({ id: 'p', workoutId: 'w', start: '2026-11-02', days: 9999, weekdays: [1, 1, 9], marks: { '2026-11-02': 'done', x: 'done' } });
+    expect(p).toMatchObject({ days: 366, weekdays: [1], marks: { '2026-11-02': 'done' } });
+  });
+
+  it('syncs workouts/plans newest-wins, including deletions', () => {
+    const T1 = '2026-11-20T10:00:00.000Z';
+    const T2 = '2026-11-21T10:00:00.000Z';
+    const local = [{ ...plan, name: 'local', updatedAt: T2 }];
+    const remoteOlder = [{ id: 'p1', data: { ...plan, name: 'remote' }, deleted: false, updated_at: T1 }];
+    const a = mergeDocs(local, {}, remoteOlder, parsePlan, T2);
+    expect(a.list[0].name).toBe('local');
+    expect(a.push).toHaveLength(1);
+
+    const b = mergeDocs([{ ...plan, updatedAt: T1 }], {}, [{ id: 'p1', data: plan, deleted: true, updated_at: T2 }], parsePlan, T2);
+    expect(b.list).toEqual([]);
+
+    const c = mergeDocs([], { p1: T2 }, [{ id: 'p1', data: plan, deleted: false, updated_at: T1 }], parsePlan, T2);
+    expect(c.push[0]).toMatchObject({ id: 'p1', deleted: true });
+  });
+
+  it('stamps workout/plan edits and deletions for sync', () => {
+    const base = { ...emptyData(), plans: [{ ...plan, updatedAt: '2026-01-01T00:00:00.000Z' }] };
+    const edited = stampChanges(base, { ...base, plans: [{ ...base.plans[0], name: 'renamed' }] }, '2026-11-21T00:00:00.000Z');
+    expect(edited.plans[0].updatedAt).toBe('2026-11-21T00:00:00.000Z');
+    const removed = stampChanges(base, { ...base, plans: [] }, '2026-11-21T00:00:00.000Z');
+    expect(removed.docTombstones.plans).toEqual({ p1: '2026-11-21T00:00:00.000Z' });
+  });
+});
+
+import { remindersDue } from './reminders';
+
+describe('plan reminders', () => {
+  const p: TrainPlan = {
+    id: 'r1', name: 'Kicks', workoutId: 'w1', start: '2026-11-02', days: 30,
+    weekdays: [1, 3, 5], reminder: { enabled: true, time: '18:00' }, marks: {},
+  };
+  const at = (day: string, hm: string) => new Date(`${day}T${hm}:00`);
+
+  it('fires after the reminder time on an unfinished training day only', () => {
+    expect(remindersDue([p], [], at('2026-11-04', '17:59'))).toEqual([]);
+    expect(remindersDue([p], [], at('2026-11-04', '18:00')).map((x) => x.id)).toEqual(['r1']);
+    expect(remindersDue([p], [], at('2026-11-05', '19:00'))).toEqual([]); // rest day
+    expect(remindersDue([{ ...p, reminder: { enabled: false, time: '18:00' } }], [], at('2026-11-04', '19:00'))).toEqual([]);
+    const doneToday = [{ id: 's', date: at('2026-11-04', '07:00').toISOString(), rounds: 1, completedRounds: 1, roundSec: 30, restSec: 10, callouts: 3, combos: [], durationSec: 40, planId: 'r1' }];
+    expect(remindersDue([p], doneToday, at('2026-11-04', '19:00'))).toEqual([]);
   });
 });

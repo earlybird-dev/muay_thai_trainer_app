@@ -7,13 +7,12 @@ import { TECH_BY_ID } from '../data/techniques';
 import { bell, clap, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
+import { newId } from '../data/combos';
+import { workoutSummary, type PoolKind, type Workout } from '../lib/plans';
+import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
+import TodayCard from '../components/TodayCard';
 
-type PoolMode = 'all' | 'beginner' | 'intermediate' | 'advanced' | 'mine' | 'pick';
-
-interface LaunchState {
-  config: SessionConfig;
-  pool: Combo[];
-}
+type PoolMode = PoolKind;
 
 const PACES = [
   { id: 'relaxed', label: 'Relaxed', min: 4.5, max: 7 },
@@ -38,38 +37,106 @@ function Setup() {
   const techParam = params.get('technique');
   const comboParam = params.get('combo');
   const tech = techParam ? TECH_BY_ID[techParam] : undefined;
+  const editParam = params.get('edit');
+  const startWorkout = useStartWorkout();
 
   const saved = { ...DEFAULT_CONFIG, ...(data.lastSession ?? {}) };
-  const [cfg, setCfg] = useState<SessionConfig>(() => (tech ? { ...saved, rounds: 1, freestyleSec: 0 } : saved));
-  const [mode, setMode] = useState<PoolMode>(() => (comboParam ? 'pick' : saved.comboIds.length ? 'pick' : 'all'));
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(comboParam ? [comboParam] : saved.comboIds));
+  const editing0 = editParam ? data.workouts.find((w) => w.id === editParam) : undefined;
+  // Coming from one technique or one combo: drill just that, once.
+  const [cfg, setCfg] = useState<SessionConfig>(() =>
+    editing0
+      ? editing0.config
+      : tech
+        ? { ...saved, rounds: 1, freestyleSec: 0, drillCount: 1 }
+        : comboParam
+          ? { ...saved, drillCount: 1 }
+          : saved,
+  );
+  const [poolMode, setPoolMode] = useState<PoolMode>(() =>
+    editing0 ? editing0.pool.kind : comboParam ? 'pick' : saved.comboIds.length ? 'pick' : 'all',
+  );
+  const [picked, setPicked] = useState<Set<string>>(
+    () => new Set(editing0 ? editing0.pool.comboIds : comboParam ? [comboParam] : saved.comboIds),
+  );
+  /** The saved workout currently loaded for editing, if any. */
+  const [editingId, setEditingId] = useState<string | null>(editing0?.id ?? null);
+  const editing = editingId ? data.workouts.find((w) => w.id === editingId) : undefined;
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  const currentWorkout = (id: string, name: string): Workout => ({
+    id,
+    name,
+    config: { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] },
+    pool: { kind: poolMode, comboIds: poolMode === 'pick' ? [...picked] : [] },
+  });
+  const saveAsNew = () => {
+    const name = prompt('Name this workout', editing ? `${editing.name} (copy)` : drill ? 'Combo drill' : 'Rounds')?.trim();
+    if (!name) return;
+    const w = currentWorkout(newId().replace('c-', 'w-'), name);
+    update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
+    setEditingId(w.id);
+    setSavedMsg(`Saved "${name}". You can add it to a plan on the Plans page.`);
+  };
+  const saveChanges = () => {
+    if (!editing) return;
+    const w = currentWorkout(editing.id, editing.name);
+    update((d) => ({ ...d, workouts: d.workouts.map((x) => (x.id === w.id ? w : x)) }));
+    setSavedMsg(`Updated "${editing.name}".`);
+  };
+  const loadWorkout = (w: Workout) => {
+    setCfg(w.config);
+    setPoolMode(w.pool.kind);
+    setPicked(new Set(w.pool.comboIds));
+    setEditingId(w.id);
+    setSavedMsg(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const deleteWorkout = (w: Workout) => {
+    const usedBy = data.plans.filter((p) => p.workoutId === w.id && !p.archived);
+    const extra = usedBy.length ? ` It is used by ${usedBy.length} plan${usedBy.length === 1 ? '' : 's'}.` : '';
+    if (!confirm(`Delete workout "${w.name}"?${extra}`)) return;
+    update((d) => ({ ...d, workouts: d.workouts.filter((x) => x.id !== w.id) }));
+    if (editingId === w.id) setEditingId(null);
+  };
 
   const set = <K extends keyof SessionConfig>(k: K, v: SessionConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
 
   const pool: Combo[] = useMemo(() => {
     if (tech) return [{ id: `tech-${tech.id}`, name: tech.name, items: [tech.id], level: tech.level, style: 'numbers' }];
-    switch (mode) {
+    switch (poolMode) {
       case 'all':
         return allCombos;
       case 'beginner':
       case 'intermediate':
       case 'advanced':
-        return allCombos.filter((c) => c.level === mode);
+        return allCombos.filter((c) => c.level === poolMode);
       case 'mine':
         return data.combos;
-      case 'pick':
-        return allCombos.filter((c) => picked.has(c.id));
+      case 'pick': {
+        // Keep the order the combos were picked in (a fixed, ordered list).
+        const byId = new Map(allCombos.map((c) => [c.id, c]));
+        return [...picked].map((id) => byId.get(id)).filter((c): c is Combo => !!c);
+      }
     }
-  }, [tech, mode, picked, allCombos, data.combos]);
+  }, [tech, poolMode, picked, allCombos, data.combos]);
 
   const pace = PACES.find((p) => p.min === cfg.minGap && p.max === cfg.maxGap)?.id;
-  const totalSec = cfg.prepSec + cfg.rounds * cfg.roundSec + (cfg.rounds - 1) * cfg.restSec;
+  const drill = cfg.mode === 'drill';
+  const totalSec = drill
+    ? cfg.prepSec + cfg.drillCount * cfg.drillSec + (cfg.drillCount - 1) * cfg.drillRestSec
+    : cfg.prepSec + cfg.rounds * cfg.roundSec + (cfg.rounds - 1) * cfg.restSec;
+  const timeOptions = (values: number[]) =>
+    values.map((s) => (
+      <option key={s} value={s}>
+        {s < 60 ? `${s}s` : formatClock(s * 1000)}
+      </option>
+    ));
 
   const start = () => {
     unlockAudio();
-    const config = { ...cfg, comboIds: mode === 'pick' ? [...picked] : [] };
+    const config = { ...cfg, comboIds: poolMode === 'pick' ? [...picked] : [] };
     if (!tech) update((d) => ({ ...d, lastSession: config }));
-    const state: LaunchState = { config, pool };
+    const state: LaunchState = { config, pool, ...(editing ? { workoutId: editing.id } : {}) };
     navigate('/train/session', { state });
   };
 
@@ -89,44 +156,122 @@ function Setup() {
           Drilling <strong>{tech.name}</strong> on its own. <Link to="/train">Train combos instead</Link>
         </p>
       ) : (
-        <p className="muted">Set up your rounds. Combos are called out by voice and shown big on screen — prop your phone up and go.</p>
+        <p className="muted">Combos are called out by voice and shown big on screen — prop your phone up and go.</p>
+      )}
+
+      {!tech && <TodayCard />}
+
+      {!tech && data.workouts.length > 0 && (
+        <section className="section">
+          <h2>Saved workouts</h2>
+          <ul className="list">
+            {data.workouts.map((w) => (
+              <li key={w.id} className={`card workout-row ${editingId === w.id ? 'is-editing' : ''}`}>
+                <div className="workout-main">
+                  <b>{w.name}</b>
+                  <span className="muted small">{workoutSummary(w)}</span>
+                </div>
+                <div className="combo-actions">
+                  <button
+                    className="btn small primary"
+                    onClick={() => {
+                      if (!startWorkout(w)) alert('This workout has no combos left to call. Edit it and pick some combos.');
+                    }}
+                  >
+                    Start
+                  </button>
+                  <button className="btn small" onClick={() => loadWorkout(w)}>
+                    Edit
+                  </button>
+                  <button className="btn small danger" onClick={() => deleteWorkout(w)}>
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {editing && (
+        <p className="editing-banner">
+          Editing <b>{editing.name}</b> — change the settings below, then <b>Save changes</b>.{' '}
+          <button className="link-btn" onClick={() => setEditingId(null)}>
+            Stop editing
+          </button>
+        </p>
       )}
 
       <section className="card">
-        <h2>Rounds</h2>
+        <div className="seg mode-switch" role="group" aria-label="Training mode">
+          <button className={`seg-btn ${drill ? 'on' : ''}`} onClick={() => set('mode', 'drill')}>
+            Combo drill
+          </button>
+          <button className={`seg-btn ${!drill ? 'on' : ''}`} onClick={() => set('mode', 'rounds')}>
+            Rounds
+          </button>
+        </div>
+        <p className="muted small">
+          {drill
+            ? 'One combo at a time: it is called on every rep for the set time, then you rest while the next combo is shown, and so on.'
+            : 'Classic rounds: combos from the pool are called at random for the whole round.'}
+        </p>
         <div className="form-grid">
-          <label className="field">
-            <span>Rounds</span>
-            <div className="stepper">
-              <button className="btn icon" onClick={() => set('rounds', Math.max(1, cfg.rounds - 1))} aria-label="Fewer rounds">
-                −
-              </button>
-              <b>{cfg.rounds}</b>
-              <button className="btn icon" onClick={() => set('rounds', Math.min(12, cfg.rounds + 1))} aria-label="More rounds">
-                +
-              </button>
-            </div>
-          </label>
-          <label className="field">
-            <span>Round length</span>
-            <select className="input" value={cfg.roundSec} onChange={(e) => set('roundSec', Number(e.target.value))}>
-              {[30, 60, 90, 120, 150, 180, 240, 300].map((s) => (
-                <option key={s} value={s}>
-                  {formatClock(s * 1000)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Rest</span>
-            <select className="input" value={cfg.restSec} onChange={(e) => set('restSec', Number(e.target.value))}>
-              {[10, 20, 30, 45, 60, 90, 120].map((s) => (
-                <option key={s} value={s}>
-                  {formatClock(s * 1000)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {drill ? (
+            <>
+              <label className="field">
+                <span>Time per combo</span>
+                <select className="input" value={cfg.drillSec} onChange={(e) => set('drillSec', Number(e.target.value))}>
+                  {timeOptions([15, 20, 30, 45, 60, 90, 120, 180])}
+                </select>
+              </label>
+              <label className="field">
+                <span>Rest between combos</span>
+                <select className="input" value={cfg.drillRestSec} onChange={(e) => set('drillRestSec', Number(e.target.value))}>
+                  {timeOptions([5, 10, 15, 20, 30, 45, 60, 90])}
+                </select>
+              </label>
+              <label className="field">
+                <span>Number of combos</span>
+                <div className="stepper">
+                  <button className="btn icon" onClick={() => set('drillCount', Math.max(1, cfg.drillCount - 1))} aria-label="Fewer combos">
+                    −
+                  </button>
+                  <b>{cfg.drillCount}</b>
+                  <button className="btn icon" onClick={() => set('drillCount', Math.min(50, cfg.drillCount + 1))} aria-label="More combos">
+                    +
+                  </button>
+                </div>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="field">
+                <span>Rounds</span>
+                <div className="stepper">
+                  <button className="btn icon" onClick={() => set('rounds', Math.max(1, cfg.rounds - 1))} aria-label="Fewer rounds">
+                    −
+                  </button>
+                  <b>{cfg.rounds}</b>
+                  <button className="btn icon" onClick={() => set('rounds', Math.min(12, cfg.rounds + 1))} aria-label="More rounds">
+                    +
+                  </button>
+                </div>
+              </label>
+              <label className="field">
+                <span>Round length</span>
+                <select className="input" value={cfg.roundSec} onChange={(e) => set('roundSec', Number(e.target.value))}>
+                  {timeOptions([30, 60, 90, 120, 150, 180, 240, 300])}
+                </select>
+              </label>
+              <label className="field">
+                <span>Rest</span>
+                <select className="input" value={cfg.restSec} onChange={(e) => set('restSec', Number(e.target.value))}>
+                  {timeOptions([10, 20, 30, 45, 60, 90, 120])}
+                </select>
+              </label>
+            </>
+          )}
           <label className="field">
             <span>Get-ready countdown</span>
             <select className="input" value={cfg.prepSec} onChange={(e) => set('prepSec', Number(e.target.value))}>
@@ -139,7 +284,7 @@ function Setup() {
           </label>
         </div>
         <div className="field">
-          <span>Callout pace</span>
+          <span>{drill ? 'Rep pace (rest between reps)' : 'Callout pace'}</span>
           <div className="seg">
             {PACES.map((p) => (
               <button key={p.id} className={`seg-btn ${pace === p.id ? 'on' : ''}`} onClick={() => setCfg((c) => ({ ...c, minGap: p.min, maxGap: p.max }))}>
@@ -159,16 +304,21 @@ function Setup() {
             </button>
           </div>
         </div>
-        <label className="check">
-          <input type="checkbox" checked={cfg.freestyleSec > 0} onChange={(e) => set('freestyleSec', e.target.checked ? 30 : 0)} />
-          Freestyle burst: last 30s of each round, no callouts — go all out
-        </label>
+        {!drill && (
+          <label className="check">
+            <input type="checkbox" checked={cfg.freestyleSec > 0} onChange={(e) => set('freestyleSec', e.target.checked ? 30 : 0)} />
+            Freestyle burst: last 30s of each round, no callouts — go all out
+          </label>
+        )}
+        {drill && pool.length > 0 && cfg.drillCount > pool.length && (
+          <p className="muted small">The pool has {pool.length} combo{pool.length === 1 ? '' : 's'}, so some will come round again.</p>
+        )}
         <p className="muted small">Total time: {formatClock(totalSec * 1000)}</p>
       </section>
 
       {!tech && (
         <section className="card">
-          <h2>Combos to call</h2>
+          <h2>{drill ? 'Combos to drill' : 'Combos to call'}</h2>
           <div className="seg wrap">
             {(
               [
@@ -180,12 +330,12 @@ function Setup() {
                 ['pick', 'Choose…'],
               ] as [PoolMode, string][]
             ).map(([m, label]) => (
-              <button key={m} className={`seg-btn ${mode === m ? 'on' : ''}`} onClick={() => setMode(m)}>
+              <button key={m} className={`seg-btn ${poolMode === m ? 'on' : ''}`} onClick={() => setPoolMode(m)}>
                 {label}
               </button>
             ))}
           </div>
-          {mode === 'pick' && (
+          {poolMode === 'pick' && (
             <ul className="pick-list">
               {allCombos.map((c) => (
                 <li key={c.id}>
@@ -203,10 +353,26 @@ function Setup() {
         </section>
       )}
 
+      {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
       <div className="row actions sticky-actions">
         <button className="btn primary big" onClick={start} disabled={pool.length === 0}>
           Start session
         </button>
+        {!tech &&
+          (editing ? (
+            <>
+              <button className="btn" onClick={saveChanges} disabled={pool.length === 0}>
+                Save changes
+              </button>
+              <button className="btn" onClick={saveAsNew} disabled={pool.length === 0}>
+                Save as new
+              </button>
+            </>
+          ) : (
+            <button className="btn" onClick={saveAsNew} disabled={pool.length === 0}>
+              Save as workout
+            </button>
+          ))}
       </div>
     </div>
   );
@@ -216,19 +382,21 @@ function Session() {
   const location = useLocation();
   const launch = location.state as LaunchState | null;
   if (!launch) return <Navigate to="/train" replace />;
-  return <SessionRunner config={launch.config} pool={launch.pool} />;
+  return <SessionRunner config={launch.config} pool={launch.pool} workoutId={launch.workoutId} planId={launch.planId} />;
 }
 
-function SessionRunner({ config, pool }: LaunchState) {
+function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   const { data, update } = useStore();
   const navigate = useNavigate();
   const settings = data.settings;
   const plan = useMemo(() => buildPlan(config, pool), [config, pool]);
   const byId = useMemo(() => Object.fromEntries(pool.map((c) => [c.id, c])), [pool]);
+  const drill = config.mode === 'drill';
+  const blocks = drill ? plan.segments.filter((s) => s.kind === 'round').length : config.rounds;
 
   const [t, setT] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [current, setCurrent] = useState<{ combo: Combo; index: number } | null>(null);
+  const [current, setCurrent] = useState<{ combo: Combo; index: number; rep?: number } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [finished, setFinished] = useState<{ completed: number; callouts: number; early: boolean } | null>(null);
   // New array per callout restarts the animation; stable between clock ticks so it can play through.
@@ -260,13 +428,16 @@ function SessionRunner({ config, pool }: LaunchState) {
         {
           id: `s-${Date.now().toString(36)}`,
           date: new Date().toISOString(),
-          rounds: config.rounds,
+          mode: config.mode,
+          rounds: blocks,
           completedRounds: completed,
-          roundSec: config.roundSec,
-          restSec: config.restSec,
+          roundSec: drill ? config.drillSec : config.roundSec,
+          restSec: drill ? config.drillRestSec : config.restSec,
           callouts: callouts.current,
           combos: [...used.current],
           durationSec: Math.round(elapsed / 1000),
+          ...(workoutId ? { workoutId } : {}),
+          ...(planId ? { planId } : {}),
         },
         ...d.history,
       ].slice(0, 500),
@@ -301,16 +472,23 @@ function SessionRunner({ config, pool }: LaunchState) {
         switch (e.type) {
           case 'round-start':
             if (settings.sounds) bell(1, settings.volume);
-            setBanner(`Round ${e.round}`);
+            setBanner(drill ? null : `Round ${e.round}`);
             setCurrent(null);
-            window.setTimeout(() => sayRef.current(`Round ${e.round}. Fight!`), 700);
+            // Drill: the first rep is called straight away, no extra announcement.
+            if (!drill) window.setTimeout(() => sayRef.current(`Round ${e.round}. Fight!`), 700);
             break;
           case 'round-end':
-            if (settings.sounds) bell(3, settings.volume);
+            if (settings.sounds) bell(drill ? 2 : 3, settings.volume);
             setCurrent(null);
-            setBanner(e.round < config.rounds ? 'Rest' : 'Time!');
-            if (e.round < config.rounds) window.setTimeout(() => sayRef.current('Rest. Breathe.'), 1100);
+            setBanner(e.round < blocks ? 'Rest' : 'Time!');
+            // Drill rests are announced by the "next" event instead.
+            if (!drill && e.round < blocks) window.setTimeout(() => sayRef.current('Rest. Breathe.'), 1100);
             break;
+          case 'next': {
+            const combo = byId[e.comboId];
+            if (combo) sayRef.current(`Rest. Next: ${combo.name}. ${calloutSpeech(combo.items, combo.style)}`);
+            break;
+          }
           case 'warning':
             if (settings.sounds) clap(settings.volume);
             break;
@@ -327,13 +505,14 @@ function SessionRunner({ config, pool }: LaunchState) {
               callouts.current++;
               used.current.add(combo.name);
               setBanner(null);
-              setCurrent({ combo, index: e.index });
+              setCurrent({ combo, index: e.index, rep: e.rep });
               sayRef.current(calloutSpeech(combo.items, combo.style));
             }
             break;
           case 'done':
+            if (settings.sounds && drill) bell(3, settings.volume);
             sayRef.current('Great work. Session complete.');
-            logRef.current(config.rounds, false, plan.total);
+            logRef.current(blocks, false, plan.total);
             break;
         }
       }
@@ -342,13 +521,19 @@ function SessionRunner({ config, pool }: LaunchState) {
       clock.current.offset += performance.now() - clock.current.base;
       window.clearInterval(id);
     };
-  }, [paused, finished, plan, byId, config.rounds, settings.sounds, settings.volume]);
+  }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.volume]);
 
   const state = stateAt(plan, t);
   const seg = state.segment;
   const kind = finished ? 'done' : seg?.kind ?? 'done';
   const segProgress = seg ? state.elapsed / (seg.end - seg.start) : 1;
   const nextRound = seg?.kind === 'rest' ? seg.round + 1 : null;
+  // Drill: the combo for this block (during work) or the one coming up (during prep/rest).
+  const blockCombo = drill && seg?.comboId ? byId[seg.comboId] : undefined;
+  const blockPhases = useMemo(
+    () => (blockCombo ? chainPhases(blockCombo.items.map((i) => TECH_BY_ID[i]?.phases ?? [])) : undefined),
+    [blockCombo],
+  );
 
   const end = () => {
     if (!finished && !confirm('End the session now?')) return;
@@ -368,17 +553,23 @@ function SessionRunner({ config, pool }: LaunchState) {
           <div className="stat-row">
             <div className="stat">
               <b>{finished.completed}</b>
-              <span>rounds</span>
+              <span>{drill ? (finished.completed === 1 ? 'combo drilled' : 'combos drilled') : finished.completed === 1 ? 'round' : 'rounds'}</span>
             </div>
             <div className="stat">
               <b>{finished.callouts}</b>
-              <span>combos called</span>
+              <span>{drill ? (finished.callouts === 1 ? 'rep called' : 'reps called') : finished.callouts === 1 ? 'combo called' : 'combos called'}</span>
             </div>
           </div>
           <div className="row center">
-            <button className="btn primary big" onClick={() => navigate('/train')}>
-              Back to setup
-            </button>
+            {planId ? (
+              <button className="btn primary big" onClick={() => navigate(`/plans/${planId}`)}>
+                Back to plan
+              </button>
+            ) : (
+              <button className="btn primary big" onClick={() => navigate('/train')}>
+                Back to setup
+              </button>
+            )}
             <Link className="btn big" to="/history">
               History
             </Link>
@@ -394,7 +585,11 @@ function SessionRunner({ config, pool }: LaunchState) {
       <div className="session-inner">
         <div className="session-top">
           <span className="pill">
-            {kind === 'prep' ? 'Get ready' : kind === 'rest' ? 'Rest' : `Round ${seg?.round ?? config.rounds} / ${config.rounds}`}
+            {kind === 'prep'
+              ? 'Get ready'
+              : kind === 'rest'
+                ? 'Rest'
+                : `${drill ? 'Combo' : 'Round'} ${seg?.round ?? blocks} / ${blocks}`}
           </span>
           {paused && <span className="pill warn">Paused</span>}
         </div>
@@ -404,7 +599,40 @@ function SessionRunner({ config, pool }: LaunchState) {
         </div>
 
         <div className="callout-area" aria-live="assertive">
-          {kind === 'round' && current ? (
+          {drill && blockCombo ? (
+            kind === 'round' ? (
+              <>
+                <div key={current?.index ?? 'start'} className={`callout ${current ? 'pop' : ''}`}>
+                  {calloutDisplay(blockCombo.items, blockCombo.style)}
+                </div>
+                <div className="callout-sub">
+                  {blockCombo.name}
+                  {current?.rep ? <span className="rep-count"> · Rep {current.rep}</span> : null}
+                </div>
+                <FigureView
+                  phases={current ? currentPhases : blockPhases}
+                  playing={!!current}
+                  loop={false}
+                  mirror={settings.stance === 'southpaw'}
+                  className="session-figure"
+                  interactive={false}
+                />
+              </>
+            ) : (
+              <>
+                <div className="next-label">{kind === 'prep' ? 'First up' : `Next up · ${nextRound} / ${blocks}`}</div>
+                <div className="callout next">{calloutDisplay(blockCombo.items, blockCombo.style)}</div>
+                <div className="callout-sub">{blockCombo.items.map((i) => TECH_BY_ID[i]?.name).join(' → ')}</div>
+                <FigureView
+                  phases={blockPhases}
+                  speed={0.7}
+                  mirror={settings.stance === 'southpaw'}
+                  className="session-figure"
+                  interactive={false}
+                />
+              </>
+            )
+          ) : kind === 'round' && current ? (
             <>
               <div key={current.index} className="callout pop">
                 {calloutDisplay(current.combo.items, current.combo.style)}

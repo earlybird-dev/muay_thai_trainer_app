@@ -4,7 +4,18 @@
  * This keeps timing correct even when the browser throttles timers.
  */
 
+export type TrainMode = 'drill' | 'rounds';
+
 export interface SessionConfig {
+  /**
+   * drill:  one combo at a time — called on every rep for `drillSec`, then `drillRestSec` rest,
+   *         then the next combo, for `drillCount` combos.
+   * rounds: classic rounds with random callouts from the pool.
+   */
+  mode: TrainMode;
+  drillSec: number;
+  drillRestSec: number;
+  drillCount: number;
   rounds: number;
   roundSec: number;
   restSec: number;
@@ -19,6 +30,10 @@ export interface SessionConfig {
 }
 
 export const DEFAULT_CONFIG: SessionConfig = {
+  mode: 'drill',
+  drillSec: 30,
+  drillRestSec: 15,
+  drillCount: 6,
   rounds: 3,
   roundSec: 180,
   restSec: 60,
@@ -42,6 +57,8 @@ export interface Segment {
   round: number; // 1-based; for rest = the round just finished
   start: number; // ms
   end: number; // ms
+  /** Drill mode: the combo drilled in this block (round), or coming up next (prep/rest). */
+  comboId?: string;
 }
 
 export type SessionEvent =
@@ -49,7 +66,9 @@ export type SessionEvent =
   | { type: 'round-end'; at: number; round: number }
   | { type: 'warning'; at: number; round: number }
   | { type: 'freestyle'; at: number; round: number }
-  | { type: 'callout'; at: number; round: number; comboId: string; index: number }
+  | { type: 'callout'; at: number; round: number; comboId: string; index: number; rep?: number }
+  /** Drill mode: announce the upcoming combo during the rest. */
+  | { type: 'next'; at: number; round: number; comboId: string }
   | { type: 'done'; at: number };
 
 export interface Plan {
@@ -72,8 +91,79 @@ export function mulberry32(seed: number) {
   };
 }
 
+/** Seconds between the end of one rep and the next call, within [minGap, maxGap]. */
+const gapMs = (config: SessionConfig, rand: () => number) => {
+  const min = Math.max(0.5, Math.min(config.minGap, config.maxGap)) * 1000;
+  const max = Math.max(min, config.maxGap * 1000);
+  return min + rand() * (max - min);
+};
+
+/** The combos to drill, in order. Random order uses every combo once before repeating any. */
+export function drillOrder(config: SessionConfig, pool: PlanCombo[], rand: () => number): PlanCombo[] {
+  const n = Math.max(1, Math.floor(config.drillCount));
+  if (pool.length === 0) return [];
+  if (config.order === 'sequential') return Array.from({ length: n }, (_, i) => pool[i % pool.length]);
+  const out: PlanCombo[] = [];
+  let bag: PlanCombo[] = [];
+  while (out.length < n) {
+    if (bag.length === 0) {
+      bag = [...pool];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      // never the same combo twice in a row across a reshuffle
+      if (bag.length > 1 && out.length && bag[0].id === out[out.length - 1].id) [bag[0], bag[1]] = [bag[1], bag[0]];
+    }
+    out.push(bag.shift()!);
+  }
+  return out;
+}
+
+function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => number): Plan {
+  const segments: Segment[] = [];
+  const events: SessionEvent[] = [];
+  const blocks = drillOrder(config, pool, rand);
+  const workMs = Math.max(5, config.drillSec) * 1000;
+  const restMs = Math.max(0, config.drillRestSec) * 1000;
+
+  let t = 0;
+  if (config.prepSec > 0 && blocks.length) {
+    segments.push({ kind: 'prep', round: 1, start: 0, end: config.prepSec * 1000, comboId: blocks[0].id });
+    t = config.prepSec * 1000;
+  }
+  let index = 0;
+  blocks.forEach((combo, i) => {
+    const r = i + 1;
+    const start = t;
+    const end = t + workMs;
+    segments.push({ kind: 'round', round: r, start, end, comboId: combo.id });
+    events.push({ type: 'round-start', at: start, round: r });
+    // Call the same combo on every rep until there isn't time for another one.
+    const repMs = combo.items.length * MS_PER_STRIKE;
+    let c = start + 1200;
+    let rep = 1;
+    while (c + Math.min(repMs, 1500) < end) {
+      events.push({ type: 'callout', at: c, round: r, comboId: combo.id, index: index++, rep: rep++ });
+      c += repMs + gapMs(config, rand);
+    }
+    events.push({ type: 'round-end', at: end, round: r });
+    t = end;
+    const next = blocks[i + 1];
+    if (next && restMs > 0) {
+      segments.push({ kind: 'rest', round: r, start: t, end: t + restMs, comboId: next.id });
+      events.push({ type: 'next', at: t + Math.min(1500, restMs / 2), round: r + 1, comboId: next.id });
+      t += restMs;
+    }
+  });
+  events.push({ type: 'done', at: t });
+  events.sort((a, b) => a.at - b.at);
+  return { total: t, segments, events };
+}
+
 export function buildPlan(config: SessionConfig, pool: PlanCombo[], seed = Date.now()): Plan {
   const rand = mulberry32(seed);
+  if (config.mode === 'drill') return buildDrillPlan(config, pool, rand);
   const segments: Segment[] = [];
   const events: SessionEvent[] = [];
   const roundMs = Math.max(5, config.roundSec) * 1000;

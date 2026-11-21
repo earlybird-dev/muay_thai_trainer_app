@@ -8,11 +8,14 @@ import ComboEditor from './pages/ComboEditor';
 import Train from './pages/Train';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Plans from './pages/Plans';
+import ReminderBanner from './components/ReminderBanner';
 
 const NAV = [
   { to: '/learn', label: 'Learn', icon: 'M4 5h7v14H4zM13 5h7v14h-7z' },
   { to: '/combos', label: 'Combos', icon: 'M5 12h4m2 0h2m2 0h4M7 8l-2 4 2 4M17 8l2 4-2 4' },
   { to: '/train', label: 'Train', icon: 'M12 3v3M12 13l3-3M5 13a7 7 0 1 0 14 0 7 7 0 0 0-14 0' },
+  { to: '/plans', label: 'Plans', icon: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4M9 14l2 2 4-4' },
   { to: '/history', label: 'History', icon: 'M4 19V9m5 10V5m5 14v-7m5 7v-4' },
   { to: '/settings', label: 'Settings', icon: 'M4 7h10m4 0h2M4 17h4m4 0h8M16 5v4M10 15v4' },
 ];
@@ -53,6 +56,7 @@ export default function App() {
           <AccountBadge />
         </header>
       )}
+      {!inSession && <ReminderBanner />}
       <main className="content">
         <Routes>
           <Route path="/" element={<Navigate to="/learn" replace />} />
@@ -62,6 +66,7 @@ export default function App() {
           <Route path="/combos/new" element={<ComboEditor />} />
           <Route path="/combos/:id" element={<ComboEditor />} />
           <Route path="/train/*" element={<Train />} />
+          <Route path="/plans/*" element={<Plans />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/learn" replace />} />

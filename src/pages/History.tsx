@@ -63,7 +63,7 @@ export default function History() {
                   <span className="muted">{new Date(s.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="small">
-                  {s.completedRounds}/{s.rounds} rounds × {formatClock(s.roundSec * 1000)} · {s.callouts} combos called · {formatClock(s.durationSec * 1000)} total
+                  {s.mode === 'drill' ? <span className="tag">Drill</span> : null} {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
                 </div>
                 {s.combos.length > 0 && <div className="muted small">{s.combos.slice(0, 6).join(', ')}{s.combos.length > 6 ? '…' : ''}</div>}
               </li>

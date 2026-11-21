@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Figure from '../components/Figure';
 import { CATEGORIES, TECHNIQUES } from '../data/techniques';
 import { useStore } from '../lib/store';
+import TodayCard from '../components/TodayCard';
 
 export default function Learn() {
   const { data } = useStore();
@@ -11,6 +12,7 @@ export default function Learn() {
 
   return (
     <div className="page">
+      <TodayCard compact />
       <h1>Learn the basics</h1>
       <p className="muted">Tap a technique for a step-by-step animated breakdown, key cues and video.</p>
 

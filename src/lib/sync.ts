@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Combo } from '../data/combos';
 import { toLevel, type Level } from '../data/techniques';
-import { DEFAULT_SETTINGS, pickSyncedSettings, type AppData, type SessionLog, type SyncedSettings } from './storage';
+import { DEFAULT_SETTINGS, parsePlan, parseWorkout, pickSyncedSettings, type AppData, type DocCollection, type SessionLog, type SyncedSettings } from './storage';
 
 export interface ComboRow {
   user_id?: string;
@@ -34,6 +34,9 @@ export interface SessionRow {
   callouts: number;
   combos: string[];
   duration_sec: number;
+  workout_id?: string | null;
+  plan_id?: string | null;
+  mode?: 'rounds' | 'drill';
 }
 
 export interface StateRow {
@@ -44,17 +47,35 @@ export interface StateRow {
   updated_at: string;
 }
 
+/** Workouts and plans are stored as JSON documents. */
+export interface DocRow {
+  user_id?: string;
+  id: string;
+  data: unknown;
+  deleted: boolean;
+  updated_at: string;
+}
+
 export interface RemoteData {
   combos: ComboRow[];
   sessions: SessionRow[];
   state: StateRow | null;
+  workouts?: DocRow[];
+  plans?: DocRow[];
 }
 
 export interface PushPlan {
   combos: ComboRow[];
   sessions: SessionRow[];
   state: StateRow | null;
+  workouts: DocRow[];
+  plans: DocRow[];
 }
+
+const DOCS: { coll: DocCollection; parse: (v: unknown) => { id: string; updatedAt?: string } | null }[] = [
+  { coll: 'workouts', parse: parseWorkout },
+  { coll: 'plans', parse: parsePlan },
+];
 
 export const HISTORY_LIMIT = 500;
 const EPOCH = '1970-01-01T00:00:00.000Z';
@@ -91,14 +112,80 @@ export function stampChanges(prev: AppData, next: AppData, now = new Date().toIS
       combosChanged = true;
     }
 
+  // Workouts and plans: same idea, keyed on their whole content.
+  const docTombstones = { workouts: { ...next.docTombstones.workouts }, plans: { ...next.docTombstones.plans } };
+  const docs: Partial<Pick<AppData, DocCollection>> = {};
+  let docsChanged = false;
+  for (const { coll } of DOCS) {
+    const docKey = (d: { updatedAt?: string }) => JSON.stringify({ ...d, updatedAt: undefined });
+    const was = new Map((prev[coll] as { id: string; updatedAt?: string }[]).map((d) => [d.id, d]));
+    const list = (next[coll] as { id: string; updatedAt?: string }[]).map((d) => {
+      const old = was.get(d.id);
+      if (docTombstones[coll][d.id]) {
+        delete docTombstones[coll][d.id];
+        docsChanged = true;
+      }
+      if (old && docKey(old) === docKey(d)) return d.updatedAt || !old.updatedAt ? d : { ...d, updatedAt: old.updatedAt };
+      docsChanged = true;
+      return { ...d, updatedAt: now };
+    });
+    const ids = new Set(list.map((d) => d.id));
+    for (const d of prev[coll]) if (!ids.has(d.id)) ((docTombstones[coll][d.id] = now), (docsChanged = true));
+    (docs as Record<string, unknown>)[coll] = list;
+  }
+
   const stateChanged = stateKey(prev) !== stateKey(next);
-  if (!combosChanged && !stateChanged) return next;
+  if (!combosChanged && !stateChanged && !docsChanged) return next;
   return {
     ...next,
     combos,
     tombstones,
+    ...(docsChanged ? { ...docs, docTombstones } : {}),
     stateUpdatedAt: stateChanged ? now : next.stateUpdatedAt,
   };
+}
+
+/** Newest-wins merge for a document collection (workouts / plans). */
+export function mergeDocs<T extends { id: string; updatedAt?: string }>(
+  local: T[],
+  tombs: Record<string, string>,
+  remote: DocRow[],
+  parse: (v: unknown) => T | null,
+  now: string,
+): { list: T[]; push: DocRow[] } {
+  const push: DocRow[] = [];
+  const localById = new Map(local.map((d) => [d.id, d]));
+  const remoteById = new Map(remote.map((r) => [r.id, r]));
+  const merged = new Map<string, T>();
+  for (const id of new Set([...localById.keys(), ...Object.keys(tombs), ...remoteById.keys()])) {
+    const L = localById.get(id);
+    const T = tombs[id];
+    const R = remoteById.get(id);
+    const toRow = (d: T, at: string): DocRow => ({ id, data: { ...d, updatedAt: at }, deleted: false, updated_at: at });
+    if (!R) {
+      if (L) {
+        const at = L.updatedAt ?? now;
+        merged.set(id, { ...L, updatedAt: at });
+        push.push(toRow(L, at));
+      }
+      continue;
+    }
+    const localAt = L ? L.updatedAt ?? EPOCH : T ?? null;
+    if (localAt === null || time(R.updated_at) >= time(localAt)) {
+      const d = R.deleted ? null : parse(R.data);
+      if (d) merged.set(id, { ...d, updatedAt: R.updated_at });
+    } else if (L) {
+      merged.set(id, L);
+      push.push(toRow(L, L.updatedAt ?? now));
+    } else if (T && !R.deleted) {
+      push.push({ id, data: R.data, deleted: true, updated_at: T });
+    }
+  }
+  const list = [
+    ...remote.filter((r) => merged.has(r.id) && !localById.has(r.id)).map((r) => merged.get(r.id)!),
+    ...local.filter((d) => merged.has(d.id)).map((d) => merged.get(d.id)!),
+  ];
+  return { list, push };
 }
 
 // ---------- row mapping ----------
@@ -132,6 +219,9 @@ export const sessionToRow = (s: SessionLog): SessionRow => ({
   callouts: s.callouts,
   combos: s.combos,
   duration_sec: s.durationSec,
+  mode: s.mode ?? 'rounds',
+  workout_id: s.workoutId ?? null,
+  plan_id: s.planId ?? null,
 });
 
 export const rowToSession = (r: SessionRow): SessionLog => ({
@@ -144,13 +234,16 @@ export const rowToSession = (r: SessionRow): SessionLog => ({
   callouts: r.callouts,
   combos: r.combos ?? [],
   durationSec: r.duration_sec,
+  mode: r.mode === 'drill' ? 'drill' : 'rounds',
+  ...(r.workout_id ? { workoutId: r.workout_id } : {}),
+  ...(r.plan_id ? { planId: r.plan_id } : {}),
 });
 
 // ---------- merge ----------
 
 /** Merge local data with the server copy. Returns the new local data and what to send up. */
 export function mergeAll(local: AppData, remote: RemoteData, now = new Date().toISOString()): { data: AppData; push: PushPlan } {
-  const push: PushPlan = { combos: [], sessions: [], state: null };
+  const push: PushPlan = { combos: [], sessions: [], state: null, workouts: [], plans: [] };
 
   // Combos
   const localById = new Map(local.combos.map((c) => [c.id, c]));
@@ -217,8 +310,26 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
     push.state = localStateRow();
   }
 
+  // Workouts + plans
+  const workouts = mergeDocs(local.workouts, local.docTombstones.workouts, remote.workouts ?? [], parseWorkout, now);
+  const plans = mergeDocs(local.plans, local.docTombstones.plans, remote.plans ?? [], parsePlan, now);
+  push.workouts = workouts.push;
+  push.plans = plans.push;
+
   return {
-    data: { ...local, combos, tombstones: {}, history, learned, videos, settings, stateUpdatedAt },
+    data: {
+      ...local,
+      combos,
+      tombstones: {},
+      history,
+      learned,
+      videos,
+      settings,
+      stateUpdatedAt,
+      workouts: workouts.list,
+      plans: plans.list,
+      docTombstones: { workouts: {}, plans: {} },
+    },
     push,
   };
 }
@@ -230,7 +341,10 @@ export const clearAccountData = (d: AppData): AppData => ({
   history: [],
   learned: [],
   videos: {},
+  workouts: [],
+  plans: [],
   tombstones: {},
+  docTombstones: { workouts: {}, plans: {} },
   stateUpdatedAt: null,
   syncedUserId: null,
   lastSyncAt: null,
@@ -239,20 +353,24 @@ export const clearAccountData = (d: AppData): AppData => ({
 // ---------- network ----------
 
 export async function fetchRemote(sb: SupabaseClient): Promise<RemoteData> {
-  const [combos, sessions, state] = await Promise.all([
+  const [combos, sessions, state, workouts, plans] = await Promise.all([
     sb.from('combos').select('id,name,items,level,style,deleted,updated_at'),
     sb
       .from('sessions')
-      .select('id,date,rounds,completed_rounds,round_sec,rest_sec,callouts,combos,duration_sec')
+      .select('id,date,mode,rounds,completed_rounds,round_sec,rest_sec,callouts,combos,duration_sec,workout_id,plan_id')
       .order('date', { ascending: false })
       .limit(HISTORY_LIMIT),
     sb.from('user_state').select('learned,videos,settings,updated_at').maybeSingle(),
+    sb.from('workouts').select('id,data,deleted,updated_at'),
+    sb.from('plans').select('id,data,deleted,updated_at'),
   ]);
-  for (const r of [combos, sessions, state]) if (r.error) throw r.error;
+  for (const r of [combos, sessions, state, workouts, plans]) if (r.error) throw r.error;
   return {
     combos: (combos.data ?? []) as ComboRow[],
     sessions: (sessions.data ?? []) as SessionRow[],
     state: (state.data as StateRow | null) ?? null,
+    workouts: (workouts.data ?? []) as DocRow[],
+    plans: (plans.data ?? []) as DocRow[],
   };
 }
 
@@ -263,6 +381,8 @@ export async function pushRemote(sb: SupabaseClient, userId: string, plan: PushP
   if (plan.sessions.length)
     jobs.push(sb.from('sessions').upsert(plan.sessions.map((r) => ({ ...r, user_id: userId })), { onConflict: 'user_id,id', ignoreDuplicates: true }));
   if (plan.state) jobs.push(sb.from('user_state').upsert({ ...plan.state, user_id: userId }, { onConflict: 'user_id' }));
+  for (const coll of ['workouts', 'plans'] as const)
+    if (plan[coll].length) jobs.push(sb.from(coll).upsert(plan[coll].map((r) => ({ ...r, user_id: userId })), { onConflict: 'user_id,id' }));
   const results = await Promise.all(jobs);
   for (const r of results) if (r.error) throw r.error;
 }
