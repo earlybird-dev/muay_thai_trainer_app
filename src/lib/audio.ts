@@ -165,8 +165,16 @@ export function loadVoiceManifest(): Promise<void> {
   return manifestLoad;
 }
 
+/** Clips that turned out to contain no sound. */
+const silentClips = new Set<string>();
+const isSilent = (b: AudioBuffer) => {
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i += 8) if (Math.abs(d[i]) > 0.01) return false;
+  return true;
+};
+
 /** Whether a recorded clip exists for this text (once the manifest has loaded). */
-export const hasClip = (text: string) => !!clipFiles?.[clipKey(text)];
+export const hasClip = (text: string) => !!clipFiles?.[clipKey(text)] && !silentClips.has(clipKey(text));
 
 /**
  * How to say a combo: its name when the coach voice has it recorded (starter combos), otherwise its strikes
@@ -196,7 +204,11 @@ export async function preloadVoice(texts: string[]) {
         p = fetch(`${import.meta.env.BASE_URL}voice/${file}`)
           .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
           .then((buf) => c.decodeAudioData(buf))
-          .then((b) => void clipBuffers.set(key, normalize(tighten(c, key, trim(c, b)))))
+          .then((b) => {
+            // A broken (silent) recording counts as missing, so the line falls back to the device voice.
+            if (isSilent(b)) silentClips.add(key);
+            else clipBuffers.set(key, normalize(tighten(c, key, trim(c, b))));
+          })
           .catch(() => void clipLoads.delete(key));
         clipLoads.set(key, p);
       }
