@@ -38,7 +38,7 @@ jobs:
           test -f dist/index.html
           test -f dist/sw.js
           grep -qx 'muaythaitrainer.app' dist/CNAME
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         with:
           path: dist
