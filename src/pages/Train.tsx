@@ -10,7 +10,7 @@ import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases
 import { DEFAULT_CONFIG, MIN_PREP_SEC, withLimits, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
-import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
+import { dateKey, planEnd, poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
@@ -159,6 +159,10 @@ function Setup() {
   const [editingId, setEditingId] = useState<string | null>(editing0?.id ?? null);
   const editing = editingId ? data.workouts.find((w) => w.id === editingId) : undefined;
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  /** Name field shown while editing a saved workout. */
+  const [editName, setEditName] = useState(editing0?.name ?? '');
+  useEffect(() => setEditName(editing?.name ?? ''), [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setupTitle = useRef<HTMLHeadingElement>(null);
 
   const currentWorkout = (id: string, name: string): Workout => ({
     id,
@@ -185,9 +189,12 @@ function Setup() {
   };
   const saveChanges = () => {
     if (!editing) return;
-    const w = currentWorkout(editing.id, editing.name);
+    const name = editName.trim() || editing.name;
+    const w = currentWorkout(editing.id, name);
     update((d) => ({ ...d, workouts: d.workouts.map((x) => (x.id === w.id ? w : x)) }));
-    setSavedMsg(`Updated "${editing.name}".`);
+    setSavedMsg(`Updated "${name}".`);
+    // Done editing: back to a normal session setup with these settings.
+    setEditingId(null);
   };
   const loadWorkout = (w: Workout) => {
     setCfg(withLimits(w.config));
@@ -195,12 +202,25 @@ function Setup() {
     setPicked(new Set(w.pool.comboIds));
     setExcluded(new Set(w.pool.excluded ?? []));
     setEditingId(w.id);
+    setEditName(w.name);
     setSavedMsg(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Jump to the form being edited, once it has re-rendered.
+    requestAnimationFrame(() => setupTitle.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const deleteWorkout = async (w: Workout) => {
-    const usedBy = data.plans.filter((p) => p.workoutId === w.id && !p.archived);
-    const extra = usedBy.length ? ` It is used by ${usedBy.length} plan${usedBy.length === 1 ? '' : 's'}, which won't be able to start it.` : '';
+    // A workout that an active plan runs can't be deleted: the plan would be left with nothing to start.
+    const today = dateKey(new Date());
+    const active = data.plans.filter((p) => p.workoutId === w.id && !p.archived && today <= planEnd(p));
+    if (active.length) {
+      const names = active.map((p) => `“${p.name}”`).join(', ');
+      await dialog.alert({
+        title: 'This workout is in use',
+        message: `${names} ${active.length === 1 ? 'uses' : 'use'} “${w.name}”. Pick a different workout in ${active.length === 1 ? 'that plan' : 'those plans'}, or archive ${active.length === 1 ? 'it' : 'them'}, before deleting.`,
+      });
+      return;
+    }
+    const usedBy = data.plans.filter((p) => p.workoutId === w.id);
+    const extra = usedBy.length ? ` ${usedBy.length} finished or archived plan${usedBy.length === 1 ? '' : 's'} used it.` : '';
     if (
       !(await dialog.confirm({
         title: `Delete “${w.name}”?`,
@@ -342,17 +362,27 @@ function Setup() {
         </section>
       )}
 
-      <h2 className="setup-title">{editing ? 'Edit workout' : 'New session'}</h2>
+      <h2 className="setup-title" ref={setupTitle}>
+        {editing ? 'Edit workout' : 'New session'}
+      </h2>
       {editing && (
-        <p className="editing-banner">
-          Editing <b>{editing.name}</b> — change the settings below, then <b>Save changes</b>.{' '}
-          <button className="link-btn" onClick={() => setEditingId(null)}>
-            Stop editing
+        <div className="editing-banner">
+          <span>
+            Editing <b>{editing.name}</b> — change the settings below, then <b>Save changes</b>.
+          </span>
+          <button type="button" className="btn small stop-editing" onClick={() => setEditingId(null)}>
+            <span aria-hidden>✕</span> Stop editing
           </button>
-        </p>
+        </div>
       )}
 
       <section className="card">
+        {editing && (
+          <label className="field workout-name">
+            <span>Workout name</span>
+            <input className="input" value={editName} maxLength={60} onChange={(e) => setEditName(e.target.value)} />
+          </label>
+        )}
         <div className="seg mode-switch" role="group" aria-label="Training mode">
           <button className={`seg-btn ${drill ? 'on' : ''}`} onClick={() => set('mode', 'drill')}>
             Combo drill
@@ -574,14 +604,16 @@ function Setup() {
 
         {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
         <div className="row actions sticky-actions setup-actions">
-          <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
-            <Icon name="play" />
-            Start session
-          </button>
+          {!editing && (
+            <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
+              <Icon name="play" />
+              Start session
+            </button>
+          )}
           {!tech &&
             (editing ? (
               <>
-                <button className="btn big" onClick={saveChanges} disabled={pool.length === 0}>
+                <button className="btn primary big" onClick={saveChanges} disabled={pool.length === 0}>
                   <Icon name="save" />
                   Save changes
                 </button>

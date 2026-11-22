@@ -2800,3 +2800,42 @@ select.input {
   border-color: color-mix(in srgb, var(--ok) 45%, transparent);
   background: color-mix(in srgb, var(--ok) 14%, transparent);
 }
+/* Phones: with three buttons (editing a workout), Start goes on its own row */
+@media (max-width: 600px) {
+  .setup-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .setup-actions .start-btn:not(:only-child):not(:nth-last-child(2)) {
+    flex: 1 1 100%;
+  }
+  .setup-actions .btn {
+    font-size: 1rem;
+  }
+}
+/* Edit workout: name field, and room for the sticky header when scrolled into view */
+.setup-title {
+  scroll-margin-top: 72px;
+}
+.workout-name {
+  margin-bottom: 12px;
+}
+/* Edit workout banner: a clear Stop editing button on the right */
+.editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stop-editing {
+  flex: none;
+  gap: 6px;
+  border-color: color-mix(in srgb, var(--accent-2) 60%, transparent);
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  font-weight: 700;
+}
+.stop-editing:hover {
+  background: color-mix(in srgb, var(--accent-2) 22%, transparent);
+}
