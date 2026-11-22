@@ -59,23 +59,38 @@ const newTrack = (file: string): Track => ({
 });
 /** Training tracks the user can pick from (Settings → Voice & sound). */
 /**
- * A readable name from a downloaded track's file name:
- * "gr0za-racing-racing-speed-brass-music-610347.mp3" → "Gr0za – Racing Racing Speed Brass Music".
+ * A clean name from a downloaded track's file name: drop the artist, the id and filler words, and
+ * repeated words — "gr0za-racing-racing-speed-brass-music-610347.mp3" → "Racing Speed Brass Music".
  */
 export function trackNameFromFile(file: string): string {
   const stem = file.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]\d+$/, '');
   const artist = MULTI_WORD_ARTISTS.find((a) => stem.startsWith(`${a}-`)) ?? stem.split('-')[0];
-  const words = (s: string) =>
-    s
-      .split(/[-_]+/)
-      .filter(Boolean)
-      .map((w) => w[0].toUpperCase() + w.slice(1))
-      .join(' ');
-  const title = stem.slice(artist.length + 1);
-  return title ? `${words(artist)} – ${words(title)}` : words(artist);
+  const seen = new Set<string>();
+  const words = stem
+    .slice(artist.length + 1)
+    .split(/[-_]+/)
+    .filter((w) => {
+      const key = w.toLowerCase().replace(/s$/, '');
+      if (!w || FILLER.has(w.toLowerCase()) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((w) => w[0].toUpperCase() + w.slice(1));
+  return words.join(' ') || 'Track';
 }
 /** Artist names that contain a hyphen in Pixabay file names. */
 const MULTI_WORD_ARTISTS = ['alex-morgan'];
+const FILLER = new Set(['instrumental']);
+
+/** Number names that came out the same ("Trap Beat", "Trap Beat 2"). */
+function uniqueNames<T extends { name: string }>(list: T[]): T[] {
+  const count = new Map<string, number>();
+  return list.map((t) => {
+    const n = (count.get(t.name) ?? 0) + 1;
+    count.set(t.name, n);
+    return n > 1 ? { ...t, name: `${t.name} ${n}` } : t;
+  });
+}
 
 /** Training tracks you can pick (Settings → Voice & sound → Training music), plus "Shuffle all". */
 const DOWNLOADED_TRACKS = [
@@ -94,7 +109,7 @@ const DOWNLOADED_TRACKS = [
 export const TRAINING_TRACKS: { id: string; name: string; file: string }[] = [
   { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },
   { id: 'ring-walk', name: 'Ring Walk', file: 'training-2.mp3' },
-  ...DOWNLOADED_TRACKS.map((file) => ({ id: file.replace(/\.mp3$/, ''), name: trackNameFromFile(file), file })),
+  ...uniqueNames(DOWNLOADED_TRACKS.map((file) => ({ id: file.replace(/\.mp3$/, ''), name: trackNameFromFile(file), file }))),
 ];
 export type TrainingTrackId = string;
 const CALM_FILE = 'calm.mp3';
