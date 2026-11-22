@@ -25,9 +25,10 @@ export default defineConfig({
             options: { cacheName: 'coach-voice', cacheableResponse: { statuses: [200] }, expiration: { maxEntries: 400 } },
           },
           {
+            // Always ask for the newest clip list (new phrases), falling back to the saved one offline.
             urlPattern: ({ url }) => url.pathname.endsWith('/voice/manifest.json'),
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'coach-voice-manifest' },
+            handler: 'NetworkFirst',
+            options: { cacheName: 'coach-voice-manifest', networkTimeoutSeconds: 3 },
           },
         ],
       },
