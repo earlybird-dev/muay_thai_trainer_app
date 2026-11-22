@@ -61,6 +61,9 @@ const newTrack = (file: string): Track => ({
 export const TRAINING_TRACKS = [
   { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },
   { id: 'ring-walk', name: 'Ring Walk', file: 'training-2.mp3' },
+  { id: 'shadow-boxing', name: 'Shadow Boxing', file: 'training-3.mp3' },
+  { id: 'main-event', name: 'Main Event', file: 'training-4.mp3' },
+  { id: 'fight-camp', name: 'Fight Camp', file: 'training-5.mp3' },
 ] as const;
 export type TrainingTrackId = (typeof TRAINING_TRACKS)[number]['id'];
 const CALM_FILE = 'calm.mp3';
