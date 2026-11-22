@@ -41,7 +41,7 @@ export const DEFAULT_CONFIG: SessionConfig = {
   rounds: 3,
   roundSec: 180,
   restSec: 60,
-  prepSec: 5,
+  prepSec: 10,
   minGap: 2.5,
   maxGap: 4.5,
   order: 'random',
@@ -84,6 +84,10 @@ export interface Plan {
 }
 
 export const MS_PER_STRIKE = 700;
+/** Shortest get-ready countdown the app allows, in seconds. */
+export const MIN_PREP_SEC = 10;
+/** Apply app-wide limits to a saved/edited config (older saves may have a shorter get-ready). */
+export const withLimits = (c: SessionConfig): SessionConfig => ({ ...c, prepSec: Math.max(MIN_PREP_SEC, c.prepSec ?? MIN_PREP_SEC) });
 /** Leave this long after a pause starts for the "Next: …" announcement before counting down. */
 export const COUNT_CLEAR_MS = 2600;
 const WARNING_SEC = 10;

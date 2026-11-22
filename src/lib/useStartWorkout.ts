@@ -4,7 +4,7 @@ import type { Combo } from '../data/combos';
 import { unlockAudio } from './audio';
 import { primeTrainingMusic } from './music';
 import { resolvePool, type Workout } from './plans';
-import type { SessionConfig } from './sessionEngine';
+import { withLimits, type SessionConfig } from './sessionEngine';
 import { useStore } from './store';
 
 /** What the session screen needs to run. */
@@ -25,7 +25,7 @@ export function useStartWorkout() {
       if (!pool.length) return false;
       unlockAudio();
       primeTrainingMusic();
-      const state: LaunchState = { config: w.config, pool, workoutId: w.id, ...(planId ? { planId } : {}) };
+      const state: LaunchState = { config: withLimits(w.config), pool, workoutId: w.id, ...(planId ? { planId } : {}) };
       navigate('/train/session', { state });
       return true;
     },

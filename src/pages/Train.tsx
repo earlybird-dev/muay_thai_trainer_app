@@ -6,7 +6,7 @@ import { calloutDisplay, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { beep, bell, clap, comboSpeech, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases';
-import { DEFAULT_CONFIG, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
+import { DEFAULT_CONFIG, MIN_PREP_SEC, withLimits, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
 import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
@@ -128,13 +128,15 @@ function Setup() {
   const editing0 = editParam ? data.workouts.find((w) => w.id === editParam) : undefined;
   // Coming from one technique or one combo: drill just that, once.
   const [cfg, setCfg] = useState<SessionConfig>(() =>
-    editing0
-      ? editing0.config
-      : tech
-        ? { ...saved, rounds: 1, freestyleSec: 0, drillCount: 1 }
-        : comboParam
-          ? { ...saved, drillCount: 1 }
-          : saved,
+    withLimits(
+      editing0
+        ? editing0.config
+        : tech
+          ? { ...saved, rounds: 1, freestyleSec: 0, drillCount: 1 }
+          : comboParam
+            ? { ...saved, drillCount: 1 }
+            : saved,
+    ),
   );
   const [poolMode, setPoolMode] = useState<PoolMode>(() =>
     editing0 ? editing0.pool.kind : comboParam ? 'pick' : saved.comboIds.length ? 'pick' : (saved.poolKind ?? 'essentials'),
@@ -184,7 +186,7 @@ function Setup() {
     setSavedMsg(`Updated "${editing.name}".`);
   };
   const loadWorkout = (w: Workout) => {
-    setCfg(w.config);
+    setCfg(withLimits(w.config));
     setPoolMode(w.pool.kind);
     setPicked(new Set(w.pool.comboIds));
     setExcluded(new Set(w.pool.excluded ?? []));
@@ -405,7 +407,7 @@ function Setup() {
           )}
           <div className="field">
             <span>Get-ready countdown</span>
-            <TimeStepper label="Get-ready countdown" value={cfg.prepSec} step={1} min={0} max={30} onChange={(v) => set('prepSec', v)} />
+            <TimeStepper label="Get-ready countdown" value={cfg.prepSec} step={1} min={MIN_PREP_SEC} max={30} onChange={(v) => set('prepSec', v)} />
           </div>
         </div>
         <div className="setup-line">
