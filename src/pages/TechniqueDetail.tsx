@@ -78,7 +78,7 @@ function Detail({ id }: { id: string }) {
         <h1>
           {t.code && <span className="code big">{t.code}</span>} {t.name}
         </h1>
-        <button className={`btn ${learned ? 'learned-on' : 'primary'}`} onClick={toggleLearned} aria-pressed={learned}>
+        <button className={`btn small ${learned ? 'learned-on' : 'primary'}`} onClick={toggleLearned} aria-pressed={learned}>
           <Icon name="check" />
           {learned ? 'Learned' : 'Mark as learned'}
         </button>
