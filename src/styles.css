@@ -1834,3 +1834,16 @@ input[type='range'] {
 .fighter-loader.figure3d-loading.combo-preview {
   background: transparent;
 }
+/* Phones: search box on its own full-width row; count and Tick/Untick all share the next row. */
+@media (max-width: 600px) {
+  .pick-search .input {
+    flex: 1 1 100%;
+  }
+  .pick-search > .muted {
+    flex: 1 1 auto;
+  }
+  .pick-search .pick-bulk {
+    margin-left: auto;
+    flex-wrap: nowrap;
+  }
+}
