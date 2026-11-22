@@ -2436,3 +2436,19 @@ input[type='range'] {
 .heat-cell:hover {
   z-index: 5;
 }
+/* Days outside the plan: a faint × like a disabled box */
+.ph-cell.before,
+.ph-cell.after {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.ph-x {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+/* Plan calendar fills the card's full width */
+.plan-heat {
+  max-width: none;
+  width: 100%;
+}

@@ -472,7 +472,7 @@ function PlanDetail() {
                         data-tip={tip}
                         aria-label={tip}
                       >
-                        {Number(k.slice(8))}
+                        {inPlan ? Number(k.slice(8)) : <span className="ph-x" aria-hidden>×</span>}
                       </button>
                     );
                   }),
