@@ -1927,26 +1927,13 @@ input[type='range'] {
     flex: 1 1 100%;
   }
 }
-/* Plan calendar: legend and note beside the calendar on wider screens, underneath on phones. */
+/* Plan calendar: legend and note underneath the calendar. */
 .calendar-card {
   display: grid;
-  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
-  gap: 12px 28px;
-  align-items: start;
+  gap: 12px;
 }
 .cal-side .cal-legend {
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 26px;
-}
-@media (max-width: 720px) {
-  .calendar-card {
-    grid-template-columns: 1fr;
-  }
-  .cal-side .cal-legend {
-    flex-direction: row;
-    margin-top: 0;
-  }
+  margin-top: 0;
 }
 /* Full months: each month in the plan gets its own grid; days outside the plan are dimmed. */
 .cal-months {
@@ -1971,4 +1958,416 @@ input[type='range'] {
 .btn.big .btn-icon {
   width: 20px;
   height: 20px;
+}
+
+/* ---------- History dashboard ---------- */
+.hd {
+  --heat-0: var(--surface-2);
+  --heat-1: color-mix(in srgb, var(--accent-2) 28%, var(--surface-2));
+  --heat-2: color-mix(in srgb, var(--accent-2) 52%, var(--surface-2));
+  --heat-3: color-mix(in srgb, var(--accent-2) 76%, var(--surface-2));
+  --heat-4: var(--accent-2);
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+.hd .card {
+  margin-top: 0;
+}
+.hd-tiles {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 12px;
+}
+.hd-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.hd-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hd-value {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.hd-value small {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.hd-hero .hd-value {
+  font-size: 2.6rem;
+  width: fit-content;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hd-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.hd-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.hd-card-head h2 {
+  margin: 0;
+}
+.hd-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Activity calendar (one hue, more training = stronger). Fills the card width; squares stay square. */
+.heat {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 16px repeat(7, auto);
+  gap: 3px;
+  max-width: 760px;
+}
+.heat-day {
+  font-size: 0.68rem;
+  color: var(--muted);
+  padding-right: 4px;
+  align-self: center;
+  line-height: 1;
+}
+.heat-month {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: visible;
+  width: 0;
+}
+.heat-cell {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--heat-0);
+}
+.heat-cell.lv1 {
+  background: var(--heat-1);
+}
+.heat-cell.lv2 {
+  background: var(--heat-2);
+}
+.heat-cell.lv3 {
+  background: var(--heat-3);
+}
+.heat-cell.lv4 {
+  background: var(--heat-4);
+}
+.heat-cell.future {
+  background: transparent;
+  outline: 1px dashed color-mix(in srgb, var(--muted) 30%, transparent);
+  outline-offset: -1px;
+}
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+.heat-legend .heat-cell {
+  width: 12px;
+  height: 12px;
+}
+
+/* Minutes per week (columns, current week emphasised) */
+.wk-chart {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  height: 170px;
+  align-items: end;
+  border-bottom: 1px solid var(--border);
+  padding-top: 18px;
+}
+.wk-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  outline: none;
+}
+.wk-bar {
+  width: min(24px, 70%);
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--accent-2) 45%, var(--surface-2));
+}
+.wk-col.current .wk-bar {
+  background: var(--grad);
+}
+.wk-col:hover .wk-bar,
+.wk-col:focus-visible .wk-bar {
+  filter: brightness(1.15);
+}
+.wk-val {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.wk-label {
+  position: absolute;
+  bottom: -20px;
+  font-size: 0.66rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hd-pair .hd-card:first-child {
+  padding-bottom: 30px;
+}
+
+/* Most drilled (ranked bars) */
+.top-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.top-list li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 9rem) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.top-rank {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+.top-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.top-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.top-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-2);
+}
+.top-list li:first-child .top-bar {
+  background: var(--grad);
+}
+.top-num {
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+  text-align: right;
+}
+
+/* Hover/focus tooltips for chart marks */
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.top-list li[data-tip]:hover::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+@media (max-width: 760px) {
+  .hd-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .hd-tile:not(.hd-hero) .hd-value {
+    font-size: 1.5rem;
+  }
+  .hd-tile:not(.hd-hero) {
+    padding: 10px;
+  }
+  .hd-hero {
+    grid-column: 1 / -1;
+  }
+  .hd-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* "Session complete" card at the top of History */
+.finished-card {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--grad) border-box;
+  margin-bottom: 4px;
+}
+.finished-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.finished-head h2 {
+  margin: 0 0 2px;
+}
+.finished-head p {
+  margin: 0;
+}
+.finished-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--grad);
+  color: #fff;
+  font-weight: 800;
+}
+.finished-close {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+/* "View all sessions" link card on the History dashboard */
+.all-sessions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.all-sessions:hover {
+  border-color: var(--muted);
+}
+.all-sessions-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.all-sessions-arrow {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--grad);
+  color: #fff;
+  font-weight: 800;
+}
+
+/* Plan calendar, Activity-style: week columns, weekday rows, small status squares. */
+.plan-heat {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 16px repeat(7, auto);
+  gap: 3px;
+  max-width: 760px;
+}
+.ph-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: #fff;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.ph-cell:not(:disabled) {
+  cursor: pointer;
+}
+.ph-cell:not(:disabled):hover {
+  filter: brightness(1.2);
+}
+.ph-cell.before,
+.ph-cell.after {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+.ph-cell.rest {
+  background: var(--surface-2);
+}
+.ph-cell.upcoming {
+  background: color-mix(in srgb, var(--info) 22%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--info) 70%, transparent);
+}
+.ph-cell.today {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+  border: 2px solid var(--accent);
+}
+.ph-cell.done,
+.ph-cell.bonus {
+  background: var(--ok);
+  color: #0f2419;
+}
+.ph-cell.missed {
+  background: color-mix(in srgb, var(--accent) 45%, var(--surface-2));
+}
+.ph-cell.moved {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.ph-cell.is-today {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.cal-legend .lg.rest::before {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+.cal-legend .lg.moved::before {
+  background: transparent;
+  border: 1px dashed var(--muted);
+}
+.cal-legend .lg.upcoming::before {
+  background: color-mix(in srgb, var(--info) 22%, var(--surface-2));
+  border-color: var(--info);
 }

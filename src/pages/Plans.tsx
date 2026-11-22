@@ -11,7 +11,7 @@ import {
   parseDay,
   planEnd,
   planStats,
-  planMonths,
+  planWeekColumns,
   workoutSummary,
   type TrainPlan,
 } from '../lib/plans';
@@ -293,6 +293,19 @@ function PlanForm() {
   );
 }
 
+/** Weeks shown in the plan calendar: half a year, or a quarter on phones so squares stay tappable. */
+function useCalendarWeeks() {
+  const query = '(max-width: 600px)';
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const on = () => setNarrow(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return narrow ? 13 : 26;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   done: 'Done',
   missed: 'Missed',
@@ -312,6 +325,7 @@ function PlanDetail() {
   const plan = data.plans.find((p) => p.id === id);
   const today = dateKey(new Date());
   const done = useMemo(() => (plan ? completedDays(plan, data.history) : new Set<string>()), [plan, data.history]);
+  const calWeeks = useCalendarWeeks();
   if (!plan) return <Navigate to="/plans" replace />;
 
   const s = planStats(plan, data.history, today);
@@ -408,41 +422,54 @@ function PlanDetail() {
       )}
 
       <section className="card calendar-card">
-        <div className="cal-months">
-          {planMonths(plan).map((m) => (
-            <div key={m.key} className="cal-month">
-              <h3 className="cal-month-title">{fmtDay(m.key, { month: 'long', year: 'numeric' })}</h3>
-              <div className="calendar" role="grid" aria-label={`Plan calendar, ${fmtDay(m.key, { month: 'long', year: 'numeric' })}`}>
-                {WEEKDAYS.map((d) => (
-                  <div key={d.id} className="cal-head" role="columnheader">
-                    {d.short}
-                  </div>
-                ))}
-                {m.weeks.flat().map((k, i) => {
-                  if (!k) return <div key={`pad-${i}`} className="cal-cell pad" />;
-                  const st = dayStatus(plan, k, today, done);
-                  const inPlan = st !== 'before' && st !== 'after';
-                  const manual = !!plan.marks[k];
-                  // Any past day (or today) in the plan can be ticked — train whichever days suit you.
-                  const clickable = inPlan && k <= today && !fromHistory.has(k);
-                  return (
-                    <button
-                      key={k}
-                      role="gridcell"
-                      className={`cal-cell ${st} ${k === today ? 'is-today' : ''}`}
-                      onClick={() => clickable && toggleMark(k)}
-                      disabled={!clickable}
-                      title={`${fmtDay(k, { weekday: 'long', month: 'long', day: 'numeric' })}: ${inPlan ? (STATUS_LABEL[st] ?? '') : 'Outside this plan'}${manual ? ' (ticked by you)' : ''}`}
-                    >
-                      {parseDay(k).getDate()}
-                      {(st === 'done' || st === 'bonus') && <span className="cal-mark">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
+        {(() => {
+          const cols = planWeekColumns(plan, calWeeks);
+          return (
+            <div
+              className="plan-heat"
+              style={{ gridTemplateColumns: `auto repeat(${cols.length}, minmax(0, 1fr))` }}
+              role="grid"
+              aria-label="Plan calendar"
+            >
+              {['', 'Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((d, i) => (
+                <span key={`d${i}`} className="heat-day" aria-hidden>
+                  {d}
+                </span>
+              ))}
+              {cols.map((col) => {
+                // Label the week that contains the 1st of a month.
+                const firstOfMonth = col.find((k) => k.endsWith('-01'));
+                return [
+                  <span key={`m${col[0]}`} className="heat-month" aria-hidden>
+                    {firstOfMonth ? fmtDay(firstOfMonth, { month: 'short' }) : ''}
+                  </span>,
+                  ...col.map((k) => {
+                    const st = dayStatus(plan, k, today, done);
+                    const inPlan = st !== 'before' && st !== 'after';
+                    const manual = !!plan.marks[k];
+                    // Any past day (or today) in the plan can be ticked — train whichever days suit you.
+                    const clickable = inPlan && k <= today && !fromHistory.has(k);
+                    const tip = `${fmtDay(k, { weekday: 'short', month: 'short', day: 'numeric' })} · ${inPlan ? (STATUS_LABEL[st] ?? '') : 'Outside this plan'}${manual ? ' (ticked)' : ''}`;
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        role="gridcell"
+                        className={`ph-cell ${st} ${k === today ? 'is-today' : ''}`}
+                        onClick={() => clickable && toggleMark(k)}
+                        disabled={!clickable}
+                        data-tip={tip}
+                        aria-label={tip}
+                      >
+                        {(st === 'done' || st === 'bonus') && '✓'}
+                      </button>
+                    );
+                  }),
+                ];
+              })}
             </div>
-          ))}
-        </div>
+          );
+        })()}
         <div className="cal-side">
         <div className="cal-legend small">
           <span className="lg done">Done</span>

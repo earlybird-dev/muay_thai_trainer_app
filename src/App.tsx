@@ -12,7 +12,7 @@ import TechniqueDetail from './pages/TechniqueDetail';
 import Combos from './pages/Combos';
 import ComboEditor from './pages/ComboEditor';
 import Train from './pages/Train';
-import History from './pages/History';
+import History, { HistoryLog } from './pages/History';
 import Settings from './pages/Settings';
 import Plans from './pages/Plans';
 import ReminderBanner from './components/ReminderBanner';
@@ -99,6 +99,7 @@ export default function App() {
           <Route path="/train/*" element={<Train />} />
           <Route path="/plans/*" element={<Plans />} />
           <Route path="/history" element={<History />} />
+          <Route path="/history/sessions" element={<HistoryLog />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/learn" replace />} />
         </Routes>

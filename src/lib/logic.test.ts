@@ -727,3 +727,42 @@ describe('training music', () => {
     expect(TRAINING_TRACKS).toHaveLength(10);
   });
 });
+
+describe('history dashboard', () => {
+  const at = (d: string, min = 20, combos: string[] = []) => ({ date: new Date(`${d}T18:00:00`).toISOString(), durationSec: min * 60, combos }) as SessionLog;
+  it('computes best streak, daily levels, weekly totals and top combos', async () => {
+    const { bestStreak, activityGrid, weeklyTotals, topCombos } = await import('./stats');
+    const h = [at('2026-11-02', 5, ['Jab Cross']), at('2026-11-03', 15, ['Jab Cross', 'Teep Kick']), at('2026-11-04', 40, ['Jab Cross']), at('2026-11-10', 25), at('2026-11-10', 10)];
+    expect(bestStreak(h)).toBe(3);
+    const today = new Date('2026-11-12T12:00:00');
+    const grid = activityGrid(h, 3, today);
+    expect(grid).toHaveLength(3);
+    expect(grid[0][0].key).toBe('2026-10-26'); // a Monday, 2 weeks before this one
+    const lvl = Object.fromEntries(grid.flat().map((d) => [d.key, d.level]));
+    expect([lvl['2026-11-02'], lvl['2026-11-03'], lvl['2026-11-04'], lvl['2026-11-10']]).toEqual([1, 2, 4, 4]); // Nov 10: 35 min
+    expect(grid.flat().find((d) => d.key === '2026-11-13')?.future).toBe(true);
+    const weeks = weeklyTotals(h, 2, today);
+    expect(weeks).toEqual([
+      { start: '2026-11-02', minutes: 60, sessions: 3 },
+      { start: '2026-11-09', minutes: 35, sessions: 2 },
+    ]);
+    expect(topCombos(h)).toEqual([
+      { name: 'Jab Cross', sessions: 3 },
+      { name: 'Teep Kick', sessions: 1 },
+    ]);
+  });
+});
+
+describe('plan week columns', () => {
+  it('shows 26 weeks from the start month, longer if the plan needs it', async () => {
+    const { planWeekColumns } = await import('./plans');
+    const base = { id: 'p', name: 'x', workoutId: 'w', start: '2026-11-22', days: 30, weekdays: [2, 4, 6], reminder: { enabled: false, time: '18:00' }, marks: {} };
+    const cols = planWeekColumns(base);
+    expect(cols).toHaveLength(26);
+    expect(cols[0][0]).toBe('2026-10-26'); // Monday before Nov 1 (a Sunday)
+    expect(cols.every((c) => c.length === 7)).toBe(true);
+    expect(planWeekColumns(base, 13)).toHaveLength(13);
+    const long = planWeekColumns({ ...base, days: 365 }); // a year-long plan grows past 26 weeks
+    expect(long[long.length - 1][6] >= '2027-11-21').toBe(true);
+  });
+});

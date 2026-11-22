@@ -46,3 +46,115 @@ export function daysSince(p: Practice | undefined, now = new Date()): number {
 
 /** A combo you care about is "due" when it hasn't been drilled for this many days. */
 export const DUE_AFTER_DAYS = 7;
+
+// ---------- History dashboard ----------
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/** Local "YYYY-MM-DD". */
+const localKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+/** Monday of the week containing d. */
+const mondayOf = (d: Date) => {
+  const s = startOfDay(d);
+  s.setDate(s.getDate() - ((s.getDay() + 6) % 7));
+  return s;
+};
+
+/** Seconds trained per local day. */
+export function secondsByDay(history: Pick<SessionLog, 'date' | 'durationSec'>[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const h of history) {
+    const k = localKey(new Date(h.date));
+    out.set(k, (out.get(k) ?? 0) + Math.max(0, h.durationSec));
+  }
+  return out;
+}
+
+/** Longest run of consecutive days with at least one session. */
+export function bestStreak(history: Pick<SessionLog, 'date'>[]): number {
+  const days = [...new Set(history.map((h) => localKey(new Date(h.date))))].sort();
+  let best = 0;
+  let run = 0;
+  let prev: Date | null = null;
+  for (const k of days) {
+    const [y, m, d] = k.split('-').map(Number);
+    const cur = new Date(y, m - 1, d);
+    run = prev && Math.round((cur.getTime() - prev.getTime()) / 864e5) === 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = cur;
+  }
+  return best;
+}
+
+export interface HeatDay {
+  key: string;
+  seconds: number;
+  /** 0 = none, 1–4 = more training. */
+  level: 0 | 1 | 2 | 3 | 4;
+  future: boolean;
+}
+
+/** The last `weeks` Monday-first weeks (columns) of days, with a 0–4 training level for each. */
+export function activityGrid(history: Pick<SessionLog, 'date' | 'durationSec'>[], weeks = 16, today = new Date()): HeatDay[][] {
+  const byDay = secondsByDay(history);
+  const start = mondayOf(today);
+  start.setDate(start.getDate() - (weeks - 1) * 7);
+  const todayKey = localKey(today);
+  const cols: HeatDay[][] = [];
+  for (let w = 0; w < weeks; w++) {
+    const col: HeatDay[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + w * 7 + i);
+      const key = localKey(d);
+      const seconds = byDay.get(key) ?? 0;
+      const min = seconds / 60;
+      const level = (seconds <= 0 ? 0 : min < 10 ? 1 : min < 20 ? 2 : min < 35 ? 3 : 4) as HeatDay['level'];
+      col.push({ key, seconds, level, future: key > todayKey });
+    }
+    cols.push(col);
+  }
+  return cols;
+}
+
+export interface WeekTotal {
+  /** Monday, "YYYY-MM-DD". */
+  start: string;
+  minutes: number;
+  sessions: number;
+}
+
+/** Minutes and sessions for each of the last `weeks` weeks (Monday-first), oldest first. */
+export function weeklyTotals(history: Pick<SessionLog, 'date' | 'durationSec'>[], weeks = 8, today = new Date()): WeekTotal[] {
+  const thisMonday = mondayOf(today);
+  const out: WeekTotal[] = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const s = new Date(thisMonday);
+    s.setDate(s.getDate() - w * 7);
+    out.push({ start: localKey(s), minutes: 0, sessions: 0 });
+  }
+  const first = out[0].start;
+  for (const h of history) {
+    const k = localKey(mondayOf(new Date(h.date)));
+    if (k < first) continue;
+    const wk = out.find((x) => x.start === k);
+    if (!wk) continue;
+    wk.minutes += h.durationSec / 60;
+    wk.sessions++;
+  }
+  for (const wk of out) wk.minutes = Math.round(wk.minutes);
+  return out;
+}
+
+/** The combos drilled in the most sessions (names as logged), most first. */
+export function topCombos(history: Pick<SessionLog, 'date' | 'combos'>[], n = 6): { name: string; sessions: number }[] {
+  const count = new Map<string, { name: string; sessions: number }>();
+  for (const h of history)
+    for (const name of new Set(h.combos ?? [])) {
+      const k = name.toLowerCase();
+      const c = count.get(k) ?? { name, sessions: 0 };
+      c.sessions++;
+      count.set(k, c);
+    }
+  return [...count.values()].sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name)).slice(0, n);
+}

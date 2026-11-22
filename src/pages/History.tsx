@@ -1,20 +1,65 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import FinishedCard, { type FinishedSummary } from '../components/FinishedCard';
 import { useAuth } from '../lib/auth';
 import { formatClock } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
-import { streakDays } from '../lib/stats';
+import HistoryDashboard from '../components/HistoryDashboard';
 import { useDialog } from '../components/Dialog';
 
 export default function History() {
+  const { data } = useStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [finished, setFinished] = useState<FinishedSummary | null>(() => (location.state as { finished?: FinishedSummary } | null)?.finished ?? null);
+  const h = data.history;
+  const last = h[0];
+
+  return (
+    <div className="page">
+      <h1>History</h1>
+      {finished && (
+        <FinishedCard
+          s={finished}
+          onClose={() => {
+            setFinished(null);
+            navigate('.', { replace: true, state: null });
+          }}
+        />
+      )}
+      {h.length === 0 ? (
+        <p className="muted">
+          No sessions yet. <Link to="/train">Start your first session</Link> — your charts will appear here.
+        </p>
+      ) : (
+        <>
+          <HistoryDashboard history={h} />
+          <Link to="/history/sessions" className="card all-sessions">
+            <span className="all-sessions-text">
+              <b>
+                View all {h.length} session{h.length === 1 ? '' : 's'}
+              </b>
+              <span className="muted small">
+                Last: {new Date(last.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} ·{' '}
+                {formatClock(last.durationSec * 1000)}
+              </span>
+            </span>
+            <span className="all-sessions-arrow" aria-hidden>
+              →
+            </span>
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function HistoryLog() {
   const dialog = useDialog();
   const { data, update } = useStore();
   const { account, clearRemoteHistory } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const h = data.history;
-  const weekAgo = Date.now() - 7 * 864e5;
-  const thisWeek = h.filter((x) => new Date(x.date).getTime() >= weekAgo);
-  const rounds = h.reduce((s, x) => s + x.completedRounds, 0);
 
   const clear = async () => {
     const where = account ? ' from this device and your account' : '';
@@ -42,21 +87,13 @@ export default function History() {
 
   return (
     <div className="page">
-      <h1>History</h1>
-      <div className="stat-row">
-        <div className="stat card">
-          <b>{streakDays(h)}</b>
-          <span>day streak</span>
-        </div>
-        <div className="stat card">
-          <b>{thisWeek.length}</b>
-          <span>sessions this week</span>
-        </div>
-        <div className="stat card">
-          <b>{rounds}</b>
-          <span>rounds total</span>
-        </div>
-      </div>
+      <Link to="/history" className="back">
+        ← History
+      </Link>
+      <h1>All sessions</h1>
+      <p className="muted small">
+        {h.length} session{h.length === 1 ? '' : 's'}, newest first.
+      </p>
 
       {h.length === 0 ? (
         <p className="muted">

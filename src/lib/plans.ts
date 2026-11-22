@@ -265,6 +265,23 @@ export function planWeeks(p: TrainPlan): (string | null)[][] {
   return weeks;
 }
 
+/**
+ * Monday-first week columns for the Activity-style plan calendar: starting the week of the 1st of the
+ * plan's start month, at least `minWeeks` long, and always long enough to reach the plan's last day.
+ */
+export function planWeekColumns(p: TrainPlan, minWeeks = 26): string[][] {
+  const first = `${p.start.slice(0, 7)}-01`;
+  const startMonday = addDays(first, -((weekday(first) + 6) % 7));
+  const needed = Math.floor(dayIndex({ ...p, start: startMonday }, planEnd(p)) / 7) + 1;
+  const cols: string[][] = [];
+  for (let w = 0; w < Math.max(minWeeks, needed); w++) {
+    const col: string[] = [];
+    for (let i = 0; i < 7; i++) col.push(addDays(startMonday, w * 7 + i));
+    cols.push(col);
+  }
+  return cols;
+}
+
 /** Full calendar months covering the plan, each as Monday-first weeks (null = other month). */
 export function planMonths(p: TrainPlan): { key: string; weeks: (string | null)[][] }[] {
   const out: { key: string; weeks: (string | null)[][] }[] = [];

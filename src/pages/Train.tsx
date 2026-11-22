@@ -12,6 +12,7 @@ import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
 import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
+import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
 import MusicToggle from '../components/MusicToggle';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
@@ -641,6 +642,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     void preloadVoice([...fixedPhrases(), ...pool.map((c) => c.name)]); // strike calls are in fixedPhrases
   }, [pool]);
 
+  const completedRef = useRef(false);
   const log = (completed: number, early: boolean, elapsed: number) => {
     if (logged.current) return;
     logged.current = true;
@@ -678,7 +680,8 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     if (config.prepSec > 0 && config.mode !== 'drill') sayRef.current(PHRASES.getReady);
     return () => {
       lock?.release();
-      stopSpeech();
+      // Let "Great work. Session complete." finish as we move on to History.
+      if (!completedRef.current) stopSpeech();
     };
   }, [config.prepSec, config.mode]);
 
@@ -798,8 +801,29 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
       logRef.current(completed, true, now);
     }
     stopSpeech();
-    navigate('/train');
+    goToHistory(true);
   };
+
+  // A finished session goes straight to History, with a summary card on top.
+  function goToHistory(early: boolean) {
+    const summary: FinishedSummary = {
+      early,
+      drill,
+      completed: plan.segments.filter((sg) => sg.kind === 'round' && sg.end <= lastT.current).length,
+      blocks,
+      callouts: callouts.current,
+      seconds: Math.round(Math.min(lastT.current, plan.total) / 1000),
+      planId,
+    };
+    navigate('/history', { replace: true, state: { finished: summary } });
+  }
+  useEffect(() => {
+    if (finished && !finished.early) {
+      completedRef.current = true;
+      goToHistory(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
 
   if (finished) {
     return (
