@@ -2850,3 +2850,49 @@ select.input {
 .input[aria-invalid='true'] {
   border-color: var(--accent);
 }
+/* "Session in progress" bar shown on every page while a session can be resumed */
+.active-session-bar {
+  position: sticky;
+  top: calc(var(--header-h, 56px) + 8px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--grad) border-box;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.asb-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: asb-pulse 1.6s infinite;
+}
+@keyframes asb-pulse {
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+.asb-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.active-session-bar .btn {
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .asb-dot {
+    animation: none;
+  }
+}

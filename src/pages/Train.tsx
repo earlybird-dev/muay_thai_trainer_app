@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icon';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
@@ -12,6 +12,7 @@ import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
 import { dateKey, planEnd, poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
+import { clearActiveSession, loadActiveSession, saveActiveSession } from '../lib/activeSession';
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
 import Congrats from './Congrats';
@@ -651,25 +652,59 @@ function Setup() {
   );
 }
 
-function Session() {
-  const location = useLocation();
-  const launch = location.state as LaunchState | null;
-  if (!launch) return <Navigate to="/train" replace />;
-  return <SessionRunner config={launch.config} pool={launch.pool} workoutId={launch.workoutId} planId={launch.planId} />;
+interface Resume {
+  elapsed: number;
+  callouts: number;
+  used: string[];
 }
 
-function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
+/**
+ * The session screen. A new launch starts fresh; a refresh of the same screen, or coming
+ * back from the "Session in progress" bar, picks up the saved session where it stopped.
+ */
+function Session() {
+  const location = useLocation();
+  const [start] = useState(() => {
+    const st = location.state as (Partial<LaunchState> & { endNow?: boolean }) | null;
+    const stored = loadActiveSession();
+    const isNewLaunch = !!st?.config && !(stored && stored.key === location.key);
+    if (isNewLaunch) return { launch: st as LaunchState, seed: Date.now(), key: location.key, resume: undefined, endNow: false };
+    if (stored)
+      return {
+        launch: stored.launch,
+        seed: stored.seed,
+        key: stored.key,
+        resume: { elapsed: stored.elapsed, callouts: stored.callouts, used: stored.used } as Resume,
+        endNow: !!st?.endNow,
+      };
+    return null;
+  });
+  if (!start) return <Navigate to="/train" replace />;
+  return <SessionRunner {...start.launch} seed={start.seed} sessionKey={start.key} resume={start.resume} endNow={start.endNow} />;
+}
+
+function SessionRunner({
+  config,
+  pool,
+  workoutId,
+  planId,
+  seed,
+  sessionKey,
+  resume,
+  endNow,
+}: LaunchState & { seed: number; sessionKey: string; resume?: Resume; endNow?: boolean }) {
   const dialog = useDialog();
   const { data, update } = useStore();
   const navigate = useNavigate();
   const settings = data.settings;
-  const plan = useMemo(() => buildPlan(config, pool), [config, pool]);
+  const plan = useMemo(() => buildPlan(config, pool, seed), [config, pool, seed]);
   const byId = useMemo(() => Object.fromEntries(pool.map((c) => [c.id, c])), [pool]);
   const drill = config.mode === 'drill';
   const blocks = drill ? plan.segments.filter((s) => s.kind === 'round').length : config.rounds;
 
-  const [t, setT] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [t, setT] = useState(resume?.elapsed ?? 0);
+  // A resumed session waits for a tap (browsers also need one before they play sound again).
+  const [paused, setPaused] = useState(!!resume);
   const [current, setCurrent] = useState<{ combo: Combo; index: number; rep?: number } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
@@ -680,11 +715,44 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     [current],
   );
 
-  const clock = useRef({ base: performance.now(), offset: 0 });
-  const lastT = useRef(0);
-  const callouts = useRef(0);
-  const used = useRef(new Set<string>());
+  const clock = useRef({ base: performance.now(), offset: resume?.elapsed ?? 0 });
+  const lastT = useRef(resume?.elapsed ?? 0);
+  const callouts = useRef(resume?.callouts ?? 0);
+  const used = useRef(new Set<string>(resume?.used ?? []));
   const logged = useRef(false);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+
+  // Keep the running session on this device so a refresh or a swipe back doesn't lose it.
+  const persist = useCallback(() => {
+    if (logged.current) return;
+    const c = clock.current;
+    const elapsed = pausedRef.current ? c.offset : c.offset + (performance.now() - c.base);
+    saveActiveSession({
+      key: sessionKey,
+      launch: { config, pool, ...(workoutId ? { workoutId } : {}), ...(planId ? { planId } : {}) },
+      seed,
+      elapsed: Math.max(lastT.current, Math.min(elapsed, plan.total)),
+      callouts: callouts.current,
+      used: [...used.current],
+    });
+  }, [sessionKey, config, pool, workoutId, planId, seed, plan.total]);
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  useEffect(() => {
+    persistRef.current();
+    const save = () => persistRef.current();
+    const onVis = () => document.visibilityState === 'hidden' && save();
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      // Leaving the screen (Back, a tab, another page): keep it, paused where it was.
+      pausedRef.current = true;
+      save();
+      window.removeEventListener('pagehide', save);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
 
   const say = (text: string | string[]) => {
     if (settings.voice) speak(text, { voiceURI: settings.voiceURI, rate: settings.rate, volume: settings.volume });
@@ -701,6 +769,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   const log = (completed: number, early: boolean, elapsed: number) => {
     if (logged.current) return;
     logged.current = true;
+    clearActiveSession();
     setFinished({ completed, callouts: callouts.current, early });
     if (completed === 0 && callouts.current === 0) return;
     update((d) => ({
@@ -732,7 +801,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     let lock: { release: () => void } | null = null;
     void requestWakeLock().then((l) => (lock = l));
     // Drill mode announces the first combo during prep instead.
-    if (config.prepSec > 0 && config.mode !== 'drill') sayRef.current(PHRASES.getReady);
+    if (!resume && config.prepSec > 0 && config.mode !== 'drill') sayRef.current(PHRASES.getReady);
     return () => {
       lock?.release();
       // Let "Great work. Session complete." finish as we move on to History.
@@ -744,8 +813,13 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
   useEffect(() => {
     if (paused || finished) return;
     clock.current.base = performance.now();
+    let lastSave = 0;
     const id = window.setInterval(() => {
       const now = clock.current.offset + (performance.now() - clock.current.base);
+      if (now - lastSave >= 1000) {
+        lastSave = now;
+        persistRef.current();
+      }
       const evs = eventsBetween(plan, lastT.current, now);
       lastT.current = now;
       setT(now);
@@ -815,6 +889,8 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     return () => {
       clock.current.offset += performance.now() - clock.current.base;
       window.clearInterval(id);
+      pausedRef.current = true;
+      persistRef.current();
     };
   }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.voice, settings.volume]);
 
@@ -858,6 +934,12 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     stopSpeech();
     goToHistory(true);
   };
+
+  // "End" on the Session in progress bar: open the end-session question straight away.
+  useEffect(() => {
+    if (endNow) void end();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A finished session leaves the session screen straight away.
   function goToHistory(early: boolean) {

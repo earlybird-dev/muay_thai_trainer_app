@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import ActiveSessionBar from './components/ActiveSessionBar';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import { useStore } from './lib/store';
@@ -94,6 +95,7 @@ export default function App() {
       )}
       {!inSession && <ReminderBanner />}
       <main className="content">
+        <ActiveSessionBar />
         <Routes>
           <Route path="/" element={<Navigate to="/learn" replace />} />
           <Route path="/learn" element={<Learn />} />
