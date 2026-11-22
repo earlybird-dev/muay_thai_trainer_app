@@ -58,19 +58,52 @@ const newTrack = (file: string): Track => ({
   pauseTimer: null,
 });
 /** Training tracks the user can pick from (Settings → Voice & sound). */
-export const TRAINING_TRACKS = [
+/**
+ * A readable name from a downloaded track's file name:
+ * "gr0za-racing-racing-speed-brass-music-610347.mp3" → "Gr0za – Racing Racing Speed Brass Music".
+ */
+export function trackNameFromFile(file: string): string {
+  const stem = file.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]\d+$/, '');
+  const artist = MULTI_WORD_ARTISTS.find((a) => stem.startsWith(`${a}-`)) ?? stem.split('-')[0];
+  const words = (s: string) =>
+    s
+      .split(/[-_]+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(' ');
+  const title = stem.slice(artist.length + 1);
+  return title ? `${words(artist)} – ${words(title)}` : words(artist);
+}
+/** Artist names that contain a hyphen in Pixabay file names. */
+const MULTI_WORD_ARTISTS = ['alex-morgan'];
+
+/** Training tracks you can pick (Settings → Voice & sound → Training music), plus "Shuffle all". */
+const DOWNLOADED_TRACKS = [
+  'alex-morgan-dark-trap-lazy-beat-instrumental-587390.mp3',
+  'echoes_of_lumen-trap-beat-heavy-bass-586976.mp3',
+  'gr0za-energy-energy-music-627556.mp3',
+  'gr0za-extreme-sports-extreme-610340.mp3',
+  'gr0za-racing-racing-speed-brass-music-610347.mp3',
+  'gr0za-rap-rap-beat-610255.mp3',
+  'gr0za-trap-trap-beat-610220.mp3',
+  'gr0za-trap-trap-beat-beats-610313.mp3',
+  'gr0za-vlog-vlog-vlogs-music-610218.mp3',
+  'vaitsez-sport-sport-music-607389.mp3',
+  'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3',
+];
+export const TRAINING_TRACKS: { id: string; name: string; file: string }[] = [
   { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },
   { id: 'ring-walk', name: 'Ring Walk', file: 'training-2.mp3' },
-  { id: 'shadow-boxing', name: 'Shadow Boxing', file: 'training-3.mp3' },
-  { id: 'main-event', name: 'Main Event', file: 'training-4.mp3' },
-  { id: 'fight-camp', name: 'Fight Camp', file: 'training-5.mp3' },
-] as const;
-export type TrainingTrackId = (typeof TRAINING_TRACKS)[number]['id'];
+  ...DOWNLOADED_TRACKS.map((file) => ({ id: file.replace(/\.mp3$/, ''), name: trackNameFromFile(file), file })),
+];
+export type TrainingTrackId = string;
 const CALM_FILE = 'calm.mp3';
 /** Setting value that plays every training track, one after another in random order. */
 export const SHUFFLE_TRAINING = 'shuffle';
 let shuffle = true;
 let trainingFile: string = TRAINING_TRACKS[Math.floor(Math.random() * TRAINING_TRACKS.length)].file;
+/** Shuffle: the two tracks picked for this session; they alternate (only two get downloaded). */
+let sessionPair: string[] = [];
 
 /** A random training track, different from `avoid` when there's a choice and skipping broken ones. */
 function pickTrainingFile(avoid?: string): string {
@@ -92,7 +125,8 @@ let trackDuck: GainNode | null = null;
 
 export function configureMusic(opts: { enabled: boolean; volume: number; trainingTrack?: string }) {
   const wasShuffle = shuffle;
-  shuffle = opts.trainingTrack === SHUFFLE_TRAINING;
+  // Shuffle all, or a track that no longer exists (e.g. one that was removed).
+  shuffle = opts.trainingTrack === SHUFFLE_TRAINING || !TRAINING_TRACKS.some((t) => t.id === opts.trainingTrack);
   if (shuffle) {
     if (!wasShuffle) trainingFile = pickTrainingFile();
   } else trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
@@ -127,10 +161,13 @@ export function primeTrainingMusic() {
   const ctx = getAudioContext();
   if (!ctx || !enabled) return;
   const fresh = !getTrack(trainingFile).wanted;
-  // Shuffle: each new session starts on a random track.
-  if (shuffle && fresh) trainingFile = pickTrainingFile();
-  // In shuffle mode every track may need to start later without a tap, so unlock them all now.
-  const files = shuffle ? TRAINING_TRACKS.map((x) => x.file) : [trainingFile];
+  // Shuffle: each new session picks two random tracks and alternates between them. Both are unlocked
+  // now, inside the tap, so phones let the second one start later on its own.
+  if (shuffle && fresh) {
+    trainingFile = pickTrainingFile();
+    sessionPair = [trainingFile, pickTrainingFile(trainingFile)];
+  }
+  const files = shuffle ? [...new Set(sessionPair.length ? sessionPair : [trainingFile])] : [trainingFile];
   for (const file of files) {
     const t = getTrack(file);
     if (!ensureTrack(ctx, t) || !t.el) continue;
@@ -215,7 +252,8 @@ function ensureTrack(ctx: AudioContext, t: Track): boolean {
     // Shuffle mode doesn't loop: when a training track ends, move on to another one.
     el.addEventListener('ended', () => {
       if (!shuffle || !t.wanted) return;
-      const next = pickTrainingFile(trainingFile);
+      const other = sessionPair.find((f) => f !== trainingFile && !TRACKS[f]?.failed);
+      const next = other ?? pickTrainingFile(trainingFile);
       t.wanted = false;
       const n = getTrack(next);
       if (n.el && n !== t) {

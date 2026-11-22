@@ -130,14 +130,22 @@ export default function Settings() {
         {s.music && (
           <div className="field">
             <span>Training music</span>
-            <div className="seg" role="group" aria-label="Training music">
-              {[{ id: SHUFFLE_TRAINING, name: 'Shuffle all' }, ...TRAINING_TRACKS].map((t) => (
-                <button key={t.id} className={`seg-btn ${s.trainingTrack === t.id ? 'on' : ''}`} aria-pressed={s.trainingTrack === t.id} onClick={() => set('trainingTrack', t.id)}>
+            <select
+              className="input"
+              aria-label="Training music"
+              value={TRAINING_TRACKS.some((t) => t.id === s.trainingTrack) ? s.trainingTrack : SHUFFLE_TRAINING}
+              onChange={(e) => set('trainingTrack', e.target.value)}
+            >
+              <option value={SHUFFLE_TRAINING}>🔀 Shuffle all ({TRAINING_TRACKS.length} tracks)</option>
+              {TRAINING_TRACKS.map((t) => (
+                <option key={t.id} value={t.id}>
                   {t.name}
-                </button>
+                </option>
               ))}
-            </div>
-            {s.trainingTrack === SHUFFLE_TRAINING && <p className="muted small">Plays every training track, one after another in random order.</p>}
+            </select>
+            {s.trainingTrack === SHUFFLE_TRAINING && (
+              <p className="muted small">Each session picks two tracks at random and alternates between them.</p>
+            )}
             <button
               className="btn small music-preview"
               aria-pressed={previewing}

@@ -674,3 +674,14 @@ describe('seo', () => {
     expect(canonicalUrl('/')).toBe('https://muaythaitrainer.app/');
   });
 });
+
+describe('training music', () => {
+  it('names downloaded tracks from their file names', async () => {
+    const { trackNameFromFile, TRAINING_TRACKS } = await import('./music');
+    expect(trackNameFromFile('gr0za-racing-racing-speed-brass-music-610347.mp3')).toBe('Gr0za – Racing Racing Speed Brass Music');
+    expect(trackNameFromFile('echoes_of_lumen-trap-beat-heavy-bass-586976.mp3')).toBe('Echoes Of Lumen – Trap Beat Heavy Bass');
+    expect(trackNameFromFile('alex-morgan-dark-trap-lazy-beat-instrumental-587390.mp3')).toBe('Alex Morgan – Dark Trap Lazy Beat Instrumental');
+    expect(new Set(TRAINING_TRACKS.map((t) => t.id)).size).toBe(TRAINING_TRACKS.length);
+    expect(TRAINING_TRACKS).toHaveLength(13);
+  });
+});
