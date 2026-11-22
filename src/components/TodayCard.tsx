@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Icon from './Icon';
 import { addDays, dateKey, dueToday, isTrainingDay, planEnd, planStats, parseDay } from '../lib/plans';
 import { useStore } from '../lib/store';
 import { useStartWorkout } from '../lib/useStartWorkout';
@@ -42,6 +43,7 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
               <span className="today-done">✓ Done</span>
             ) : w ? (
               <button className="btn primary" onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}>
+                <Icon name="play" size={16} />
                 Start
               </button>
             ) : (

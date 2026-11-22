@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Icon from '../components/Icon';
 import { Link, useNavigate } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
@@ -123,7 +124,8 @@ export default function Combos() {
       <div className="page-head">
         <h1>Combos</h1>
         <Link to="/combos/new" className="btn primary">
-          + New combo
+          <Icon name="plus" />
+          New combo
         </Link>
       </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from '../components/Icon';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
@@ -319,6 +320,7 @@ function Setup() {
                         void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
                     }}
                   >
+                    <Icon name="play" size={14} />
                     Start
                   </button>
                   <button className="btn small" onClick={() => loadWorkout(w)}>
@@ -567,20 +569,24 @@ function Setup() {
       {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
       <div className="row actions sticky-actions">
         <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
+          <Icon name="play" />
           Start session
         </button>
         {!tech &&
           (editing ? (
             <>
               <button className="btn big" onClick={saveChanges} disabled={pool.length === 0}>
+                <Icon name="save" />
                 Save changes
               </button>
               <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
+                <Icon name="copy" />
                 Save as new
               </button>
             </>
           ) : (
             <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
+              <Icon name="save" />
               Save as workout
             </button>
           ))}
@@ -813,14 +819,17 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
           <div className="row center">
             {planId ? (
               <button className="btn primary big" onClick={() => navigate(`/plans/${planId}`)}>
+                <Icon name="back" />
                 Back to plan
               </button>
             ) : (
               <button className="btn primary big" onClick={() => navigate('/train')}>
+                <Icon name="back" />
                 Back to setup
               </button>
             )}
             <Link className="btn big" to="/history">
+              <Icon name="history" />
               History
             </Link>
           </div>
@@ -905,10 +914,12 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
 
         <div className="row center session-controls">
           <button className="btn big primary" onClick={() => setPaused((p) => !p)}>
+            <Icon name={paused ? 'play' : 'pause'} />
             {paused ? 'Resume' : 'Pause'}
           </button>
           <MusicToggle className="big" />
           <button className="btn big" onClick={end}>
+            <Icon name="stop" />
             End
           </button>
         </div>

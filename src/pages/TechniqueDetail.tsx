@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Icon from '../components/Icon';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import FigureView from '../components/FigureView';
 import FighterPicker from '../components/FighterPicker';
@@ -126,6 +127,7 @@ function Detail({ id }: { id: string }) {
             ‹
           </button>
           <button className="btn primary" onClick={() => setPlaying((p) => !p)}>
+            <Icon name={playing ? 'pause' : 'play'} />
             {playing ? 'Pause' : 'Play'}
           </button>
           <button className="btn icon" onClick={() => stepTo(phase + 1)} aria-label="Next step">
@@ -215,7 +217,8 @@ function Detail({ id }: { id: string }) {
 
       <div className="row actions">
         <button className={`btn ${learned ? '' : 'primary'}`} onClick={toggleLearned}>
-          {learned ? '✓ Learned (undo)' : 'Mark as learned'}
+          <Icon name="check" />
+          {learned ? 'Learned (undo)' : 'Mark as learned'}
         </button>
         {t.strike && (
           <button className="btn accent" onClick={() => navigate(`/train?technique=${t.id}`)}>

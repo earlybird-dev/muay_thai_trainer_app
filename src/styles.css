@@ -1964,3 +1964,11 @@ input[type='range'] {
   color: var(--muted);
   opacity: 0.35;
 }
+/* Icons in buttons */
+.btn .btn-icon {
+  flex: none;
+}
+.btn.big .btn-icon {
+  width: 20px;
+  height: 20px;
+}

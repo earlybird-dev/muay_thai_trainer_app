@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import Icon from '../components/Icon';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
@@ -167,6 +168,7 @@ export default function ComboEditor() {
 
       <div className="row actions sticky-actions">
         <button className="btn primary" onClick={save} disabled={!canSave}>
+          <Icon name="save" />
           Save combo
         </button>
         <Link to="/combos" className="btn">

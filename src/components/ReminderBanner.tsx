@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Icon from './Icon';
 import { Link, useLocation } from 'react-router-dom';
 import { notify, remindersDue, takeUnshown } from '../lib/reminders';
 import { useStore } from '../lib/store';
@@ -43,6 +44,7 @@ export default function ReminderBanner() {
         🥊 Time to train: <b>{due.map((p) => p.name).join(', ')}</b>
       </span>
       <Link to="/train" className="btn small primary">
+        <Icon name="play" size={14} />
         Go
       </Link>
       <button className="link-btn" onClick={() => setDismissed(key)} aria-label="Dismiss reminder">

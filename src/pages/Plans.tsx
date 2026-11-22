@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from '../components/Icon';
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { newId } from '../data/combos';
 import {
@@ -71,7 +72,8 @@ function PlanList() {
       <div className="page-head">
         <h1>Plans</h1>
         <Link to="/plans/new" className="btn primary">
-          + New plan
+          <Icon name="plus" />
+          New plan
         </Link>
       </div>
       <p className="muted">
@@ -280,6 +282,7 @@ function PlanForm() {
 
       <div className="row actions">
         <button className="btn primary" onClick={save} disabled={!valid}>
+          <Icon name={existing ? 'save' : 'plus'} />
           {existing ? 'Save plan' : 'Create plan'}
         </button>
         <Link to={existing ? `/plans/${existing.id}` : '/plans'} className="btn">
@@ -385,7 +388,8 @@ function PlanDetail() {
             className="btn primary big start-btn"
             onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}
           >
-            ▶ Start session
+            <Icon name="play" />
+            Start session
           </button>
           <span className="muted small">
             {todayStatus === 'done' || todayStatus === 'bonus'

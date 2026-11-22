@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Icon from './Icon';
 
 /** In-app replacements for window.confirm / alert / prompt, styled like the rest of the app. */
 
@@ -156,6 +157,7 @@ function DialogView({ req, onClose }: { req: Request; onClose: () => void }) {
               </button>
             )}
             <button ref={okRef} type="submit" className={`btn ${opts.danger ? 'danger solid' : 'primary'}`} disabled={promptEmpty}>
+              {!opts.danger && <Icon name="check" />}
               {confirmLabel}
             </button>
           </div>
