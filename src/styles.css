@@ -2039,7 +2039,7 @@ input[type='range'] {
   grid-auto-flow: column;
   grid-template-rows: 16px repeat(7, auto);
   gap: 3px;
-  max-width: 760px;
+  width: 100%;
 }
 .heat-day {
   font-size: 0.68rem;
