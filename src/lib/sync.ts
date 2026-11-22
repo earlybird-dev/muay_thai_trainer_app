@@ -286,7 +286,9 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
     .filter((x): x is string => typeof x === 'string')
     .map(time);
   const clearedAt = clears.length ? Math.max(...clears) : -Infinity;
-  const kept = (s: SessionLog) => time(s.date) > clearedAt;
+  // Sample sessions (see demoData.ts) are back-dated on purpose, so a clear made before they were added
+  // doesn't drop them; "Clear history" still removes them, locally and in the account.
+  const kept = (s: SessionLog) => time(s.date) > clearedAt || s.id.startsWith('demo-');
   const remoteSessionIds = new Set(remote.sessions.map((s) => s.id));
   for (const s of local.history) if (kept(s) && !remoteSessionIds.has(s.id)) push.sessions.push(sessionToRow(s));
   const seen = new Set<string>();
