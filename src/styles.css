@@ -1,4 +1,5 @@
 :root {
+  --today: #f5b83d; /* plan calendar: today (gold, apart from missed red) */
   --bg: #141416;
   --surface: #1e1e22;
   --surface-2: #2a2a30;
@@ -1368,7 +1369,7 @@ input[type='range'] {
   background: color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 .lg.today::before {
-  border: 2px solid var(--accent);
+  border: 2px solid var(--today);
 }
 .lg.upcoming::before {
   border-color: var(--info);
@@ -2160,7 +2161,8 @@ input[type='range'] {
   color: var(--muted);
 }
 .top-name {
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.88rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2340,8 +2342,8 @@ input[type='range'] {
   border-color: color-mix(in srgb, var(--info) 70%, transparent);
 }
 .ph-cell.today {
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
-  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--today) 18%, var(--surface-2));
+  border: 2px solid var(--today);
 }
 .ph-cell.done,
 .ph-cell.bonus {
@@ -2356,7 +2358,7 @@ input[type='range'] {
   border: 1px dashed color-mix(in srgb, var(--muted) 70%, transparent);
 }
 .ph-cell.is-today {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--today) 45%, transparent);
 }
 
 .cal-legend .lg.rest::before {
@@ -2370,4 +2372,24 @@ input[type='range'] {
 .cal-legend .lg.upcoming::before {
   background: color-mix(in srgb, var(--info) 22%, var(--surface-2));
   border-color: var(--info);
+}
+/* Day numbers in the plan calendar squares */
+.ph-cell {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--text) 75%, transparent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ph-cell.before,
+.ph-cell.after {
+  color: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.ph-cell.done,
+.ph-cell.bonus {
+  color: #0f2419;
+}
+.ph-cell.today,
+.ph-cell.upcoming {
+  color: var(--text);
 }

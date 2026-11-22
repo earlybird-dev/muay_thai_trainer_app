@@ -461,7 +461,7 @@ function PlanDetail() {
                         data-tip={tip}
                         aria-label={tip}
                       >
-                        {(st === 'done' || st === 'bonus') && '✓'}
+                        {Number(k.slice(8))}
                       </button>
                     );
                   }),
