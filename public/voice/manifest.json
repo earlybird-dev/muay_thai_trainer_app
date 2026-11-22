@@ -161,6 +161,7 @@
     "parry": "parry.mp3",
     "block": "block.mp3",
     "lean back": "lean-back.mp3",
-    "clinch knee": "clinch-knee.mp3"
+    "clinch knee": "clinch-knee.mp3",
+    "go": "go.mp3"
   }
 }

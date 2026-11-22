@@ -10,6 +10,7 @@ export const PHRASES = {
   restNext: 'Rest. Next',
   next: 'Next',
   fight: 'Fight!',
+  go: 'Go!',
   restBreathe: 'Rest. Breathe.',
   freestyle: 'Freestyle! Everything you have!',
   done: 'Great work. Session complete.',

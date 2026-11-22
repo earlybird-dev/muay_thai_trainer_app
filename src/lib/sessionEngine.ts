@@ -73,7 +73,7 @@ export type SessionEvent =
   | { type: 'callout'; at: number; round: number; comboId: string; index: number; rep?: number }
   /** Drill mode: announce the upcoming combo during the rest. */
   | { type: 'next'; at: number; round: number; comboId: string }
-  /** Drill mode: "3, 2, 1" over the last seconds of each combo block. */
+  /** Drill mode: "3, 2, 1" before each combo block, then n = 0: "Go!" as it starts. */
   | { type: 'count'; at: number; round: number; n: number }
   | { type: 'done'; at: number };
 
@@ -84,6 +84,8 @@ export interface Plan {
 }
 
 export const MS_PER_STRIKE = 700;
+/** Leave this long after a pause starts for the "Next: …" announcement before counting down. */
+export const COUNT_CLEAR_MS = 2600;
 const WARNING_SEC = 10;
 
 export function mulberry32(seed: number) {
@@ -150,6 +152,16 @@ function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => nu
     // No countdown/rest before this block to announce it in, so announce it as it starts.
     const announced = r === 1 ? config.prepSec > 0 : restMs > 0;
     if (!announced) events.push({ type: 'next', at: start, round: r, comboId: combo.id });
+    else {
+      // "3, 2, 1, Go!" into the block, in the last seconds of the get-ready / rest — but never over the
+      // "Next: …" announcement at the start of that pause.
+      const pauseStart = start - (r === 1 ? config.prepSec * 1000 : restMs);
+      for (let n = 3; n >= 1; n--) {
+        const at = start - n * 1000;
+        if (at >= pauseStart + COUNT_CLEAR_MS) events.push({ type: 'count', at, round: r, n });
+      }
+      events.push({ type: 'count', at: start, round: r, n: 0 });
+    }
     // Call the same combo on every rep until there isn't time for another one.
     const repMs = combo.items.length * MS_PER_STRIKE;
     let c = start + 1200;
@@ -157,10 +169,6 @@ function buildDrillPlan(config: SessionConfig, pool: PlanCombo[], rand: () => nu
     while (c + Math.min(repMs, 1500) < end) {
       events.push({ type: 'callout', at: c, round: r, comboId: combo.id, index: index++, rep: rep++ });
       c += repMs + gapMs(config, rand);
-    }
-    for (let n = 3; n >= 1; n--) {
-      const at = end - n * 1000;
-      if (at > start + 1000) events.push({ type: 'count', at, round: r, n });
     }
     events.push({ type: 'round-end', at: end, round: r });
     t = end;

@@ -688,7 +688,6 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
       for (const e of evs) {
         switch (e.type) {
           case 'round-start':
-            setCount(null);
             if (settings.sounds) bell(1, settings.volume);
             setBanner(drill ? null : `Round ${e.round}`);
             setCurrent(null);
@@ -713,9 +712,10 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
             break;
           }
           case 'count':
-            setCount(e.n);
-            if (settings.voice) sayRef.current(countPhrase(e.n));
-            else if (settings.sounds) beep(settings.volume);
+            // 3, 2, 1 into the combo; n = 0 is "Go!" as it starts (the bell rings with it).
+            setCount(e.n > 0 ? e.n : null);
+            if (settings.voice) sayRef.current(e.n > 0 ? countPhrase(e.n) : PHRASES.go);
+            else if (settings.sounds && e.n > 0) beep(settings.volume);
             break;
           case 'warning':
             if (settings.sounds) clap(settings.volume);
@@ -842,7 +842,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
           {paused && <span className="pill warn">Paused</span>}
         </div>
 
-        <div key={kind === 'round' && count ? `count-${count}` : 'clock'} className={`clock ${kind === 'round' && count ? 'counting' : ''}`} aria-live="off">
+        <div key={kind !== 'round' && count ? `count-${count}` : 'clock'} className={`clock ${kind !== 'round' && count ? 'counting' : ''}`} aria-live="off">
           {formatClock(state.remaining)}
         </div>
 

@@ -362,13 +362,20 @@ describe('combo drill mode', () => {
     expect(nexts.map((e) => stateAt(plan, e.at).segment?.kind)).toEqual(['prep', 'rest', 'rest']);
   });
 
-  it('counts down 3, 2, 1 over the last seconds of every combo block', () => {
+  it('counts 3, 2, 1, Go into each combo block, never over the announcement', () => {
+    const counts = (r: number) => plan.events.filter((e) => e.type === 'count' && e.round === r);
     for (const seg of plan.segments.filter((x) => x.kind === 'round')) {
-      const counts = plan.events.filter((e) => e.type === 'count' && e.at > seg.start && e.at < seg.end);
-      expect(counts.map((e) => (e.type === 'count' ? e.n : 0))).toEqual([3, 2, 1]);
-      expect(counts.map((e) => seg.end - e.at)).toEqual([3000, 2000, 1000]);
+      const cs = counts(seg.round);
+      // "Go" exactly as the block starts; the numbers before it, one second apart.
+      expect(cs.at(-1)).toMatchObject({ n: 0, at: seg.start });
+      for (const e of cs.slice(0, -1)) expect(e.type === 'count' && seg.start - e.at).toBe((e as { n: number }).n * 1000);
+      // Nothing counted during the work itself.
+      expect(cs.every((e) => e.at <= seg.start)).toBe(true);
     }
-    expect(plan.events.some((e) => e.type === 'count' && stateAt(plan, e.at).segment?.kind !== 'round')).toBe(false);
+    // 5 s get-ready: "3" would land 2 s in, over the "First up" announcement, so it's skipped.
+    expect(counts(1).map((e) => (e.type === 'count' ? e.n : -1))).toEqual([2, 1, 0]);
+    // 10 s rests: the full 3, 2, 1, Go.
+    expect(counts(2).map((e) => (e.type === 'count' ? e.n : -1))).toEqual([3, 2, 1, 0]);
   });
 
   it('with no prep or rest, announces each combo as its block starts', () => {
