@@ -298,7 +298,7 @@ h2 {
   position: sticky;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 10px 0 16px;
-  background: linear-gradient(transparent, var(--bg) 30%);
+  background: linear-gradient(transparent, var(--bg) 9px);
 }
 .grow {
   flex: 1;
@@ -2162,7 +2162,7 @@ input[type='range'] {
 }
 .top-name {
   font-weight: 500;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2183,6 +2183,8 @@ input[type='range'] {
   background: var(--grad);
 }
 .top-num {
+  font-size: 0.8rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   min-width: 2ch;
   text-align: right;
@@ -2406,4 +2408,25 @@ input[type='range'] {
     color-mix(in srgb, var(--info) 42%, var(--surface-2)) 0%,
     color-mix(in srgb, var(--info) 14%, var(--surface-2)) 100%
   );
+}
+/* Plan detail stat tiles (same look as the History tiles) */
+.plan-tiles {
+  margin-bottom: 4px;
+}
+.pt-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 2px 0;
+}
+.pt-bar span {
+  display: block;
+  height: 100%;
+  min-width: 6px;
+  border-radius: inherit;
+  background: var(--grad);
+}
+.pt-missed .hd-value {
+  color: var(--accent);
 }

@@ -375,24 +375,35 @@ function PlanDetail() {
         )}
       </p>
 
-      <div className="stat-row">
-        <div className="stat card">
-          <b>{s.percent}%</b>
-          <span>
-            {s.done}/{s.trainingDays} done
+      <div className="hd-tiles plan-tiles">
+        <div className="hd-tile hd-hero card">
+          <span className="hd-label">Progress</span>
+          <b className="hd-value">{s.percent}%</b>
+          <div className="pt-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={s.percent} aria-label="Plan progress">
+            <span style={{ width: `${s.percent}%` }} />
+          </div>
+          <span className="hd-sub">
+            {s.done} of {s.trainingDays} sessions done{s.remaining > 0 && !s.finished ? ` · ${s.remaining} to go` : ''}
           </span>
         </div>
-        <div className="stat card">
-          <b>{s.streak}</b>
-          <span>in a row</span>
+        <div className="hd-tile card">
+          <span className="hd-label">Streak</span>
+          <b className="hd-value">
+            {s.streak} <small>session{s.streak === 1 ? '' : 's'}</small>
+          </b>
+          <span className="hd-sub">{s.streak > 0 ? '🔥 in a row' : 'Train to start one'}</span>
         </div>
-        <div className="stat card">
-          <b>{s.finished ? '✓' : s.dayNumber ?? '–'}</b>
-          <span>{s.finished ? 'finished' : s.dayNumber ? `day of ${plan.days}` : `starts ${fmtDay(plan.start)}`}</span>
+        <div className="hd-tile card">
+          <span className="hd-label">{s.finished ? 'Finished' : 'Day'}</span>
+          <b className="hd-value">
+            {s.finished ? '✓' : s.dayNumber ?? '–'} {!s.finished && s.dayNumber ? <small>/ {plan.days}</small> : null}
+          </b>
+          <span className="hd-sub">{s.finished ? 'Plan complete' : s.dayNumber ? `${plan.days - s.dayNumber} day${plan.days - s.dayNumber === 1 ? '' : 's'} left` : `Starts ${fmtDay(plan.start)}`}</span>
         </div>
-        <div className="stat card">
-          <b>{s.missed}</b>
-          <span>missed</span>
+        <div className={`hd-tile card ${s.missed > 0 ? 'pt-missed' : ''}`}>
+          <span className="hd-label">Missed</span>
+          <b className="hd-value">{s.missed}</b>
+          <span className="hd-sub">{s.missed > 0 ? 'Make it up any day' : '✓ None so far'}</span>
         </div>
       </div>
 
