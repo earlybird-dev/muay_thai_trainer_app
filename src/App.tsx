@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import { useStore } from './lib/store';
 import { applyHead } from './lib/seo';
@@ -53,6 +53,11 @@ export default function App() {
   // Background music: calm everywhere except the session screen, which sets its own scene.
   // Page title, description and social tags for search engines and link previews.
   useEffect(() => applyHead(pathname), [pathname]);
+  // Open each new page at the top (Back/Forward keep the browser's own scroll position).
+  const navType = useNavigationType();
+  useEffect(() => {
+    if (navType !== 'POP') window.scrollTo(0, 0);
+  }, [pathname, navType]);
   useEffect(() => configureMusic({ enabled: music, volume: musicVolume, trainingTrack }), [music, musicVolume, trainingTrack]);
   useEffect(() => {
     if (!inSession) setMusicScene('calm');
