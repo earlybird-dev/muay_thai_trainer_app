@@ -19,30 +19,37 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
   const due = dueToday(active, data.history, today);
   const resting = active.filter((p) => !due.some((d) => d.plan.id === p.id));
 
+  const noCombos = () => void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
+
   return (
-    <section className={`card today-card ${compact ? 'compact' : ''}`}>
-      <div className="today-head">
-        <h2>Today</h2>
-        <Link to="/plans" className="small">
-          Plans →
-        </Link>
-      </div>
+    <section className={`card today-card ${compact ? 'compact' : ''}`} aria-label="Today's training">
       {due.map(({ plan, status }) => {
         const w = data.workouts.find((x) => x.id === plan.workoutId);
         const s = planStats(plan, data.history, today);
+        const done = status === 'done';
         return (
           <div key={plan.id} className={`today-item ${status}`}>
+            <span className={`today-badge ${done ? 'done' : 'due'}`} aria-hidden>
+              {done ? '✓' : <Icon name="play" size={18} />}
+            </span>
             <div className="today-text">
-              <span className="muted small">
-                {plan.name} · Day {s.dayNumber} of {plan.days}
+              <span className="today-eyebrow">
+                Today · Day {s.dayNumber} of {plan.days}
                 {s.streak > 1 ? ` · 🔥 ${s.streak}` : ''}
               </span>
-              <b>{w ? w.name : 'Workout was deleted'}</b>
+              <b className="today-title">{w ? w.name : 'Workout was deleted'}</b>
+              <Link to={`/plans/${plan.id}`} className="today-plan">
+                <span>{plan.name}</span>
+                <span className="today-bar" aria-label={`${s.percent}% of the plan done`}>
+                  <span style={{ width: `${s.percent}%` }} />
+                </span>
+                <span>{s.percent}%</span>
+              </Link>
             </div>
-            {status === 'done' ? (
-              <span className="today-done">✓ Done</span>
+            {done ? (
+              <span className="today-done">Done</span>
             ) : w ? (
-              <button className="btn primary" onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}>
+              <button className="btn primary" onClick={() => startWorkout(w, plan.id) || noCombos()}>
                 <Icon name="play" size={16} />
                 Start
               </button>
@@ -61,25 +68,24 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
             next = k;
             break;
           }
+        const w = data.workouts.find((x) => x.id === plan.workoutId);
         return (
           <div key={plan.id} className="today-item rest">
+            <span className="today-badge rest" aria-hidden>
+              💤
+            </span>
             <div className="today-text">
-              <span className="muted small">{plan.name}</span>
-              <b>Rest day</b>
-              <span className="muted small">{next ? `Next: ${dayName(next)}` : 'Last session done'}</span>
+              <span className="today-eyebrow">Today · Rest day</span>
+              <b className="today-title">{next ? `Next: ${dayName(next)}` : 'Last session done'}</b>
+              <Link to={`/plans/${plan.id}`} className="today-plan">
+                <span>{plan.name}</span>
+              </Link>
             </div>
-            {(() => {
-              const w = data.workouts.find((x) => x.id === plan.workoutId);
-              return w ? (
-                <button
-                  className="btn"
-                  title="Train today instead — it counts toward this week"
-                  onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}
-                >
-                  Train today
-                </button>
-              ) : null;
-            })()}
+            {w ? (
+              <button className="btn" title="Train today instead — it counts toward this week" onClick={() => startWorkout(w, plan.id) || noCombos()}>
+                Train today
+              </button>
+            ) : null}
           </div>
         );
       })}

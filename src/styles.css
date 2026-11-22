@@ -1208,33 +1208,96 @@ input[type='range'] {
     linear-gradient(var(--surface), var(--surface)) padding-box,
     var(--grad) border-box;
 }
-.today-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.today-head h2 {
-  margin: 0;
+.today-card {
+  margin-bottom: 18px;
+  padding: 14px 16px;
 }
 .today-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0 0;
+  gap: 14px;
 }
 .today-item + .today-item {
   border-top: 1px solid var(--border);
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.today-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+.today-badge.done {
+  background: linear-gradient(135deg, #7ee0b0 0%, var(--ok) 55%, #2e8f63 100%);
+  color: #0f2419;
+}
+.today-badge.due {
+  background: var(--grad);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--grad-glow, rgba(230, 57, 70, 0.35));
+}
+.today-badge.rest {
+  background: var(--surface-2);
 }
 .today-text {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
+.today-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.today-title {
+  font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.today-plan:hover {
+  color: var(--text);
+}
+.today-bar {
+  flex: 0 1 120px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.today-bar span {
+  display: block;
+  height: 100%;
+  min-width: 5px;
+  border-radius: inherit;
+  background: var(--grad);
+}
 .today-done {
-  color: var(--ok);
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
   font-weight: 800;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
 }
 .plan-card {
   display: flex;
@@ -2451,4 +2514,48 @@ input[type='range'] {
 .plan-heat {
   max-width: none;
   width: 100%;
+}
+.today-plan > span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.today-plan .today-bar {
+  flex: 1 1 30px;
+  max-width: 120px;
+}
+.today-plan > span:first-child {
+  flex: 0 0 auto;
+  max-width: 60%;
+}
+/* Today card: warm red→orange gradient fill under the gradient border */
+.today-card {
+  background:
+    linear-gradient(
+        110deg,
+        color-mix(in srgb, var(--accent) 22%, var(--surface)) 0%,
+        color-mix(in srgb, #f0713f 12%, var(--surface)) 55%,
+        color-mix(in srgb, var(--accent-2) 18%, var(--surface)) 100%
+      )
+      padding-box,
+    var(--grad) border-box;
+}
+.today-badge.rest {
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+.today-card .today-bar {
+  background: rgba(0, 0, 0, 0.35);
+}
+.today-card .today-item + .today-item {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+/* Breathing room between the Today card and the page heading below it */
+.today-card {
+  margin-bottom: 32px;
+}
+@media (max-width: 600px) {
+  .today-card {
+    margin-bottom: 28px;
+  }
 }
