@@ -41,26 +41,32 @@ export function unlockAudio() {
   }
 }
 
+/** How long one bell strike rings, in seconds. */
+const BELL_RING = 2.6;
+
 function strike(at: number, volume: number) {
   if (!ctx) return;
-  // Inharmonic partials give a metallic boxing-bell ring.
-  const partials = [
-    [520, 1],
-    [1370, 0.5],
-    [2120, 0.3],
-    [2900, 0.15],
+  const out = voiceOutput(ctx); // shared limiter: loud but never distorted
+  // Inharmonic partials give a metallic boxing-bell ring; higher ones fade faster, like a real bell.
+  const partials: [freq: number, gain: number, ring: number][] = [
+    [260, 0.35, 1], // low body
+    [520, 1, 1],
+    [1370, 0.55, 0.75],
+    [2120, 0.32, 0.55],
+    [2900, 0.18, 0.4],
   ];
-  for (const [freq, gain] of partials) {
+  for (const [freq, gain, ring] of partials) {
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = 'sine';
     o.frequency.value = freq;
+    const end = at + BELL_RING * ring;
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(0.35 * gain * volume, at + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 1.4);
-    o.connect(g).connect(ctx.destination);
+    g.gain.exponentialRampToValueAtTime(0.6 * gain * volume, at + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    o.connect(g).connect(out);
     o.start(at);
-    o.stop(at + 1.5);
+    o.stop(end + 0.05);
   }
 }
 
@@ -68,6 +74,12 @@ export function bell(times = 1, volume = 1) {
   if (!ctx) return;
   const now = ctx.currentTime + 0.02;
   for (let i = 0; i < times; i++) strike(now + i * 0.32, volume);
+  // Dip the music while the bell rings out, so it cuts through.
+  if (speechListener) {
+    const listener = speechListener;
+    listener(true);
+    window.setTimeout(() => listener(false), (0.32 * (times - 1) + 1.2) * 1000);
+  }
 }
 
 /** Two sharp claps — the classic "10 seconds left" signal. */
