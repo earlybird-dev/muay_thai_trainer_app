@@ -28,3 +28,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </StoreProvider>
   </React.StrictMode>,
 );
+
+// The app has rendered: fade out the start-up loader from index.html.
+requestAnimationFrame(() => {
+  const boot = document.getElementById('boot-loader');
+  if (!boot) return;
+  boot.classList.add('done');
+  window.setTimeout(() => boot.remove(), 400);
+});

@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { BOOT_LOADER_HTML } from './src/lib/fighterLoader';
 
 export default defineConfig({
   base: '/',
   plugins: [
     react(),
+    // Start-up loading animation, shown before the app's JavaScript has loaded.
+    { name: 'boot-loader', transformIndexHtml: (html: string) => html.replace('<!--boot-loader-->', BOOT_LOADER_HTML) },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],

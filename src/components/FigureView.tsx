@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState } from 'react';
+import FighterLoader from './FighterLoader';
 import Figure, { type FigureProps } from './Figure';
 import type { CameraView } from './Figure3D';
 import { useStore } from '../lib/store';
@@ -22,7 +23,7 @@ export default function FigureView({ mode, view, interactive, ...props }: Figure
 
   if (!use3d) return <Figure {...props} look={look} />;
   return (
-    <Suspense fallback={<Figure {...props} look={look} />}>
+    <Suspense fallback={<FighterLoader label="Loading 3D fighter…" className={`figure3d-loading ${props.className ?? ''}`} />}>
       <Figure3D {...props} look={look} view={view} interactive={interactive} onUnsupported={() => setUnsupported(true)} />
     </Suspense>
   );

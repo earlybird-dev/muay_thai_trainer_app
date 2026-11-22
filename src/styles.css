@@ -1790,3 +1790,47 @@ input[type='range'] {
     padding: 10px 12px;
   }
 }
+
+/* ---------- Loading animation (styles for the SVG itself come from index.html) ---------- */
+.fighter-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 220px;
+}
+.fighter-loader > span {
+  display: contents;
+}
+.fighter-loader .fl-limb {
+  stroke: var(--text);
+}
+.fighter-loader .fl-far {
+  stroke: var(--muted);
+}
+.fighter-loader .fl-head {
+  fill: var(--text);
+}
+.fighter-loader .fl-glove,
+.fighter-loader .fl-shorts,
+.fighter-loader .fl-band {
+  fill: var(--accent);
+}
+.fighter-loader .fl-band {
+  fill: none;
+  stroke: var(--accent);
+}
+.fighter-loader .fl-text {
+  color: var(--muted);
+}
+.fighter-loader.figure3d-loading {
+  aspect-ratio: 4 / 3;
+  min-height: 0;
+  border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--surface-2) 70%, var(--bg)), var(--bg) 75%);
+}
+.fighter-loader.figure3d-loading.session-figure,
+.fighter-loader.figure3d-loading.combo-preview {
+  background: transparent;
+}
