@@ -218,6 +218,7 @@ describe('fighters', () => {
 });
 
 import { clearAccountData, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
+import { demoAddedAt } from './demoData';
 import type { Combo } from '../data/combos';
 
 describe('cloud sync', () => {
@@ -306,6 +307,24 @@ describe('cloud sync', () => {
     // The device that cleared ignores any old session that was uploaded before the clear reached it.
     const mine = { ...emptyData(), settings: { ...emptyData().settings, historyClearedAt: cleared } };
     expect(mergeAll(mine, { ...empty, sessions: [row('old', before), row('new', after)] }).data.history.map((x) => x.id)).toEqual(['new']);
+  });
+
+  it('sample sessions survive a clear made before they were added, but not a later one', () => {
+    const s = (id: string, date: string) => ({ id, date, rounds: 1, completedRounds: 1, roundSec: 60, restSec: 10, callouts: 1, combos: [], durationSec: 70 });
+    const day = '2026-10-01T08:00:00.000Z'; // back-dated sample session
+    const addedAt = Date.parse('2026-11-22T11:00:00.000Z');
+    const sample = s(`demo-${addedAt.toString(36)}-s-2026-10-01`, day);
+    const withClear = (cleared: string) => ({ ...emptyData(), history: [sample], settings: { ...emptyData().settings, historyClearedAt: cleared } });
+    // Cleared at 10:00, sample added at 11:00: it stays, and is uploaded.
+    const earlier = mergeAll(withClear('2026-11-22T10:00:00.000Z'), empty);
+    expect(earlier.data.history.map((x) => x.id)).toEqual([sample.id]);
+    expect(earlier.push.sessions.map((x) => x.id)).toEqual([sample.id]);
+    // Cleared at 12:00, after it was added: it goes, and isn't uploaded again.
+    const later = mergeAll(withClear('2026-11-22T12:00:00.000Z'), empty);
+    expect(later.data.history).toEqual([]);
+    expect(later.push.sessions).toEqual([]);
+    // A real session with a made-up "demo-" id but no add time is treated like any other.
+    expect(demoAddedAt('demo-s-2026-10-01')).toBeNaN();
   });
 
   it('applies newer progress from the account but keeps this device’s voice', () => {

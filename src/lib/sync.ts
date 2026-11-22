@@ -7,6 +7,7 @@
  *  - History: union by session id (sessions are never edited, only added or cleared).
  *  - Progress + settings (learned, videos, synced settings): one blob, newest wins.
  */
+import { demoAddedAt } from './demoData';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Combo } from '../data/combos';
 import { toLevel, type Level } from '../data/techniques';
@@ -286,9 +287,9 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
     .filter((x): x is string => typeof x === 'string')
     .map(time);
   const clearedAt = clears.length ? Math.max(...clears) : -Infinity;
-  // Sample sessions (see demoData.ts) are back-dated on purpose, so a clear made before they were added
-  // doesn't drop them; "Clear history" still removes them, locally and in the account.
-  const kept = (s: SessionLog) => time(s.date) > clearedAt || s.id.startsWith('demo-');
+  // Sample sessions (see demoData.ts) are back-dated on purpose: a clear made before they were added
+  // doesn't drop them, but a later "Clear history" does, on every device.
+  const kept = (s: SessionLog) => time(s.date) > clearedAt || demoAddedAt(s.id) > clearedAt;
   const remoteSessionIds = new Set(remote.sessions.map((s) => s.id));
   for (const s of local.history) if (kept(s) && !remoteSessionIds.has(s.id)) push.sessions.push(sessionToRow(s));
   const seen = new Set<string>();

@@ -27,7 +27,18 @@ const DEMO_LEARNED = [
   'teep', 'rear-kick', 'low-kick', 'knee', 'elbow', 'check', 'parry', 'block',
 ];
 
-export function buildDemoData(today = dateKey(new Date())) {
+/**
+ * When a sample session was added, from its id ("demo-<base36 ms>-s-<day>"), or NaN for other ids.
+ * Sync uses it so a history clear made before the sample was added doesn't drop it, while a later
+ * clear does.
+ */
+export function demoAddedAt(id: string): number {
+  const m = /^demo-([0-9a-z]+)-s-/.exec(id);
+  return m ? parseInt(m[1], 36) : NaN;
+}
+
+export function buildDemoData(today = dateKey(new Date()), addedAt = Date.now()) {
+  const stamp = addedAt.toString(36);
   const rand = rng(20261122);
   const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
   const essentials = PRESET_COMBOS.filter((c) => c.essential);
@@ -86,7 +97,7 @@ export function buildDemoData(today = dateKey(new Date())) {
       const n = pick([3, 4, 5]);
       const pool = general;
       log = {
-        id: `${PREFIX}s-${key}`,
+        id: `${PREFIX}${stamp}-s-${key}`,
         date: at.toISOString(),
         mode: 'rounds',
         rounds: n,
@@ -105,7 +116,7 @@ export function buildDemoData(today = dateKey(new Date())) {
       const rest = planDay ? 15 : pick([15, 20]);
       const pool = planDay ? essentials : rand() < 0.4 ? kicks : general;
       log = {
-        id: `${PREFIX}s-${key}`,
+        id: `${PREFIX}${stamp}-s-${key}`,
         date: at.toISOString(),
         mode: 'drill',
         rounds: count,
