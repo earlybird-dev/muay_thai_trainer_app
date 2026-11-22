@@ -2430,3 +2430,9 @@ input[type='range'] {
 .pt-missed .hd-value {
   color: var(--accent);
 }
+/* Lift the hovered/focused cell so its tooltip sits above the neighbouring squares */
+.ph-cell:hover,
+.ph-cell:focus-visible,
+.heat-cell:hover {
+  z-index: 5;
+}
