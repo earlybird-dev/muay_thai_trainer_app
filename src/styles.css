@@ -150,8 +150,8 @@ h2 {
   gap: 2px;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 6px 6px env(safe-area-inset-bottom);
-  background: color-mix(in srgb, var(--surface-2) 82%, var(--bg));
-  border-top: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  background: var(--accent);
+  border-top: 1px solid color-mix(in srgb, #000 25%, var(--accent));
   box-shadow: 0 -8px 24px var(--tabbar-shadow);
 }
 .tab {
@@ -167,7 +167,7 @@ h2 {
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: color-mix(in srgb, var(--text) 72%, transparent);
+  color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
   transition: color 0.15s, background 0.15s;
 }
@@ -176,13 +176,13 @@ h2 {
   height: 24px;
 }
 .tab:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 .tab.active {
-  color: var(--accent);
-  font-weight: 700;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: #fff;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.22);
 }
 .tab.active::before {
   content: '';
@@ -192,7 +192,7 @@ h2 {
   right: 28%;
   height: 3px;
   border-radius: 0 0 3px 3px;
-  background: var(--accent);
+  background: #fff;
 }
 @media (prefers-reduced-motion: reduce) {
   .tab {
@@ -276,7 +276,7 @@ h2 {
 .sticky-actions {
   position: sticky;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding: 10px 0;
+  padding: 10px 0 16px;
   background: linear-gradient(transparent, var(--bg) 30%);
 }
 .grow {
