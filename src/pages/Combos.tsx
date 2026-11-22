@@ -9,14 +9,15 @@ import { useStore } from '../lib/store';
 import { useDialog } from '../components/Dialog';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
 
-type Filter = Level | 'all' | 'essentials' | 'favorites';
+type Filter = Level | 'all' | 'essentials' | 'favorites' | 'due';
 
-const FILTERS: { id: Filter; name: string }[] = [
-  { id: 'all', name: 'All' },
-  { id: 'essentials', name: '★ Essentials' },
-  { id: 'favorites', name: '♥ Favourites' },
-  ...LEVELS,
+/** Same look as the combo pool picker on Train: suggestion cards, then the library by level. */
+const SMART_FILTERS: { id: Filter; icon: string; name: string; hint: string; cls: string }[] = [
+  { id: 'essentials', icon: '★', name: 'Essentials', hint: 'The core combos to drill every session', cls: 'essentials' },
+  { id: 'favorites', icon: '♥', name: 'Favourites', hint: 'Combos you’ve starred', cls: 'favorites' },
+  { id: 'due', icon: '⏱', name: 'Due for practice', hint: 'Not drilled in the last week', cls: 'due' },
 ];
+const LIBRARY_FILTERS: { id: Filter; name: string }[] = [{ id: 'all', name: 'All' }, ...LEVELS];
 
 export default function Combos() {
   const { data, update, allCombos } = useStore();
@@ -27,7 +28,14 @@ export default function Combos() {
   const favs = data.settings.favorites;
   const practice = usePractice();
   const matches = (l: Filter, c: Combo) =>
-    l === 'all' || (l === 'essentials' ? !!c.essential : l === 'favorites' ? favs.includes(c.id) : c.level === l);
+    l === 'all' ||
+    (l === 'essentials'
+      ? !!c.essential
+      : l === 'favorites'
+        ? favs.includes(c.id)
+        : l === 'due'
+          ? practiceLabel(practice.get(c.name.toLowerCase())).due
+          : c.level === l);
   const byLevel = (c: Combo) => matches(level, c);
   // Filters apply to the starter library; your own combos are always listed in their own section.
   const mine = data.combos;
@@ -144,12 +152,43 @@ export default function Combos() {
         <h2>
           Starter combos <span className="muted small">({presets.length})</span>
         </h2>
-        <div className="seg wrap level-filter" role="group" aria-label="Filter starter combos">
-          {FILTERS.map((l) => (
-            <button key={l.id} className={`seg-btn ${level === l.id ? 'on' : ''}`} onClick={() => setLevel(l.id)}>
-              {l.name} <span className="muted">{countOf(l.id)}</span>
-            </button>
-          ))}
+        <div className="pool-picker combo-filter">
+          <div className="pool-cards" role="group" aria-label="Suggested filters">
+            {SMART_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`pool-card pool-${f.cls} ${level === f.id ? 'on' : ''}`}
+                aria-pressed={level === f.id}
+                onClick={() => setLevel(level === f.id ? 'all' : f.id)}
+              >
+                <span className="pool-icon" aria-hidden>
+                  {f.icon}
+                </span>
+                <span className="pool-text">
+                  <b>{f.name}</b>
+                  <small>{f.hint}</small>
+                </span>
+                <span className="pool-count">{countOf(f.id)}</span>
+              </button>
+            ))}
+          </div>
+          <div className="pool-library">
+            <span className="pool-label">Library</span>
+            <div className="pool-chips" role="group" aria-label="Filter by level">
+              {LIBRARY_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`pool-chip ${level === f.id ? 'on' : ''}`}
+                  aria-pressed={level === f.id}
+                  onClick={() => setLevel(f.id)}
+                >
+                  {f.name} <span className="pool-chip-count">{countOf(f.id)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         {presets.length ? (
           <ul className="list">{presets.map(row)}</ul>

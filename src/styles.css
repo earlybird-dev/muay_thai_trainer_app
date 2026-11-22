@@ -2781,3 +2781,6 @@ select.input {
 .today-title-row + .today-card {
   margin-top: 10px;
 }
+.combo-filter {
+  margin: 12px 0 14px;
+}
