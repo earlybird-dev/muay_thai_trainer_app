@@ -2393,3 +2393,17 @@ input[type='range'] {
 .ph-cell.upcoming {
   color: var(--text);
 }
+/* Gradient fills for Done and Training days (squares and legend) */
+.ph-cell.done,
+.ph-cell.bonus,
+.cal-legend .lg.done::before {
+  background: linear-gradient(135deg, #7ee0b0 0%, var(--ok) 55%, #2e8f63 100%);
+}
+.ph-cell.upcoming,
+.cal-legend .lg.upcoming::before {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--info) 42%, var(--surface-2)) 0%,
+    color-mix(in srgb, var(--info) 14%, var(--surface-2)) 100%
+  );
+}
