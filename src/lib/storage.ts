@@ -19,6 +19,8 @@ export interface Settings {
   musicVolume: number;
   /** Favourite combo ids (starred). */
   favorites: string[];
+  /** When history was last cleared (ISO). Synced, so other devices drop older sessions too. */
+  historyClearedAt: string | null;
   /** Training music: a track id from TRAINING_TRACKS in lib/music.ts, or 'shuffle' for all of them. */
   trainingTrack: string;
 }
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   musicVolume: 0.4,
   trainingTrack: 'shuffle',
   favorites: [],
+  historyClearedAt: null,
 };
 
 export const emptyData = (): AppData => ({
@@ -101,7 +104,7 @@ export const emptyData = (): AppData => ({
 });
 
 /** Settings that follow the account across devices (voice choice is device-specific). */
-export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter', 'favorites'] as const;
+export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter', 'favorites', 'historyClearedAt'] as const;
 export type SyncedSettings = Pick<Settings, (typeof SYNCED_SETTING_KEYS)[number]>;
 export const pickSyncedSettings = (s: Settings): SyncedSettings =>
   Object.fromEntries(SYNCED_SETTING_KEYS.map((k) => [k, s[k]])) as SyncedSettings;

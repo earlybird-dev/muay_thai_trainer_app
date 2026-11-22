@@ -291,6 +291,23 @@ describe('cloud sync', () => {
     expect(push.sessions.map((x) => x.id)).toEqual(['l']);
   });
 
+  it('a "Clear history" on one device removes old sessions on every device', () => {
+    const s = (id: string, date: string) => ({ id, date, rounds: 1, completedRounds: 1, roundSec: 60, restSec: 10, callouts: 1, combos: [], durationSec: 70 });
+    const row = (id: string, date: string) => ({ id, date, rounds: 1, completed_rounds: 1, round_sec: 60, rest_sec: 10, callouts: 1, combos: [], duration_sec: 70 });
+    const cleared = '2026-11-10T12:00:00.000Z';
+    const before = '2026-11-09T08:00:00.000Z';
+    const after = '2026-11-11T08:00:00.000Z';
+    // Another device still has an old session and a new one; the account says history was cleared.
+    const other = { ...emptyData(), history: [s('old', before), s('new', after)] };
+    const remote: RemoteData = { ...empty, sessions: [row('old2', before)], state: { learned: [], videos: {}, settings: { historyClearedAt: cleared }, updated_at: cleared } };
+    const { data, push } = mergeAll(other, remote);
+    expect(data.history.map((x) => x.id)).toEqual(['new']); // old ones dropped locally…
+    expect(push.sessions.map((x) => x.id)).toEqual(['new']); // …and not uploaded again
+    // The device that cleared ignores any old session that was uploaded before the clear reached it.
+    const mine = { ...emptyData(), settings: { ...emptyData().settings, historyClearedAt: cleared } };
+    expect(mergeAll(mine, { ...empty, sessions: [row('old', before), row('new', after)] }).data.history.map((x) => x.id)).toEqual(['new']);
+  });
+
   it('applies newer progress from the account but keeps this device’s voice', () => {
     const local = { ...emptyData(), learned: ['jab'], stateUpdatedAt: T1, settings: { ...emptyData().settings, voiceURI: 'my-voice' } };
     const { data, push } = mergeAll(local, { ...empty, state: { learned: ['teep'], videos: {}, settings: { stance: 'southpaw', fighter: 'clinch-king' }, updated_at: T2 } });
@@ -416,17 +433,31 @@ describe('training plans', () => {
   });
 
   it('marks training, rest, done, missed and upcoming days', () => {
-    const history = [session('2026-11-02'), session('2026-11-07')]; // Mon done, Sat bonus
+    const history = [session('2026-11-02'), session('2026-11-07')]; // Mon done, Sat also counts
     const done = completedDays(plan, history);
     const today = '2026-11-06'; // Friday
     expect(dayStatus(plan, '2026-11-02', today, done)).toBe('done');
     expect(dayStatus(plan, '2026-11-03', today, done)).toBe('rest');
     expect(dayStatus(plan, '2026-11-04', today, done)).toBe('missed');
     expect(dayStatus(plan, '2026-11-06', today, done)).toBe('today');
-    expect(dayStatus(plan, '2026-11-07', today, done)).toBe('bonus');
+    expect(dayStatus(plan, '2026-11-07', today, done)).toBe('done'); // any day counts toward the week
     expect(dayStatus(plan, '2026-11-09', today, done)).toBe('upcoming');
     expect(dayStatus(plan, '2026-11-01', today, done)).toBe('before');
     expect(dayStatus(plan, addDays(plan.start, 30), today, done)).toBe('after');
+  });
+
+  it('lets you train any day: a swapped day is moved, not missed, and extras are bonus', () => {
+    // Mon/Wed/Fri plan. Trained Mon, Tue (instead of Wed), Fri, Sat.
+    const history = ['2026-11-02', '2026-11-03', '2026-11-06', '2026-11-07'].map((d) => session(d));
+    const done = completedDays(plan, history);
+    const today = '2026-11-08';
+    expect(dayStatus(plan, '2026-11-03', today, done)).toBe('done'); // Tuesday counts
+    expect(dayStatus(plan, '2026-11-04', today, done)).toBe('moved'); // Wednesday made up
+    expect(dayStatus(plan, '2026-11-07', today, done)).toBe('bonus'); // 4th session in a 3-session week
+    const st = planStats(plan, history, today);
+    expect(st.done).toBe(3);
+    expect(st.missed).toBe(0);
+    expect(st.streak).toBe(4);
   });
 
   it('counts progress and a streak that a pending today does not break', () => {
@@ -456,6 +487,15 @@ describe('training plans', () => {
     const weeks = planWeeks({ ...plan, start: '2026-11-04', days: 10 }); // starts on a Wednesday
     expect(weeks[0]).toEqual([null, null, '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08']);
     expect(weeks.flat().filter(Boolean)).toHaveLength(10);
+  });
+
+  it('shows whole calendar months around the plan', async () => {
+    const { planMonths } = await import('./plans');
+    const months = planMonths({ ...plan, start: '2026-11-22', days: 30 }); // Nov 22 → Dec 21
+    expect(months.map((m) => m.key)).toEqual(['2026-11-01', '2026-12-01']);
+    expect(months[0].weeks.flat().filter(Boolean)).toHaveLength(30); // all of November
+    expect(months[1].weeks.flat().filter(Boolean)).toHaveLength(31); // all of December
+    expect(months[0].weeks[0].slice(0, 6)).toEqual([null, null, null, null, null, null]); // Nov 1 2026 is a Sunday
   });
 
   it('resolves workout pools and describes workouts', () => {

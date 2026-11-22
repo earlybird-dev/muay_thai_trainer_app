@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { newId } from '../data/combos';
 import {
@@ -10,7 +10,7 @@ import {
   parseDay,
   planEnd,
   planStats,
-  planWeeks,
+  planMonths,
   workoutSummary,
   type TrainPlan,
 } from '../lib/plans';
@@ -93,7 +93,61 @@ function PlanList() {
   );
 }
 
-const LENGTHS = [7, 14, 21, 30, 60, 90];
+/** − 30 days + — hold a button to keep changing. */
+function DayStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const ref = useRef({ value, onChange });
+  ref.current = { value, onChange };
+  const timer = useRef<number | null>(null);
+  const stop = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  const nudge = (dir: 1 | -1) => {
+    const next = Math.min(366, Math.max(1, ref.current.value + dir));
+    if (next === ref.current.value) return false;
+    ref.current.value = next;
+    ref.current.onChange(next);
+    return true;
+  };
+  const press = (dir: 1 | -1) => {
+    stop();
+    nudge(dir);
+    const repeat = () => {
+      timer.current = nudge(dir) ? window.setTimeout(repeat, 70) : null;
+    };
+    timer.current = window.setTimeout(repeat, 450);
+  };
+  const btn = (dir: 1 | -1) => (
+    <button
+      type="button"
+      className="btn icon"
+      aria-label={dir > 0 ? 'Longer plan' : 'Shorter plan'}
+      disabled={dir > 0 ? value >= 366 : value <= 1}
+      onPointerDown={(e) => e.button === 0 && press(dir)}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          nudge(dir);
+        }
+      }}
+    >
+      {dir > 0 ? '+' : '−'}
+    </button>
+  );
+  return (
+    <div className="stepper">
+      {btn(-1)}
+      <b className="stepper-time">
+        {value} day{value === 1 ? '' : 's'}
+      </b>
+      {btn(1)}
+    </div>
+  );
+}
 
 function PlanForm() {
   const { id } = useParams();
@@ -181,28 +235,10 @@ function PlanForm() {
           )}
         </label>
         <div className="form-grid">
-          <label className="field">
+          <div className="field">
             <span>Length</span>
-            <select className="input" value={LENGTHS.includes(days) ? days : 'custom'} onChange={(e) => e.target.value !== 'custom' && setDays(Number(e.target.value))}>
-              {LENGTHS.map((n) => (
-                <option key={n} value={n}>
-                  {n} days
-                </option>
-              ))}
-              <option value="custom">Custom…</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Days (custom)</span>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={366}
-              value={days}
-              onChange={(e) => setDays(Math.min(366, Math.max(1, Math.round(Number(e.target.value) || 1))))}
-            />
-          </label>
+            <DayStepper value={days} onChange={setDays} />
+          </div>
           <label className="field">
             <span>Start date</span>
             <input className="input" type="date" value={start} onChange={(e) => e.target.value && setStart(e.target.value)} />
@@ -261,6 +297,7 @@ const STATUS_LABEL: Record<string, string> = {
   upcoming: 'Training day',
   rest: 'Rest day',
   bonus: 'Extra session',
+  moved: 'Made up on another day',
 };
 
 function PlanDetail() {
@@ -342,56 +379,80 @@ function PlanDetail() {
         </div>
       </div>
 
-      {w && (todayStatus === 'today' || todayStatus === 'rest' || todayStatus === 'done' || todayStatus === 'bonus') && (
-        <div className="row">
-          {todayStatus === 'done' ? (
-            <span className="today-done">✓ Today's session is done</span>
-          ) : (
-            <button className="btn primary big" onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}>
-              {todayStatus === 'today' ? "Start today's workout" : 'Train anyway (extra session)'}
-            </button>
-          )}
+      {w ? (
+        <div className="plan-start">
+          <button
+            className="btn primary big start-btn"
+            onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}
+          >
+            ▶ Start session
+          </button>
+          <span className="muted small">
+            {todayStatus === 'done' || todayStatus === 'bonus'
+              ? "✓ Today's session is done — another one counts as extra"
+              : todayStatus === 'today'
+                ? `Today is a training day · ${w.name}`
+                : s.dayNumber !== null
+                  ? `Not a planned day, but it counts toward this week · ${w.name}`
+                  : s.finished
+                    ? `Plan finished · ${w.name}`
+                    : `Plan starts ${fmtDay(plan.start)} · ${w.name}`}
+          </span>
         </div>
+      ) : (
+        <p className="muted small">This plan's workout was deleted. Edit the plan to pick another one.</p>
       )}
 
       <section className="card calendar-card">
-        <div className="calendar" role="grid" aria-label="Plan calendar">
-          {WEEKDAYS.map((d) => (
-            <div key={d.id} className="cal-head" role="columnheader">
-              {d.short}
+        <div className="cal-months">
+          {planMonths(plan).map((m) => (
+            <div key={m.key} className="cal-month">
+              <h3 className="cal-month-title">{fmtDay(m.key, { month: 'long', year: 'numeric' })}</h3>
+              <div className="calendar" role="grid" aria-label={`Plan calendar, ${fmtDay(m.key, { month: 'long', year: 'numeric' })}`}>
+                {WEEKDAYS.map((d) => (
+                  <div key={d.id} className="cal-head" role="columnheader">
+                    {d.short}
+                  </div>
+                ))}
+                {m.weeks.flat().map((k, i) => {
+                  if (!k) return <div key={`pad-${i}`} className="cal-cell pad" />;
+                  const st = dayStatus(plan, k, today, done);
+                  const inPlan = st !== 'before' && st !== 'after';
+                  const manual = !!plan.marks[k];
+                  // Any past day (or today) in the plan can be ticked — train whichever days suit you.
+                  const clickable = inPlan && k <= today && !fromHistory.has(k);
+                  return (
+                    <button
+                      key={k}
+                      role="gridcell"
+                      className={`cal-cell ${st} ${k === today ? 'is-today' : ''}`}
+                      onClick={() => clickable && toggleMark(k)}
+                      disabled={!clickable}
+                      title={`${fmtDay(k, { weekday: 'long', month: 'long', day: 'numeric' })}: ${inPlan ? (STATUS_LABEL[st] ?? '') : 'Outside this plan'}${manual ? ' (ticked by you)' : ''}`}
+                    >
+                      {parseDay(k).getDate()}
+                      {(st === 'done' || st === 'bonus') && <span className="cal-mark">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
-          {planWeeks(plan).flat().map((k, i) => {
-            if (!k) return <div key={`pad-${i}`} className="cal-cell pad" />;
-            const st = dayStatus(plan, k, today, done);
-            const manual = !!plan.marks[k];
-            const clickable = k <= today && !fromHistory.has(k) && st !== 'rest';
-            const date = parseDay(k);
-            return (
-              <button
-                key={k}
-                role="gridcell"
-                className={`cal-cell ${st} ${k === today ? 'is-today' : ''}`}
-                onClick={() => clickable && toggleMark(k)}
-                disabled={!clickable}
-                title={`${fmtDay(k, { weekday: 'long', month: 'long', day: 'numeric' })}: ${STATUS_LABEL[st] ?? ''}${manual ? ' (ticked by you)' : ''}`}
-              >
-                {date.getDate() === 1 || k === plan.start ? fmtDay(k) : date.getDate()}
-                {(st === 'done' || st === 'bonus') && <span className="cal-mark">✓</span>}
-              </button>
-            );
-          })}
         </div>
+        <div className="cal-side">
         <div className="cal-legend small">
           <span className="lg done">Done</span>
           <span className="lg missed">Missed</span>
           <span className="lg today">Today</span>
           <span className="lg upcoming">Training</span>
           <span className="lg rest">Rest</span>
+          <span className="lg moved">Moved</span>
         </div>
         <p className="muted small">
-          Sessions you finish from this plan or this workout tick the day automatically. Tap a past training day to tick or untick it by hand.
+          Train on any day — it counts toward that week's {plan.weekdays.length} session{plan.weekdays.length === 1 ? '' : 's'}, and a planned day you
+          swap shows as Moved instead of Missed. Sessions from this plan or workout tick the day automatically; tap any past day to tick or untick it.
         </p>
+        </div>
       </section>
 
       <p className="muted small">

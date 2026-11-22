@@ -36,7 +36,8 @@ export default function History() {
       }
     }
     setError(null);
-    update((d) => ({ ...d, history: [] }));
+    // Remember when, so other signed-in devices drop these sessions too instead of uploading them again.
+    update((d) => ({ ...d, history: [], settings: { ...d.settings, historyClearedAt: new Date().toISOString() } }));
   };
 
   return (

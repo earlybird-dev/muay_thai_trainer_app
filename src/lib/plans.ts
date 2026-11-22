@@ -142,7 +142,11 @@ export function workoutSummary(w: Workout): string {
 
 // ---------- plans ----------
 
-export type DayStatus = 'before' | 'after' | 'rest' | 'done' | 'missed' | 'today' | 'upcoming' | 'bonus';
+/**
+ * done: trained (counts toward the week); bonus: trained beyond the week's target; moved: a planned day you
+ * skipped but made up on another day that week; rest / today / upcoming / missed as usual.
+ */
+export type DayStatus = 'before' | 'after' | 'rest' | 'done' | 'missed' | 'today' | 'upcoming' | 'bonus' | 'moved';
 
 export const planEnd = (p: TrainPlan) => addDays(p.start, p.days - 1);
 export const isTrainingDay = (p: TrainPlan, key: string) => p.weekdays.includes(weekday(key));
@@ -161,12 +165,35 @@ export function completedDays(p: TrainPlan, history: SessionLog[]): Set<string> 
   return out;
 }
 
+/**
+ * Plans are a weekly target: the chosen weekdays set how many sessions each 7-day block (counted from the
+ * plan's start) asks for, but any day you train counts. So you can train on a rest day instead of a planned
+ * one, and the planned day isn't "missed".
+ */
+const blockOf = (p: TrainPlan, key: string) => Math.floor(dayIndex(p, key) / 7);
+const dayIndex = (p: TrainPlan, key: string) => Math.round((parseDay(key).getTime() - parseDay(p.start).getTime()) / 864e5);
+
+function blockDays(p: TrainPlan, block: number): string[] {
+  const out: string[] = [];
+  for (let i = block * 7; i < Math.min(p.days, block * 7 + 7); i++) out.push(addDays(p.start, i));
+  return out;
+}
+
 export function dayStatus(p: TrainPlan, key: string, today: string, done: Set<string>): DayStatus {
   if (key < p.start) return 'before';
   if (key > planEnd(p)) return 'after';
-  const training = isTrainingDay(p, key);
-  if (done.has(key)) return training ? 'done' : 'bonus';
-  if (!training) return 'rest';
+  const days = blockDays(p, blockOf(p, key));
+  const target = days.filter((k) => isTrainingDay(p, k)).length;
+  if (done.has(key)) {
+    // Trained: counts, unless the week's target was already met by earlier sessions.
+    const before = days.filter((k) => k < key && done.has(k)).length;
+    return before < target ? 'done' : 'bonus';
+  }
+  if (!isTrainingDay(p, key)) return 'rest';
+  const trainedInWeek = days.filter((k) => done.has(k) && k <= (today < days[days.length - 1] ? today : days[days.length - 1])).length;
+  const plannedUpTo = days.filter((k) => k <= key && isTrainingDay(p, k)).length;
+  // Made up elsewhere this week (or the week's target is already met): nothing owed on this day.
+  if (trainedInWeek >= plannedUpTo) return key < today ? 'moved' : trainedInWeek >= target ? 'rest' : key === today ? 'today' : 'upcoming';
   if (key < today) return 'missed';
   if (key === today) return 'today';
   return 'upcoming';
@@ -190,24 +217,23 @@ export function planStats(p: TrainPlan, history: SessionLog[], today: string): P
   let trainingDays = 0;
   let doneCount = 0;
   let missed = 0;
-  let remaining = 0;
-  for (let i = 0; i < p.days; i++) {
-    const k = addDays(p.start, i);
-    const s = dayStatus(p, k, today, done);
-    if (s === 'done' || s === 'missed' || s === 'today' || s === 'upcoming') trainingDays++;
-    if (s === 'done') doneCount++;
-    if (s === 'missed') missed++;
-    if (s === 'today' || s === 'upcoming') remaining++;
+  for (let b = 0; b * 7 < p.days; b++) {
+    const days = blockDays(p, b);
+    const target = days.filter((k) => isTrainingDay(p, k)).length;
+    trainingDays += target;
+    doneCount += Math.min(target, days.filter((k) => done.has(k)).length);
+    missed += days.filter((k) => dayStatus(p, k, today, done) === 'missed').length;
   }
-  // Streak: walk back over training days from today; a pending today doesn't break it.
+  const remaining = Math.max(0, trainingDays - doneCount - missed);
+  // Streak: consecutive completed sessions counting back from today; rest/moved days don't break it,
+  // a missed day does, and a pending today doesn't.
   let streak = 0;
   for (let k = today > planEnd(p) ? planEnd(p) : today; k >= p.start; k = addDays(k, -1)) {
-    if (!isTrainingDay(p, k)) continue;
-    if (done.has(k)) streak++;
-    else if (k === today) continue;
-    else break;
+    const st = dayStatus(p, k, today, done);
+    if (st === 'done' || st === 'bonus') streak++;
+    else if (st === 'missed') break;
   }
-  const dayIndex = Math.round((parseDay(today).getTime() - parseDay(p.start).getTime()) / 864e5);
+  const idx = dayIndex(p, today);
   return {
     trainingDays,
     done: doneCount,
@@ -215,17 +241,16 @@ export function planStats(p: TrainPlan, history: SessionLog[], today: string): P
     remaining,
     percent: trainingDays ? Math.round((doneCount / trainingDays) * 100) : 0,
     streak,
-    dayNumber: dayIndex >= 0 && dayIndex < p.days ? dayIndex + 1 : null,
+    dayNumber: idx >= 0 && idx < p.days ? idx + 1 : null,
     finished: today > planEnd(p),
   };
 }
 
-/** Active plans whose workout is due today and not yet done. */
 export function dueToday(plans: TrainPlan[], history: SessionLog[], today: string) {
   return plans
     .filter((p) => !p.archived)
     .map((p) => ({ plan: p, status: dayStatus(p, today, today, completedDays(p, history)) }))
-    .filter((x) => x.status === 'today' || x.status === 'done');
+    .filter((x) => x.status === 'today' || x.status === 'done' || x.status === 'bonus');
 }
 
 /** Calendar weeks (Mon–Sun rows) covering the plan, padded with null outside it. */
@@ -238,6 +263,27 @@ export function planWeeks(p: TrainPlan): (string | null)[][] {
   const weeks: (string | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
+}
+
+/** Full calendar months covering the plan, each as Monday-first weeks (null = other month). */
+export function planMonths(p: TrainPlan): { key: string; weeks: (string | null)[][] }[] {
+  const out: { key: string; weeks: (string | null)[][] }[] = [];
+  const end = planEnd(p);
+  let first = `${p.start.slice(0, 7)}-01`;
+  while (first <= end) {
+    const cells: (string | null)[] = Array.from({ length: (weekday(first) + 6) % 7 }, () => null);
+    let k = first;
+    while (k.slice(0, 7) === first.slice(0, 7)) {
+      cells.push(k);
+      k = addDays(k, 1);
+    }
+    while (cells.length % 7) cells.push(null);
+    const weeks: (string | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    out.push({ key: first, weeks });
+    first = k; // first day of the next month
+  }
+  return out;
 }
 
 /**

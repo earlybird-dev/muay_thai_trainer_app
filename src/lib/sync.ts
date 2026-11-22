@@ -280,11 +280,18 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
     ...local.combos.filter((c) => merged.has(c.id)).map((c) => merged.get(c.id)!),
   ];
 
-  // History
+  // History. A "Clear history" on any device (newest clear wins) drops older sessions everywhere, and
+  // stops this device from uploading them again.
+  const clears = [local.settings.historyClearedAt, (remote.state?.settings as { historyClearedAt?: string | null } | undefined)?.historyClearedAt]
+    .filter((x): x is string => typeof x === 'string')
+    .map(time);
+  const clearedAt = clears.length ? Math.max(...clears) : -Infinity;
+  const kept = (s: SessionLog) => time(s.date) > clearedAt;
   const remoteSessionIds = new Set(remote.sessions.map((s) => s.id));
-  for (const s of local.history) if (!remoteSessionIds.has(s.id)) push.sessions.push(sessionToRow(s));
+  for (const s of local.history) if (kept(s) && !remoteSessionIds.has(s.id)) push.sessions.push(sessionToRow(s));
   const seen = new Set<string>();
   const history = [...local.history, ...remote.sessions.map(rowToSession)]
+    .filter(kept)
     .filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)))
     .sort((a, b) => time(b.date) - time(a.date))
     .slice(0, HISTORY_LIMIT);

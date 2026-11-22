@@ -64,8 +64,20 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
             <div className="today-text">
               <span className="muted small">{plan.name}</span>
               <b>Rest day</b>
+              <span className="muted small">{next ? `Next: ${dayName(next)}` : 'Last session done'}</span>
             </div>
-            <span className="muted small">{next ? `Next: ${dayName(next)}` : 'Last session done'}</span>
+            {(() => {
+              const w = data.workouts.find((x) => x.id === plan.workoutId);
+              return w ? (
+                <button
+                  className="btn"
+                  title="Train today instead — it counts toward this week"
+                  onClick={() => startWorkout(w, plan.id) || void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' })}
+                >
+                  Train today
+                </button>
+              ) : null;
+            })()}
           </div>
         );
       })}
