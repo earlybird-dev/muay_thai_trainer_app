@@ -337,6 +337,7 @@ function Setup() {
         </section>
       )}
 
+      <h2 className="setup-title">{editing ? 'Edit workout' : 'New session'}</h2>
       {editing && (
         <p className="editing-banner">
           Editing <b>{editing.name}</b> — change the settings below, then <b>Save changes</b>.{' '}
@@ -451,10 +452,9 @@ function Setup() {
         {drill && pool.length > 0 && cfg.drillCount > pool.length && (
           <p className="muted small">The pool has {pool.length} combo{pool.length === 1 ? '' : 's'}, so some will come round again.</p>
         )}
-      </section>
 
       {!tech && (
-        <section className="card">
+        <div className="setup-pool">
           <h2>{drill ? 'Combos to drill' : 'Combos to call'}</h2>
           <div className="pool-picker">
             <div className="pool-cards" role="group" aria-label="Suggested combo pools">
@@ -564,34 +564,35 @@ function Setup() {
               ))}
             </ul>
           )}
-        </section>
+        </div>
       )}
 
-      {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
-      <div className="row actions sticky-actions">
-        <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
-          <Icon name="play" />
-          Start session
-        </button>
-        {!tech &&
-          (editing ? (
-            <>
-              <button className="btn big" onClick={saveChanges} disabled={pool.length === 0}>
-                <Icon name="save" />
-                Save changes
-              </button>
+        {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
+        <div className="row actions sticky-actions setup-actions">
+          <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
+            <Icon name="play" />
+            Start session
+          </button>
+          {!tech &&
+            (editing ? (
+              <>
+                <button className="btn big" onClick={saveChanges} disabled={pool.length === 0}>
+                  <Icon name="save" />
+                  Save changes
+                </button>
+                <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
+                  <Icon name="copy" />
+                  Save as new
+                </button>
+              </>
+            ) : (
               <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
-                <Icon name="copy" />
-                Save as new
+                <Icon name="save" />
+                Save as workout
               </button>
-            </>
-          ) : (
-            <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
-              <Icon name="save" />
-              Save as workout
-            </button>
-          ))}
-      </div>
+            ))}
+        </div>
+      </section>
     </div>
   );
 }
