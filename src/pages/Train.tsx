@@ -306,6 +306,9 @@ function Setup() {
       {!tech && data.workouts.length > 0 && (
         <section className="section">
           <h2>Saved workouts</h2>
+          <p className="muted small section-note">
+            Start one any time, or turn it into a routine: pick it in a <Link to="/plans/new">plan</Link> to train on set days for 7–90 days.
+          </p>
           <ul className="list">
             {data.workouts.map((w) => (
               <li key={w.id} className={`card workout-row ${editingId === w.id ? 'is-editing' : ''}`}>

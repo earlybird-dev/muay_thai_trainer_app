@@ -2658,3 +2658,6 @@ select.input {
   border-radius: 0 0 14px 14px;
   background: linear-gradient(transparent, var(--surface) 9px);
 }
+.section-note {
+  margin: -4px 0 10px;
+}
