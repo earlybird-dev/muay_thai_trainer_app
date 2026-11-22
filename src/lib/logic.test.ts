@@ -679,11 +679,11 @@ describe('training music', () => {
   it('gives downloaded tracks clean names from their file names', async () => {
     const { trackNameFromFile, TRAINING_TRACKS } = await import('./music');
     expect(trackNameFromFile('gr0za-racing-racing-speed-brass-music-610347.mp3')).toBe('Racing Speed Brass Music');
-    expect(trackNameFromFile('gr0za-vlog-vlog-vlogs-music-610218.mp3')).toBe('Vlog Music');
+    expect(trackNameFromFile('gr0za-rap-rap-beat-610255.mp3')).toBe('Rap Beat');
     expect(trackNameFromFile('echoes_of_lumen-trap-beat-heavy-bass-586976.mp3')).toBe('Trap Beat Heavy Bass');
     expect(trackNameFromFile('alex-morgan-dark-trap-lazy-beat-instrumental-587390.mp3')).toBe('Dark Trap Lazy Beat');
     const names = TRAINING_TRACKS.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length); // no two the same
-    expect(TRAINING_TRACKS).toHaveLength(13);
+    expect(TRAINING_TRACKS).toHaveLength(10);
   });
 });

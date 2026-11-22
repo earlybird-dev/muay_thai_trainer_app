@@ -764,7 +764,8 @@ input[type='range'] {
   list-style: none;
   padding: 0;
   margin: 10px 0 0;
-  max-height: 340px;
+  /* Room for at least 12 combos before it scrolls (rows are ~60px; taller on phones). */
+  max-height: 740px;
   overflow: auto;
 }
 
@@ -1894,4 +1895,9 @@ input[type='range'] {
 }
 .btn.start-btn:disabled {
   box-shadow: none;
+}
+@media (max-width: 600px) {
+  .pick-list {
+    max-height: 780px;
+  }
 }
