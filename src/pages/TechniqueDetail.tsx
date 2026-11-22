@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Icon from '../components/Icon';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import FigureView from '../components/FigureView';
 import FighterPicker from '../components/FighterPicker';
 import type { CameraView } from '../components/Figure3D';
@@ -19,7 +19,6 @@ export default function TechniqueDetail() {
 function Detail({ id }: { id: string }) {
   const t = TECH_BY_ID[id];
   const { data, update } = useStore();
-  const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(0.5);
   const [mirror, setMirror] = useState(data.settings.stance === 'southpaw');
@@ -221,13 +220,6 @@ function Detail({ id }: { id: string }) {
         </div>
       </section>
 
-      {t.strike && (
-        <div className="row actions">
-          <button className="btn accent" onClick={() => navigate(`/train?technique=${t.id}`)}>
-            Practice this for a round
-          </button>
-        </div>
-      )}
     </div>
   );
 }
