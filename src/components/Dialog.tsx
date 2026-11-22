@@ -14,6 +14,8 @@ interface BaseOptions {
 export interface PromptOptions extends BaseOptions {
   defaultValue?: string;
   placeholder?: string;
+  /** Live check of the typed text: return an error message to show (and block saving), or null when it's fine. */
+  validate?: (value: string) => string | null;
 }
 
 type Request =
@@ -113,7 +115,8 @@ function DialogView({ req, onClose }: { req: Request; onClose: () => void }) {
   }, [finish]);
 
   const confirmLabel = opts.confirmLabel ?? (req.kind === 'alert' ? 'OK' : req.kind === 'prompt' ? 'Save' : 'Confirm');
-  const promptEmpty = req.kind === 'prompt' && !value.trim();
+  const promptError = req.kind === 'prompt' && value.trim() ? (req.opts.validate?.(value.trim()) ?? null) : null;
+  const promptEmpty = req.kind === 'prompt' && (!value.trim() || !!promptError);
 
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && finish(false)}>
@@ -147,8 +150,15 @@ function DialogView({ req, onClose }: { req: Request; onClose: () => void }) {
               placeholder={req.opts.placeholder}
               maxLength={80}
               aria-label={opts.title}
+              aria-invalid={!!promptError}
+              aria-describedby={promptError ? 'dialog-error' : undefined}
               onChange={(e) => setValue(e.target.value)}
             />
+          )}
+          {promptError && (
+            <p id="dialog-error" className="field-error" role="alert">
+              {promptError}
+            </p>
           )}
           <div className="dialog-actions">
             {req.kind !== 'alert' && (

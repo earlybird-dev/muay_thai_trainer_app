@@ -174,14 +174,23 @@ function Setup() {
       ...(poolMode !== 'pick' && excluded.size ? { excluded: [...excluded] } : {}),
     },
   });
+  /** Workout names are unique (ignoring case and spaces); `exceptId` lets a workout keep its own name. */
+  const nameTaken = (name: string, exceptId?: string) =>
+    data.workouts.some((w) => w.id !== exceptId && w.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const uniqueName = (base: string) => {
+    if (!nameTaken(base)) return base;
+    for (let i = 2; ; i++) if (!nameTaken(`${base} ${i}`)) return `${base} ${i}`;
+  };
+  const renameTaken = !!editing && !!editName.trim() && nameTaken(editName, editing.id);
   const saveAsNew = async () => {
     const name = await dialog.prompt({
       title: 'Name this workout',
       message: 'Saved workouts can be started in one tap and added to a plan.',
-      defaultValue: editing ? `${editing.name} (copy)` : drill ? 'Combo drill' : 'Rounds',
+      defaultValue: uniqueName(editing ? `${editing.name} (copy)` : drill ? 'Combo drill' : 'Rounds'),
       confirmLabel: 'Save workout',
+      validate: (v) => (nameTaken(v) ? 'You already have a workout with this name.' : null),
     });
-    if (!name) return;
+    if (!name || nameTaken(name)) return;
     const w = currentWorkout(newId().replace('c-', 'w-'), name);
     update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
     setEditingId(w.id);
@@ -190,6 +199,7 @@ function Setup() {
   const saveChanges = () => {
     if (!editing) return;
     const name = editName.trim() || editing.name;
+    if (nameTaken(name, editing.id)) return;
     const w = currentWorkout(editing.id, name);
     update((d) => ({ ...d, workouts: d.workouts.map((x) => (x.id === w.id ? w : x)) }));
     setSavedMsg(`Updated "${name}".`);
@@ -380,7 +390,14 @@ function Setup() {
         {editing && (
           <label className="field workout-name">
             <span>Workout name</span>
-            <input className="input" value={editName} maxLength={60} onChange={(e) => setEditName(e.target.value)} />
+            <input
+              className="input"
+              value={editName}
+              maxLength={60}
+              aria-invalid={renameTaken}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+            {renameTaken && <span className="field-error">You already have a workout with this name.</span>}
           </label>
         )}
         <div className="seg mode-switch" role="group" aria-label="Training mode">
@@ -613,7 +630,7 @@ function Setup() {
           {!tech &&
             (editing ? (
               <>
-                <button className="btn primary big" onClick={saveChanges} disabled={pool.length === 0}>
+                <button className="btn primary big" onClick={saveChanges} disabled={pool.length === 0 || renameTaken}>
                   <Icon name="save" />
                   Save changes
                 </button>

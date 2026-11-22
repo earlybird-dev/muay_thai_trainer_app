@@ -2839,3 +2839,14 @@ select.input {
 .stop-editing:hover {
   background: color-mix(in srgb, var(--accent-2) 22%, transparent);
 }
+/* Inline form error, e.g. a workout name that's already taken */
+.field-error {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--accent);
+}
