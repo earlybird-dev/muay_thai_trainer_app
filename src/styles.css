@@ -2784,3 +2784,19 @@ select.input {
 .combo-filter {
   margin: 12px 0 14px;
 }
+/* Technique page: Mark as learned beside the title */
+.detail-head {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.detail-head h1 {
+  margin: 8px 0;
+}
+.detail-head .btn {
+  flex: none;
+}
+.btn.learned-on {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}

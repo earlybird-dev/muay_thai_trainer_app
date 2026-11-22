@@ -75,9 +75,15 @@ function Detail({ id }: { id: string }) {
       <Link to="/learn" className="back">
         ← {cat?.name}
       </Link>
-      <h1>
-        {t.code && <span className="code big">{t.code}</span>} {t.name}
-      </h1>
+      <div className="page-head detail-head">
+        <h1>
+          {t.code && <span className="code big">{t.code}</span>} {t.name}
+        </h1>
+        <button className={`btn ${learned ? 'learned-on' : 'primary'}`} onClick={toggleLearned} aria-pressed={learned}>
+          <Icon name="check" />
+          {learned ? 'Learned' : 'Mark as learned'}
+        </button>
+      </div>
       <p className="lead">{t.summary}</p>
 
       <div className="stage card">
@@ -215,17 +221,13 @@ function Detail({ id }: { id: string }) {
         </div>
       </section>
 
-      <div className="row actions">
-        <button className={`btn ${learned ? '' : 'primary'}`} onClick={toggleLearned}>
-          <Icon name="check" />
-          {learned ? 'Learned (undo)' : 'Mark as learned'}
-        </button>
-        {t.strike && (
+      {t.strike && (
+        <div className="row actions">
           <button className="btn accent" onClick={() => navigate(`/train?technique=${t.id}`)}>
             Practice this for a round
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
