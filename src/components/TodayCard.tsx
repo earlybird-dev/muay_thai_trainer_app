@@ -22,6 +22,13 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
   const noCombos = () => void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
 
   return (
+    <>
+    <div className="today-title-row">
+      <h2>Today’s training</h2>
+      <Link to="/plans" className="small">
+        All plans →
+      </Link>
+    </div>
     <section className={`card today-card ${compact ? 'compact' : ''}`} aria-label="Today's training">
       {due.map(({ plan, status }) => {
         const w = data.workouts.find((x) => x.id === plan.workoutId);
@@ -90,5 +97,6 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
         );
       })}
     </section>
+    </>
   );
 }

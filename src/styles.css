@@ -2661,3 +2661,123 @@ select.input {
 .section-note {
   margin: -4px 0 10px;
 }
+/* ---------- Session complete (congrats) page ---------- */
+.congrats {
+  position: relative;
+  overflow: hidden;
+}
+.confetti {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 100vh;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.confetti span {
+  position: absolute;
+  top: -20px;
+  opacity: 0;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.5, 1);
+  animation-fill-mode: forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 30px 90vh;
+    rotate: 540deg;
+  }
+}
+.congrats-hero,
+.congrats-tiles,
+.congrats-plan,
+.congrats-actions {
+  position: relative;
+  z-index: 1;
+}
+.congrats-hero {
+  text-align: center;
+  padding: 28px 0 18px;
+}
+.congrats-trophy {
+  display: inline-grid;
+  place-items: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  font-size: 3.4rem;
+  background: var(--grad);
+  box-shadow: 0 10px 34px var(--grad-glow);
+  animation: trophy-pop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes trophy-pop {
+  from {
+    transform: scale(0.3) rotate(-20deg);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.congrats-hero h1 {
+  margin: 16px 0 6px;
+  font-size: 2.2rem;
+  width: fit-content;
+  margin-inline: auto;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.congrats-cheer {
+  margin: 0 auto;
+  max-width: 34ch;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+.congrats-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.congrats-actions {
+  margin-top: 18px;
+}
+.congrats-actions .btn {
+  flex: 1 1 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+  .congrats-trophy {
+    animation: none;
+  }
+}
+/* Title above the Today card */
+.today-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 16px;
+}
+.today-title-row h2 {
+  margin: 0;
+}
+.today-title-row + .today-card {
+  margin-top: 10px;
+}

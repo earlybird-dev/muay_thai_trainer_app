@@ -14,6 +14,7 @@ import { poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } fr
 import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
+import Congrats from './Congrats';
 import MusicToggle from '../components/MusicToggle';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
 import { useDialog } from '../components/Dialog';
@@ -32,6 +33,7 @@ export default function Train() {
     <Routes>
       <Route index element={<Setup />} />
       <Route path="session" element={<Session />} />
+      <Route path="done" element={<Congrats />} />
       <Route path="*" element={<Navigate to="/train" replace />} />
     </Routes>
   );
@@ -808,7 +810,7 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
     goToHistory(true);
   };
 
-  // A finished session goes straight to History, with a summary card on top.
+  // A finished session leaves the session screen straight away.
   function goToHistory(early: boolean) {
     const summary: FinishedSummary = {
       early,
@@ -819,7 +821,8 @@ function SessionRunner({ config, pool, workoutId, planId }: LaunchState) {
       seconds: Math.round(Math.min(lastT.current, plan.total) / 1000),
       planId,
     };
-    navigate('/history', { replace: true, state: { finished: summary } });
+    // A full session gets the celebration page; ending early goes to History with a summary.
+    navigate(early ? '/history' : '/train/done', { replace: true, state: { finished: summary } });
   }
   useEffect(() => {
     if (finished && !finished.early) {
