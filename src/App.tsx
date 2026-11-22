@@ -79,7 +79,7 @@ export default function App() {
               <circle cx="12" cy="12" r="9" fill="none" stroke="var(--accent)" strokeWidth="2.2" />
               <path d="M8.5 16c0-3 1.2-5.5 3.5-7.5 2.3 2 3.5 4.5 3.5 7.5" fill="none" stroke="var(--accent-2)" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-            Muay Thai Trainer
+            <span className="brand-name">Muay Thai Trainer</span>
           </span>
           <div className="topbar-right">
             <MusicToggle />

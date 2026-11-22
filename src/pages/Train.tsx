@@ -564,7 +564,7 @@ function Setup() {
 
       {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
       <div className="row actions sticky-actions">
-        <button className="btn primary big" onClick={start} disabled={pool.length === 0}>
+        <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
           Start session
         </button>
         {!tech &&

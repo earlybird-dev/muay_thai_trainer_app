@@ -19,6 +19,10 @@
   --fig-ground: #3a3a42;
   --radius: 14px;
   --tabbar-h: 70px;
+  /* Brand gradient: red → orange → amber. --grad-deep keeps white text readable across the whole bar. */
+  --grad: linear-gradient(100deg, #e63946 0%, #f0713f 55%, #f4a261 100%);
+  --grad-deep: linear-gradient(100deg, #d62839 0%, #e5523b 55%, #ec7a3e 100%);
+  --grad-glow: rgba(230, 57, 70, 0.32);
   --tabbar-shadow: rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
@@ -115,13 +119,20 @@ h2 {
   padding: 10px 16px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
+  border-image: var(--grad) 1;
 }
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
+  font-weight: 800;
+}
+.brand-name {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .content {
   max-width: 980px;
@@ -150,8 +161,8 @@ h2 {
   gap: 2px;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 6px 6px env(safe-area-inset-bottom);
-  background: var(--accent);
-  border-top: 1px solid color-mix(in srgb, #000 25%, var(--accent));
+  background: var(--grad-deep);
+  border-top: 1px solid rgba(0, 0, 0, 0.25);
   box-shadow: 0 -8px 24px var(--tabbar-shadow);
 }
 .tab {
@@ -233,9 +244,18 @@ h2 {
   cursor: not-allowed;
 }
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--grad);
+  border-color: transparent;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 4px 14px var(--grad-glow);
+}
+.btn.primary:hover:not(:disabled) {
+  border-color: transparent;
+  filter: brightness(1.07);
+}
+.btn.primary:disabled {
+  box-shadow: none;
 }
 .btn.accent {
   background: transparent;
@@ -387,7 +407,7 @@ input[type='range'] {
   height: 1.5em;
   margin-right: 6px;
   border-radius: 6px;
-  background: var(--accent);
+  background: var(--grad);
   color: var(--accent-text);
   font-size: 0.8em;
   font-weight: 800;
@@ -412,7 +432,7 @@ input[type='range'] {
 }
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: var(--grad);
   transition: width 0.4s;
 }
 .progress-label {
@@ -631,7 +651,11 @@ input[type='range'] {
 .combo-call {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--accent-2);
+  width: fit-content;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   letter-spacing: 0.02em;
 }
 .combo-actions {
@@ -690,7 +714,11 @@ input[type='range'] {
   margin-top: 12px;
   font-size: 1.6rem;
   font-weight: 800;
-  color: var(--accent-2);
+  width: fit-content;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .palette-group {
   margin-bottom: 10px;
@@ -1039,7 +1067,7 @@ input[type='range'] {
 .avatar-fallback {
   display: inline-grid;
   place-items: center;
-  background: var(--accent);
+  background: var(--grad);
   color: var(--accent-text);
   font-weight: 800;
   line-height: 1;
@@ -1173,7 +1201,10 @@ input[type='range'] {
   margin: 12px 0 0;
 }
 .today-card {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--grad) border-box;
 }
 .today-head {
   display: flex;
@@ -1240,8 +1271,8 @@ input[type='range'] {
   cursor: pointer;
 }
 .weekday.on {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--grad);
+  border-color: transparent;
   color: var(--accent-text);
 }
 .reminder-time .input {
@@ -1465,8 +1496,8 @@ input[type='range'] {
   min-width: 96px;
 }
 .btn.danger.solid {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--grad);
+  border-color: transparent;
   color: var(--accent-text);
 }
 @media (max-width: 420px) {
@@ -1847,4 +1878,20 @@ input[type='range'] {
   .pick-search > .muted {
     order: 2;
   }
+}
+/* The main call to action: a red → orange gradient, so it stands apart from the flat red menu bar. */
+.btn.start-btn {
+  background: var(--grad);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 18px var(--grad-glow);
+}
+.btn.start-btn:hover:not(:disabled) {
+  border-color: transparent;
+  filter: brightness(1.07);
+}
+.btn.start-btn:disabled {
+  box-shadow: none;
 }
