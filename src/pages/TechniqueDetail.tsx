@@ -74,16 +74,16 @@ function Detail({ id }: { id: string }) {
       <Link to="/learn" className="back">
         ← {cat?.name}
       </Link>
-      <div className="page-head detail-head">
-        <h1>
-          {t.code && <span className="code big">{t.code}</span>} {t.name}
-        </h1>
+      <h1>
+        {t.code && <span className="code big">{t.code}</span>} {t.name}
+      </h1>
+      <p className="lead">{t.summary}</p>
+      <div className="learned-row">
         <button className={`btn small ${learned ? 'learned-on' : 'primary'}`} onClick={toggleLearned} aria-pressed={learned}>
           <Icon name="check" />
           {learned ? 'Learned' : 'Mark as learned'}
         </button>
       </div>
-      <p className="lead">{t.summary}</p>
 
       <div className="stage card">
         <div className="stage-top">
