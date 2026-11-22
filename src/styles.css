@@ -2559,3 +2559,79 @@ input[type='range'] {
     margin-bottom: 28px;
   }
 }
+/* Plan form: Length stepper with a quick-pick drop-down beside it */
+.length-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.length-preset {
+  width: auto;
+  min-width: 120px;
+}
+/* Drop-downs: our own chevron with room between it and the border */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9aa5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+/* Plan form: Length, Start date and Training days on one row (wraps on narrow screens) */
+.plan-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 20px;
+}
+.plan-when > .field {
+  flex: 0 0 auto;
+}
+.plan-when .input[type='date'] {
+  width: auto;
+}
+.plan-when-note {
+  margin: 0 0 12px;
+}
+.plan-when {
+  align-items: flex-start;
+}
+.plan-when > .field {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.plan-when .weekday-picker {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .plan-when > .field {
+    flex: 1 1 100%;
+  }
+}
+@media (max-width: 600px) {
+  .plan-when .weekday-picker {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .plan-when .weekday {
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    font-size: 0.82rem;
+  }
+}
+/* Smaller day numbers in the plan calendar on phones */
+@media (max-width: 600px) {
+  .ph-cell {
+    font-size: 0.5rem;
+    font-weight: 600;
+  }
+  .ph-x {
+    font-size: 0.62rem;
+  }
+}

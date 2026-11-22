@@ -106,7 +106,7 @@ function DayStepper({ value, onChange }: { value: number; onChange: (v: number) 
   };
   useEffect(() => stop, []);
   const nudge = (dir: 1 | -1) => {
-    const next = Math.min(366, Math.max(1, ref.current.value + dir));
+    const next = clampDays(ref.current.value + dir);
     if (next === ref.current.value) return false;
     ref.current.value = next;
     ref.current.onChange(next);
@@ -125,7 +125,7 @@ function DayStepper({ value, onChange }: { value: number; onChange: (v: number) 
       type="button"
       className="btn icon"
       aria-label={dir > 0 ? 'Longer plan' : 'Shorter plan'}
-      disabled={dir > 0 ? value >= 366 : value <= 1}
+      disabled={dir > 0 ? value >= MAX_DAYS : value <= MIN_DAYS}
       onPointerDown={(e) => e.button === 0 && press(dir)}
       onPointerUp={stop}
       onPointerLeave={stop}
@@ -143,13 +143,17 @@ function DayStepper({ value, onChange }: { value: number; onChange: (v: number) 
   return (
     <div className="stepper">
       {btn(-1)}
-      <b className="stepper-time">
-        {value} day{value === 1 ? '' : 's'}
-      </b>
+      <b className="stepper-time">{value}</b>
       {btn(1)}
     </div>
   );
 }
+
+/** Plan length limits and quick picks, in days. */
+const MIN_DAYS = 7;
+const MAX_DAYS = 90;
+const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, n));
+const LENGTHS = [7, 14, 21, 30, 60, 90];
 
 function PlanForm() {
   const { id } = useParams();
@@ -160,7 +164,7 @@ function PlanForm() {
 
   const [name, setName] = useState(existing?.name ?? '30-day plan');
   const [workoutId, setWorkoutId] = useState(existing?.workoutId ?? data.workouts[0]?.id ?? '');
-  const [days, setDays] = useState(existing?.days ?? 30);
+  const [days, setDays] = useState(clampDays(existing?.days ?? 30));
   const [start, setStart] = useState(existing?.start ?? today);
   const [weekdays, setWeekdays] = useState<number[]>(existing?.weekdays ?? [1, 3, 5]);
   const [reminderOn, setReminderOn] = useState(existing?.reminder.enabled ?? false);
@@ -232,38 +236,52 @@ function PlanForm() {
               </option>
             ))}
           </select>
-          {data.workouts.find((w) => w.id === workoutId) && (
-            <span className="muted small">{workoutSummary(data.workouts.find((w) => w.id === workoutId)!)}</span>
-          )}
         </label>
-        <div className="form-grid">
+        <div className="plan-when">
           <div className="field">
-            <span>Length</span>
-            <DayStepper value={days} onChange={setDays} />
+            <span>Length (days)</span>
+            <div className="length-row">
+              <DayStepper value={days} onChange={setDays} />
+              <select
+                className="input length-preset"
+                aria-label="Length preset"
+                value={LENGTHS.includes(days) ? days : 'custom'}
+                onChange={(e) => e.target.value !== 'custom' && setDays(Number(e.target.value))}
+              >
+                {LENGTHS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} days
+                  </option>
+                ))}
+                <option value="custom" disabled>
+                  Custom ({days})
+                </option>
+              </select>
+            </div>
           </div>
           <label className="field">
             <span>Start date</span>
             <input className="input" type="date" value={start} onChange={(e) => e.target.value && setStart(e.target.value)} />
           </label>
-        </div>
-        <div className="field">
-          <span>Training days</span>
-          <div className="weekday-picker" role="group" aria-label="Training days">
-            {WEEKDAYS.map((d) => (
-              <button
-                key={d.id}
-                className={`weekday ${weekdays.includes(d.id) ? 'on' : ''}`}
-                aria-pressed={weekdays.includes(d.id)}
-                onClick={() => toggleDay(d.id)}
-              >
-                {d.short}
-              </button>
-            ))}
+          <div className="field">
+            <span>Training days</span>
+            <div className="weekday-picker" role="group" aria-label="Training days">
+              {WEEKDAYS.map((d) => (
+                <button
+                  key={d.id}
+                  className={`weekday ${weekdays.includes(d.id) ? 'on' : ''}`}
+                  aria-pressed={weekdays.includes(d.id)}
+                  onClick={() => toggleDay(d.id)}
+                >
+                  {d.short}
+                </button>
+              ))}
+            </div>
           </div>
-          <span className="muted small">
-            {trainingCount} training session{trainingCount === 1 ? '' : 's'} from {fmtDay(start)} to {fmtDay(addDays(start, days - 1))}
-          </span>
         </div>
+        <p className="muted small plan-when-note">
+          {trainingCount} training session{trainingCount === 1 ? '' : 's'} from {fmtDay(start)} to {fmtDay(addDays(start, days - 1))}
+        </p>
         <label className="check">
           <input type="checkbox" checked={reminderOn} onChange={(e) => void toggleReminder(e.target.checked)} />
           Daily reminder on training days
