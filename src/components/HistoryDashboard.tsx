@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { SessionLog } from '../lib/storage';
 import { activityGrid, bestStreak, streakDays, topCombos, weeklyTotals } from '../lib/stats';
 
@@ -103,7 +104,7 @@ export default function HistoryDashboard({ history }: { history: SessionLog[] })
         <div
           className="heat"
           style={{ gridTemplateColumns: `auto repeat(${HEAT_WEEKS}, minmax(0, 1fr))` }}
-          role="img"
+          role="group"
           aria-label={`Training activity, last ${HEAT_WEEKS} weeks: ${activeDays} days with training`}
         >
           {['', 'Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((d, i) => (
@@ -121,13 +122,21 @@ export default function HistoryDashboard({ history }: { history: SessionLog[] })
               <span key={`m${first.key}`} className="heat-month" aria-hidden>
                 {showMonth ? fmtDay(first.key, { month: 'short' }) : ''}
               </span>,
-              ...col.map((d) => (
-                <span
-                  key={d.key}
-                  className={`heat-cell lv${d.level} ${d.future ? 'future' : ''}`}
-                  data-tip={d.future ? undefined : `${fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' })} · ${d.seconds ? fmtDuration(d.seconds) : 'rest'}`}
-                />
-              )),
+              ...col.map((d) => {
+                const tip = `${fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' })} · ${d.seconds ? fmtDuration(d.seconds) : 'rest'}`;
+                // A day with training opens that day's sessions.
+                return d.seconds > 0 ? (
+                  <Link
+                    key={d.key}
+                    to={`/history/sessions?day=${d.key}`}
+                    className={`heat-cell lv${d.level}`}
+                    data-tip={tip}
+                    aria-label={`${tip}. Show this day's sessions`}
+                  />
+                ) : (
+                  <span key={d.key} className={`heat-cell lv0 ${d.future ? 'future' : ''}`} data-tip={d.future ? undefined : tip} />
+                );
+              }),
             ];
           })}
         </div>

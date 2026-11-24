@@ -21,6 +21,8 @@ export interface Settings {
   favorites: string[];
   /** When history was last cleared (ISO). Synced, so other devices drop older sessions too. */
   historyClearedAt: string | null;
+  /** Ids of sessions deleted one by one. Synced, so other devices drop them instead of uploading them again. */
+  deletedSessions: string[];
   /** Training music: a track id from TRAINING_TRACKS in lib/music.ts, or 'shuffle' for all of them. */
   trainingTrack: string;
 }
@@ -84,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   trainingTrack: 'shuffle',
   favorites: [],
   historyClearedAt: null,
+  deletedSessions: [],
 };
 
 export const emptyData = (): AppData => ({
@@ -104,7 +107,7 @@ export const emptyData = (): AppData => ({
 });
 
 /** Settings that follow the account across devices (voice choice is device-specific). */
-export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter', 'favorites', 'historyClearedAt'] as const;
+export const SYNCED_SETTING_KEYS = ['stance', 'voice', 'rate', 'volume', 'sounds', 'theme', 'figure', 'fighter', 'favorites', 'historyClearedAt', 'deletedSessions'] as const;
 export type SyncedSettings = Pick<Settings, (typeof SYNCED_SETTING_KEYS)[number]>;
 export const pickSyncedSettings = (s: Settings): SyncedSettings =>
   Object.fromEntries(SYNCED_SETTING_KEYS.map((k) => [k, s[k]])) as SyncedSettings;
@@ -139,6 +142,9 @@ export function parseData(raw: unknown): AppData {
   // 1.05 was the old default speech rate; move it to the new, brisker default.
   if (settings.rate === 1.05) settings.rate = DEFAULT_SETTINGS.rate;
   settings.favorites = Array.isArray(settings.favorites) ? settings.favorites.filter((x): x is string => typeof x === 'string') : [];
+  settings.deletedSessions = Array.isArray(settings.deletedSessions)
+    ? settings.deletedSessions.filter((x): x is string => typeof x === 'string')
+    : [];
   const lastSession = isObj(raw.lastSession) ? (raw.lastSession as Partial<SessionConfig>) : null;
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
   const strMap = (v: unknown): Record<string, string> =>

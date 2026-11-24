@@ -1599,10 +1599,6 @@ input[type='range'] {
   padding-right: 12px;
   white-space: nowrap;
 }
-.history-actions {
-  margin-top: 20px;
-  margin-bottom: 16px;
-}
 .music-preview {
   align-self: flex-start;
   margin-top: 8px;
@@ -2889,4 +2885,62 @@ select.input {
 .learned-row {
   display: flex;
   margin: -6px 0 16px;
+}
+/* All sessions: delete button in the corner of each row */
+.history-row {
+  position: relative;
+  padding-right: 60px;
+}
+.history-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.history-delete:hover,
+.history-delete:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* Activity squares that open that day's sessions */
+a.heat-cell:hover,
+a.heat-cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+  z-index: 5;
+}
+/* All sessions: filters above the list */
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.history-filters .input {
+  flex: 1 1 150px;
+  width: auto;
+  min-width: 0;
+}
+.history-filters .history-search {
+  flex: 2 1 220px;
+}
+.history-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  margin: 12px 0;
+}
+.history-count p {
+  margin: 0;
 }

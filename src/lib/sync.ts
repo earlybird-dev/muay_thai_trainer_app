@@ -4,7 +4,8 @@
  *
  *  - Combos: newest change wins per combo (local `updatedAt` / tombstone vs server `updated_at`).
  *    Deletions are pushed as `deleted = true` rows so they reach other devices.
- *  - History: union by session id (sessions are never edited, only added or cleared).
+ *  - History: union by session id (sessions are never edited, only added, deleted or cleared). Deleted
+ *    ids are kept as a synced list that is merged across devices, so a deleted session stays deleted.
  *  - Progress + settings (learned, videos, synced settings): one blob, newest wins.
  */
 import { demoAddedAt } from './demoData';
@@ -68,6 +69,8 @@ export interface RemoteData {
 export interface PushPlan {
   combos: ComboRow[];
   sessions: SessionRow[];
+  /** Ids of sessions the account still has but the user deleted. */
+  sessionDeletes: string[];
   state: StateRow | null;
   workouts: DocRow[];
   plans: DocRow[];
@@ -79,8 +82,17 @@ const DOCS: { coll: DocCollection; parse: (v: unknown) => { id: string; updatedA
 ];
 
 export const HISTORY_LIMIT = 500;
+/** How many deleted session ids to remember (newest kept). */
+const DELETED_LIMIT = 2000;
 const EPOCH = '1970-01-01T00:00:00.000Z';
 const time = (iso: string | null | undefined) => (iso ? Date.parse(iso) || 0 : 0);
+
+/** Delete one session from the history and remember its id, so sync removes it everywhere. */
+export const deleteSession = (d: AppData, id: string): AppData => ({
+  ...d,
+  history: d.history.filter((s) => s.id !== id),
+  settings: { ...d.settings, deletedSessions: [...d.settings.deletedSessions.filter((x) => x !== id), id].slice(-DELETED_LIMIT) },
+});
 
 // ---------- local change stamping ----------
 
@@ -244,7 +256,7 @@ export const rowToSession = (r: SessionRow): SessionLog => ({
 
 /** Merge local data with the server copy. Returns the new local data and what to send up. */
 export function mergeAll(local: AppData, remote: RemoteData, now = new Date().toISOString()): { data: AppData; push: PushPlan } {
-  const push: PushPlan = { combos: [], sessions: [], state: null, workouts: [], plans: [] };
+  const push: PushPlan = { combos: [], sessions: [], sessionDeletes: [], state: null, workouts: [], plans: [] };
 
   // Combos
   const localById = new Map(local.combos.map((c) => [c.id, c]));
@@ -289,7 +301,13 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
   const clearedAt = clears.length ? Math.max(...clears) : -Infinity;
   // Sample sessions (see demoData.ts) are back-dated on purpose: a clear made before they were added
   // doesn't drop them, but a later "Clear history" does, on every device.
-  const kept = (s: SessionLog) => time(s.date) > clearedAt || demoAddedAt(s.id) > clearedAt;
+  // Sessions deleted one by one, on this device or any other, are gone for good.
+  const remoteDeletedRaw = (remote.state?.settings as { deletedSessions?: unknown } | undefined)?.deletedSessions;
+  const remoteDeleted = Array.isArray(remoteDeletedRaw) ? remoteDeletedRaw.filter((x): x is string => typeof x === 'string') : [];
+  const deletedSessions = [...new Set([...remoteDeleted, ...local.settings.deletedSessions])].slice(-DELETED_LIMIT);
+  const deleted = new Set(deletedSessions);
+  const kept = (s: SessionLog) => !deleted.has(s.id) && (time(s.date) > clearedAt || demoAddedAt(s.id) > clearedAt);
+  push.sessionDeletes = remote.sessions.map((s) => s.id).filter((id) => deleted.has(id));
   const remoteSessionIds = new Set(remote.sessions.map((s) => s.id));
   for (const s of local.history) if (kept(s) && !remoteSessionIds.has(s.id)) push.sessions.push(sessionToRow(s));
   const seen = new Set<string>();
@@ -305,7 +323,7 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
   const localStateRow = (): StateRow => ({
     learned: local.learned,
     videos: local.videos,
-    settings: pickSyncedSettings(local.settings),
+    settings: { ...pickSyncedSettings(local.settings), deletedSessions },
     updated_at: local.stateUpdatedAt ?? now,
   });
   if (!R) {
@@ -316,9 +334,14 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
     videos = R.videos ?? {};
     settings = { ...DEFAULT_SETTINGS, ...local.settings, ...(R.settings ?? {}), voiceURI: local.settings.voiceURI };
     stateUpdatedAt = R.updated_at;
+    // The account's settings win, but it must still learn about sessions deleted here.
+    const known = new Set(remoteDeleted);
+    if (deletedSessions.some((id) => !known.has(id)))
+      push.state = { learned, videos, settings: { ...(R.settings ?? {}), deletedSessions }, updated_at: R.updated_at };
   } else {
     push.state = localStateRow();
   }
+  settings = { ...settings, deletedSessions };
 
   // Workouts + plans
   const workouts = mergeDocs(local.workouts, local.docTombstones.workouts, remote.workouts ?? [], parseWorkout, now);
@@ -347,6 +370,7 @@ export function mergeAll(local: AppData, remote: RemoteData, now = new Date().to
 /** Remove everything that belongs to an account, keeping device preferences. */
 export const clearAccountData = (d: AppData): AppData => ({
   ...d,
+  settings: { ...d.settings, deletedSessions: [] },
   combos: [],
   history: [],
   learned: [],
@@ -390,6 +414,8 @@ export async function pushRemote(sb: SupabaseClient, userId: string, plan: PushP
     jobs.push(sb.from('combos').upsert(plan.combos.map((r) => ({ ...r, user_id: userId })), { onConflict: 'user_id,id' }));
   if (plan.sessions.length)
     jobs.push(sb.from('sessions').upsert(plan.sessions.map((r) => ({ ...r, user_id: userId })), { onConflict: 'user_id,id', ignoreDuplicates: true }));
+  for (let i = 0; i < plan.sessionDeletes.length; i += 100)
+    jobs.push(sb.from('sessions').delete().eq('user_id', userId).in('id', plan.sessionDeletes.slice(i, i + 100)));
   if (plan.state) jobs.push(sb.from('user_state').upsert({ ...plan.state, user_id: userId }, { onConflict: 'user_id' }));
   for (const coll of ['workouts', 'plans'] as const)
     if (plan[coll].length) jobs.push(sb.from(coll).upsert(plan[coll].map((r) => ({ ...r, user_id: userId })), { onConflict: 'user_id,id' }));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig } from './sessionEngine';
 import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
-import { streakDays } from './stats';
+import { filterSessions, streakDays } from './stats';
 import { calloutTokens, PRESET_COMBOS } from '../data/combos';
 import { TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
 import { solve, withGuard } from './pose';
@@ -217,7 +217,7 @@ describe('fighters', () => {
   });
 });
 
-import { clearAccountData, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
+import { clearAccountData, deleteSession, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
 import { demoAddedAt } from './demoData';
 import type { Combo } from '../data/combos';
 
@@ -307,6 +307,62 @@ describe('cloud sync', () => {
     // The device that cleared ignores any old session that was uploaded before the clear reached it.
     const mine = { ...emptyData(), settings: { ...emptyData().settings, historyClearedAt: cleared } };
     expect(mergeAll(mine, { ...empty, sessions: [row('old', before), row('new', after)] }).data.history.map((x) => x.id)).toEqual(['new']);
+  });
+
+  describe('deleting one session', () => {
+    const s = (id: string) => ({ id, date: '2026-11-20T08:00:00.000Z', rounds: 1, completedRounds: 1, roundSec: 60, restSec: 10, callouts: 1, combos: [], durationSec: 70 });
+    const row = (id: string) => ({ id, date: '2026-11-20T08:00:00.000Z', rounds: 1, completed_rounds: 1, round_sec: 60, rest_sec: 10, callouts: 1, combos: [], duration_sec: 70 });
+    const state = (deletedSessions: string[] | undefined, updated_at: string) => ({
+      learned: ['jab'],
+      videos: {},
+      settings: { stance: 'southpaw' as const, ...(deletedSessions ? { deletedSessions } : {}) },
+      updated_at,
+    });
+
+    it('removes only that session and asks the account to drop it', () => {
+      const d = deleteSession({ ...emptyData(), history: [s('a'), s('b')] }, 'a');
+      expect(d.history.map((x) => x.id)).toEqual(['b']);
+      const { data, push } = mergeAll(d, { ...empty, sessions: [row('a'), row('b')] });
+      expect(data.history.map((x) => x.id)).toEqual(['b']);
+      expect(push.sessionDeletes).toEqual(['a']);
+      expect(push.state?.settings.deletedSessions).toEqual(['a']);
+    });
+
+    it('stays deleted on a device that still has it, and is not uploaded again', () => {
+      const other = { ...emptyData(), history: [s('a'), s('b')] };
+      const { data, push } = mergeAll(other, { ...empty, sessions: [row('b')], state: state(['a'], T1) });
+      expect(data.history.map((x) => x.id)).toEqual(['b']);
+      expect(data.settings.deletedSessions).toEqual(['a']);
+      expect(push.sessions).toEqual([]);
+    });
+
+    it('survives when the account has newer settings from another device', () => {
+      const d = { ...deleteSession({ ...emptyData(), history: [s('a')] }, 'a'), stateUpdatedAt: T1 };
+      const { data, push } = mergeAll(d, { ...empty, sessions: [row('a')], state: state(undefined, T2) });
+      expect(data.settings.stance).toBe('southpaw'); // the newer settings still win…
+      expect(data.settings.deletedSessions).toEqual(['a']); // …without forgetting the delete
+      expect(push.sessionDeletes).toEqual(['a']);
+      expect(push.state).toMatchObject({ learned: ['jab'], settings: { stance: 'southpaw', deletedSessions: ['a'] }, updated_at: T2 });
+    });
+
+    it('merges deletes made on two devices', () => {
+      const d = { ...deleteSession({ ...emptyData(), history: [s('a'), s('b'), s('c')] }, 'a'), stateUpdatedAt: T2 };
+      const { data, push } = mergeAll(d, { ...empty, sessions: [row('a'), row('c')], state: state(['b'], T1) });
+      expect(data.history.map((x) => x.id)).toEqual(['c']);
+      expect([...(push.state?.settings.deletedSessions ?? [])].sort()).toEqual(['a', 'b']);
+    });
+
+    it('settles: nothing more to send once the account knows', () => {
+      const d = { ...emptyData(), stateUpdatedAt: T1, settings: { ...emptyData().settings, deletedSessions: ['a'] } };
+      const { push } = mergeAll(d, { ...empty, state: state(['a'], T1) });
+      expect(push.state).toBeNull();
+      expect(push.sessionDeletes).toEqual([]);
+    });
+
+    it('does not carry over to another account', () => {
+      const d = deleteSession({ ...emptyData(), history: [s('a')] }, 'a');
+      expect(clearAccountData(d).settings.deletedSessions).toEqual([]);
+    });
   });
 
   it('sample sessions survive a clear made before they were added, but not a later one', () => {
@@ -784,4 +840,31 @@ describe('plan week columns', () => {
     const long = planWeekColumns({ ...base, days: 365 }); // a year-long plan grows past 26 weeks
     expect(long[long.length - 1][6] >= '2027-11-21').toBe(true);
   });
+});
+
+describe('session filters', () => {
+  // Local times, so "a day" means the user's day.
+  const at = (y: number, m: number, d: number, h: number) => new Date(y, m - 1, d, h).toISOString();
+  const today = new Date(2026, 10, 24, 12);
+  const list = [
+    { id: 'late', date: at(2026, 11, 24, 23), mode: 'drill' as const, combos: ['Jab Cross'], workoutId: 'w1' },
+    { id: 'early', date: at(2026, 11, 24, 0), mode: 'rounds' as const, combos: ['Teep Kick'] },
+    { id: 'edge', date: at(2026, 11, 18, 0), mode: 'drill' as const, combos: ['Jab Teep'], workoutId: 'w2' },
+    { id: 'old', date: at(2026, 11, 17, 23), combos: ['Classic Four'] },
+  ];
+  const ids = (f: Parameters<typeof filterSessions>[1]) => filterSessions(list, f, today).map((s) => s.id);
+
+  it('keeps everything when nothing is set', () => expect(ids({})).toEqual(['late', 'early', 'edge', 'old']));
+  it('picks one local day, start to end', () => expect(ids({ day: '2026-11-24' })).toEqual(['late', 'early']));
+  it('a day wins over a period', () => expect(ids({ day: '2026-11-17', days: 7 })).toEqual(['old']));
+  it('counts today in the last N days', () => expect(ids({ days: 7 })).toEqual(['late', 'early', 'edge']));
+  it('treats old entries without a mode as rounds', () => {
+    expect(ids({ type: 'rounds' })).toEqual(['early', 'old']);
+    expect(ids({ type: 'drill' })).toEqual(['late', 'edge']);
+  });
+  it('filters by workout and by combo name', () => {
+    expect(ids({ workoutId: 'w1' })).toEqual(['late']);
+    expect(ids({ q: ' TEEP ' })).toEqual(['early', 'edge']);
+  });
+  it('combines filters', () => expect(ids({ days: 7, type: 'drill', q: 'jab' })).toEqual(['late', 'edge']));
 });

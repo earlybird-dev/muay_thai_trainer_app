@@ -158,3 +158,31 @@ export function topCombos(history: Pick<SessionLog, 'date' | 'combos'>[], n = 6)
     }
   return [...count.values()].sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name)).slice(0, n);
 }
+
+// ---------- Session list filters ----------
+
+export interface SessionFilter {
+  /** One local day, "YYYY-MM-DD" (takes the place of `days`). */
+  day?: string | null;
+  /** The last N days, today included. */
+  days?: number | null;
+  type?: 'drill' | 'rounds' | null;
+  /** A saved workout's id. */
+  workoutId?: string | null;
+  /** Part of a combo's name. */
+  q?: string;
+}
+
+/** The sessions matching every filter that is set, in the same order. */
+export function filterSessions<T extends Pick<SessionLog, 'date' | 'mode' | 'combos' | 'workoutId'>>(history: T[], f: SessionFilter, today = new Date()): T[] {
+  const from = startOfDay(today);
+  from.setDate(from.getDate() - ((f.days ?? 1) - 1));
+  const q = f.q?.trim().toLowerCase();
+  return history.filter((s) => {
+    const when = new Date(s.date);
+    if (f.day ? localKey(when) !== f.day : f.days ? when < from : false) return false;
+    if (f.type && (s.mode === 'drill' ? 'drill' : 'rounds') !== f.type) return false;
+    if (f.workoutId && s.workoutId !== f.workoutId) return false;
+    return !q || (s.combos ?? []).some((c) => c.toLowerCase().includes(q));
+  });
+}

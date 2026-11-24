@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import FinishedCard, { type FinishedSummary } from '../components/FinishedCard';
 import { useAuth } from '../lib/auth';
 import { formatClock } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import HistoryDashboard from '../components/HistoryDashboard';
+import Icon from '../components/Icon';
+import type { SessionLog } from '../lib/storage';
+import { dateKey, parseDay } from '../lib/plans';
+import { filterSessions } from '../lib/stats';
+import { deleteSession } from '../lib/sync';
 import { useDialog } from '../components/Dialog';
 
 export default function History() {
@@ -54,12 +59,51 @@ export default function History() {
   );
 }
 
+const PERIODS = [7, 30, 90];
+
 export function HistoryLog() {
   const dialog = useDialog();
   const { data, update } = useStore();
   const { account, clearRemoteHistory } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const h = data.history;
+
+  // Filters live in the address, so Back and links (e.g. from the activity calendar) keep them.
+  const [params, setParams] = useSearchParams();
+  const dayParam = params.get('day') ?? '';
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : '';
+  const period = PERIODS.find((n) => String(n) === params.get('days')) ?? null;
+  const type = (['drill', 'rounds'] as const).find((t) => t === params.get('type')) ?? null;
+  const workoutId = params.get('workout') ?? '';
+  const q = params.get('q') ?? '';
+  const filtering = !!(day || period || type || workoutId || q.trim());
+  const shown = filtering ? filterSessions(h, { day, days: period, type, workoutId, q }) : h;
+  const set = (changes: Record<string, string>) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(changes)) {
+          if (v) next.set(k, v);
+          else next.delete(k);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  // Only offer workouts that some session was started from.
+  const usedWorkouts = data.workouts.filter((w) => w.id === workoutId || h.some((s) => s.workoutId === w.id));
+  const today = dateKey(new Date());
+
+  const remove = async (s: SessionLog) => {
+    const when = new Date(s.date).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const ok = await dialog.confirm({
+      title: 'Delete this session?',
+      message: `${when} · ${formatClock(s.durationSec * 1000)}. It is removed from your history, streaks and plan progress${account ? ' on all your devices' : ''}. It cannot be undone.`,
+      confirmLabel: 'Delete session',
+      danger: true,
+    });
+    if (ok) update((d) => deleteSession(d, s.id));
+  };
 
   const clear = async () => {
     const where = account ? ' from this device and your account' : '';
@@ -90,20 +134,89 @@ export function HistoryLog() {
       <Link to="/history" className="back">
         ← History
       </Link>
-      <h1>All sessions</h1>
-      <p className="muted small">
-        {h.length} session{h.length === 1 ? '' : 's'}, newest first.
-      </p>
+      <div className="page-head">
+        <h1>All sessions</h1>
+        {h.length > 0 && (
+          <button className="btn danger small" onClick={() => void clear()}>
+            Clear history
+          </button>
+        )}
+      </div>
+      {error && <p className="small error-text">{error}</p>}
+      {h.length > 0 && (
+        <div className="history-filters" role="group" aria-label="Filter sessions">
+          <select
+            className="input"
+            aria-label="When"
+            value={day ? 'day' : period ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              // "Pick a day" starts on the latest training day.
+              if (v === 'day') set({ day: dateKey(new Date(h[0].date)), days: '' });
+              else set({ day: '', days: v });
+            }}
+          >
+            <option value="">Any time</option>
+            {PERIODS.map((n) => (
+              <option key={n} value={n}>
+                Last {n} days
+              </option>
+            ))}
+            <option value="day">Pick a day…</option>
+          </select>
+          {day && (
+            <input className="input" type="date" aria-label="Day" value={day} max={today} onChange={(e) => e.target.value && set({ day: e.target.value })} />
+          )}
+          <select className="input" aria-label="Type" value={type ?? ''} onChange={(e) => set({ type: e.target.value })}>
+            <option value="">All types</option>
+            <option value="drill">Combo drill</option>
+            <option value="rounds">Rounds</option>
+          </select>
+          {usedWorkouts.length > 0 && (
+            <select className="input" aria-label="Workout" value={workoutId} onChange={(e) => set({ workout: e.target.value })}>
+              <option value="">All workouts</option>
+              {usedWorkouts.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <input className="input history-search" type="search" placeholder="Search a combo…" aria-label="Search a combo" value={q} onChange={(e) => set({ q: e.target.value })} />
+        </div>
+      )}
+      <div className="history-count">
+        <p className="muted small" role="status">
+          {filtering ? `${shown.length} of ${h.length}` : h.length} session{h.length === 1 ? '' : 's'}
+          {day ? ` · ${parseDay(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}` : ', newest first.'}
+        </p>
+        {filtering && (
+          <button type="button" className="btn small" onClick={() => setParams({}, { replace: true })}>
+            Clear filters
+          </button>
+        )}
+      </div>
 
       {h.length === 0 ? (
         <p className="muted">
           No sessions yet. <Link to="/train">Start your first session</Link>.
         </p>
+      ) : shown.length === 0 ? (
+        <p className="muted">{day && !type && !workoutId && !q.trim() ? 'No sessions on this day.' : 'No sessions match these filters.'}</p>
       ) : (
         <>
           <ul className="list">
-            {h.map((s) => (
+            {shown.map((s) => (
               <li key={s.id} className="card history-row">
+                <button
+                  type="button"
+                  className="history-delete"
+                  aria-label={`Delete session from ${new Date(s.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                  title="Delete session"
+                  onClick={() => void remove(s)}
+                >
+                  <Icon name="trash" size={18} />
+                </button>
                 <div>
                   <b>
                     {new Date(s.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -113,16 +226,11 @@ export function HistoryLog() {
                 <div className="small">
                   {s.mode === 'drill' ? <span className="tag">Drill</span> : null} {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
                 </div>
-                {s.combos.length > 0 && <div className="muted small">{s.combos.slice(0, 6).join(', ')}{s.combos.length > 6 ? '…' : ''}</div>}
+                {/* While searching, list every combo so the match is visible. */}
+                {s.combos.length > 0 && <div className="muted small">{(q.trim() ? s.combos : s.combos.slice(0, 6)).join(', ')}{!q.trim() && s.combos.length > 6 ? '…' : ''}</div>}
               </li>
             ))}
           </ul>
-          <div className="row actions history-actions">
-            <button className="btn danger small" onClick={() => void clear()}>
-              Clear history
-            </button>
-          </div>
-          {error && <p className="small error-text">{error}</p>}
         </>
       )}
     </div>
