@@ -867,14 +867,14 @@ describe('session filters', () => {
   it('combines filters', () => expect(ids({ days: 7, type: 'drill', workoutId: 'w2' })).toEqual(['edge']));
 });
 
-describe('1-min drill', () => {
-  it('drills just that strike for exactly one minute, for every strike', () => {
+describe('Strike drill', () => {
+  it('drills just that strike for exactly three minutes, for every strike', () => {
     for (const t of STRIKES) {
       const { config, pool, techniqueId } = practiceLaunch(t, null);
       const plan = buildPlan(config, pool, 1);
       const work = plan.segments.filter((s) => s.kind === 'round');
       expect(work).toHaveLength(1);
-      expect(work[0].end - work[0].start).toBe(60_000);
+      expect(work[0].end - work[0].start).toBe(180_000);
       expect(plan.segments.map((s) => s.kind)).toEqual(['prep', 'round']);
       expect(pool[0].items).toEqual([t.id]);
       expect(techniqueId).toBe(t.id);
@@ -882,7 +882,7 @@ describe('1-min drill', () => {
   });
   it('keeps your usual pace but not the rest of your last setup', () => {
     const { config } = practiceLaunch(STRIKES[0], { mode: 'rounds', drillSec: 30, drillCount: 40, minGap: 1, maxGap: 2 });
-    expect(config).toMatchObject({ mode: 'drill', drillSec: 60, drillCount: 1, minGap: 1, maxGap: 2 });
+    expect(config).toMatchObject({ mode: 'drill', drillSec: 180, drillCount: 1, minGap: 1, maxGap: 2 });
   });
 });
 
@@ -955,13 +955,16 @@ describe('session start and finish', () => {
 });
 
 describe('Learn sessions in history', () => {
-  // What a 1-min drill of a strike is logged as.
+  // What a strike drill is logged as.
   const logOf = (t: (typeof STRIKES)[number]) => {
     const { config, pool } = practiceLaunch(t, null);
     return { mode: config.mode, rounds: config.drillCount, roundSec: config.drillSec, combos: [pool[0].name] };
   };
 
-  it('recognises the 1-min drill of every strike', () => {
+  it('still recognises the older one-minute drills', () => {
+    expect(sessionType({ ...logOf(STRIKES[0]), roundSec: 60 })).toBe('learn');
+  });
+  it('recognises the drill of every strike', () => {
     for (const t of STRIKES) {
       expect(learnedStrike(logOf(t))?.id).toBe(t.id);
       expect(sessionType(logOf(t))).toBe('learn');
@@ -970,7 +973,7 @@ describe('Learn sessions in history', () => {
   it('leaves other sessions as they are', () => {
     const jab = logOf(STRIKES[0]);
     expect(sessionType({ ...jab, rounds: 12 })).toBe('drill'); // a full drill
-    expect(sessionType({ ...jab, roundSec: 30 })).toBe('drill'); // not a minute
+    expect(sessionType({ ...jab, roundSec: 30 })).toBe('drill'); // another length
     expect(sessionType({ ...jab, combos: ['Jab Cross'] })).toBe('drill'); // a combo
     expect(sessionType({ ...jab, combos: [] })).toBe('drill');
     expect(sessionType({ ...jab, workoutId: 'w1' })).toBe('drill'); // from a saved workout

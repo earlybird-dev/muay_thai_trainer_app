@@ -18,7 +18,7 @@ export interface LaunchState {
   techniqueId?: string;
 }
 
-/** Drill one technique on its own for a minute, at your usual pace. */
+/** Drill one technique on its own for a few minutes, at your usual pace. */
 export function practiceLaunch(t: Technique, last: Partial<SessionConfig> | null): LaunchState {
   return {
     config: withLimits({
@@ -33,7 +33,7 @@ export function practiceLaunch(t: Technique, last: Partial<SessionConfig> | null
   };
 }
 
-/** Start a one-minute practice of a technique. Must run from a tap (audio unlock). */
+/** Start that drill of a technique. Must run from a tap (audio unlock). */
 export function useStartPractice() {
   const navigate = useNavigate();
   const { data } = useStore();

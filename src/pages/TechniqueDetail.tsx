@@ -8,6 +8,7 @@ import { CATEGORIES, TECH_BY_ID, youtubeId, youtubeSearchUrl } from '../data/tec
 import { useStore } from '../lib/store';
 import { useDialog } from '../components/Dialog';
 import { loadActiveSession } from '../lib/activeSession';
+import { PRACTICE_SEC } from '../lib/sessionEngine';
 import { useStartPractice } from '../lib/useStartWorkout';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 
@@ -107,7 +108,7 @@ function Detail({ id }: { id: string }) {
         {t.strike && (
           <button className="btn small" onClick={() => void practice()}>
             <Icon name="play" />
-            1-min drill
+            {PRACTICE_SEC / 60}-min drill
           </button>
         )}
       </div>

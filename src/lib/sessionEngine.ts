@@ -33,8 +33,10 @@ export interface SessionConfig {
   poolKind?: 'all' | 'beginner' | 'intermediate' | 'advanced' | 'mine' | 'essentials' | 'favorites' | 'due' | 'pick';
 }
 
-/** How long "1-min drill" on a technique's page lasts. */
-export const PRACTICE_SEC = 60;
+/** How long the strike drill on a technique's page lasts. */
+export const PRACTICE_SEC = 180;
+/** Every length it has had (it used to be one minute), so older ones are still recognised in history. */
+export const PRACTICE_LENGTHS: readonly number[] = [PRACTICE_SEC, 60];
 
 export const DEFAULT_CONFIG: SessionConfig = {
   mode: 'drill',
