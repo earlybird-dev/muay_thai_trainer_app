@@ -1,7 +1,5 @@
 :root {
-  --ring-1: #ff2d46; /* countdown ring: red, orange, gold */
-  --ring-2: #ff7a2f;
-  --ring-3: #ffd24a;
+  --rest: #4ea8de; /* training: resting (blue); combos use the red --accent */
   --today: #f5b83d; /* plan calendar: today (gold, apart from missed red) */
   --bg: #141416;
   --surface: #1e1e22;
@@ -42,7 +40,7 @@
     --muted: #66626b;
     --accent: #c8102e;
     --accent-2: #d9822b;
-    --ring-3: #f2a100;
+    --rest: #1c78bd;
     --fig-lead: #24232a;
     --fig-rear: #8f8b96;
     --fig-glove: #c8102e;
@@ -62,7 +60,7 @@
   --muted: #66626b;
   --accent: #c8102e;
   --accent-2: #d9822b;
-  --ring-3: #f2a100;
+  --rest: #1c78bd;
   --fig-lead: #24232a;
   --fig-rear: #8f8b96;
   --fig-glove: #c8102e;
@@ -789,7 +787,7 @@ input[type='range'] {
   --phase: var(--warn);
 }
 .session.kind-rest {
-  --phase: var(--info);
+  --phase: var(--rest);
 }
 .session.done {
   --phase: var(--ok);
@@ -800,14 +798,6 @@ input[type='range'] {
   inset: 0;
   background: radial-gradient(ellipse at top, color-mix(in srgb, var(--phase) 22%, transparent), transparent 65%);
   pointer-events: none;
-}
-.session-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 6px;
-  background: var(--phase);
-  transition: width 0.1s linear;
 }
 .session-inner {
   position: relative;
@@ -3037,11 +3027,11 @@ a.heat-cell:focus-visible {
   background-color: color-mix(in srgb, var(--accent-2) 14%, var(--bg));
   font-weight: 700;
 }
-/* Water in the countdown circle: the drums in the music thump it (--thump is set per frame) */
+/* The drums in the music thump the countdown circle (--thump is set per frame) */
 .drill-ring {
   transform: scale(calc(1 + var(--thump, 0) * 0.035));
 }
-.water-drum {
+.drum-pulse {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -3053,8 +3043,15 @@ a.heat-cell:focus-visible {
 .drill-ring svg {
   position: relative;
 }
-/* Readable over the water; the phase still shows in the label, the bar and the glow. */
-.drill-ring .clock,
-.drill-ring .drill-left {
-  color: var(--text);
+/* Training: one colour per phase, red in a combo and blue in a rest, for the ring and the controls too */
+.session {
+  --ring-1: color-mix(in srgb, var(--phase) 70%, #000);
+  --ring-2: var(--phase);
+  --ring-3: color-mix(in srgb, var(--phase) 74%, #fff);
+  --grad: linear-gradient(100deg, color-mix(in srgb, var(--phase) 66%, #000), color-mix(in srgb, var(--phase) 92%, #000));
+  --grad-glow: color-mix(in srgb, var(--phase) 34%, transparent);
+}
+.session .music-toggle.on {
+  color: var(--phase);
+  border-color: color-mix(in srgb, var(--phase) 50%, var(--border));
 }

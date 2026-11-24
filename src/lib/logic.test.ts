@@ -219,7 +219,6 @@ describe('fighters', () => {
 
 import { practiceLaunch } from './useStartWorkout';
 import { BeatTracker } from './beat';
-import { Water } from './water';
 import { clearAccountData, deleteSession, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
 import { demoAddedAt } from './demoData';
 import type { Combo } from '../data/combos';
@@ -1038,28 +1037,5 @@ describe('drum hits from the music', () => {
       expect(avg(onKick)).toBeGreaterThan(0.7);
       expect(avg(between)).toBeLessThan(0.45);
     }
-  });
-});
-
-describe('water', () => {
-  it('splashes on a hit, then settles', () => {
-    const w = new Water(() => 0.5);
-    w.hit(1);
-    let most = 0;
-    for (let i = 0; i < 30; i++) (w.step(1 / 60), (most = Math.max(most, w.energy())));
-    expect(most).toBeGreaterThan(0.05);
-    for (let i = 0; i < 600; i++) w.step(1 / 60);
-    expect(w.energy()).toBeLessThan(0.01);
-    expect(w.drops).toEqual([]);
-  });
-  it('stays steady under fast, hard hits and after a stall', () => {
-    const w = new Water();
-    for (let i = 0; i < 1200; i++) {
-      if (i % 11 === 0) w.hit(1, 0.4);
-      w.step(i % 200 === 0 ? 30 : 1 / 60);
-      expect(Number.isFinite(w.energy())).toBe(true);
-      expect(w.energy()).toBeLessThanOrEqual(0.5);
-    }
-    expect(w.drops.length).toBeLessThanOrEqual(40);
   });
 });

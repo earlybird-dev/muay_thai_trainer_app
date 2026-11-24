@@ -948,7 +948,6 @@ function SessionRunner({
   const state = stateAt(plan, t);
   const seg = state.segment;
   const kind = finished ? 'done' : seg?.kind ?? 'done';
-  const segProgress = seg ? state.elapsed / (seg.end - seg.start) : 1;
   const nextRound = seg?.kind === 'rest' ? seg.round + 1 : null;
   // Drill: the combo for this block (during work) or the one coming up (during prep/rest).
   const blockCombo = drill && seg?.comboId ? byId[seg.comboId] : undefined;
@@ -1060,7 +1059,6 @@ function SessionRunner({
 
   return (
     <div className={`session kind-${kind} ${drill ? 'is-drill' : ''} ${paused ? 'is-paused' : ''}`}>
-      <div className="session-bar" style={{ width: `${segProgress * 100}%` }} />
       <div className="session-inner">
         <div className="session-top">
           <span className="pill">
@@ -1074,7 +1072,7 @@ function SessionRunner({
         </div>
 
         {drill ? (
-          <DrillRing {...drillProgress(plan, t)} water={1 - segProgress} active={!paused && !finished}>
+          <DrillRing {...drillProgress(plan, t)} active={!paused && !finished}>
             {clockFace}
           </DrillRing>
         ) : (

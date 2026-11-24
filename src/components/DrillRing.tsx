@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import WaterDrum from './WaterDrum';
+import DrumPulse from './DrumPulse';
 
 const R = 45.6;
 const C = 2 * Math.PI * R;
@@ -21,7 +21,7 @@ const arc = (from: number, to: number) => {
   const b = point(Math.max(to, from + 0.0002));
   return `M${a.x.toFixed(3)} ${a.y.toFixed(3)}A${R} ${R} 0 ${to - from > 0.5 ? 1 : 0} 1 ${b.x.toFixed(3)} ${b.y.toFixed(3)}`;
 };
-/** The ring's colour `at` turns round it: red, through orange, to gold. */
+/** The ring's colour `at` turns round it: the phase's colour, from deep to bright. */
 const heat = (at: number) =>
   at < 0.5
     ? `color-mix(in srgb, var(--ring-2) ${(at * 200).toFixed(0)}%, var(--ring-1))`
@@ -29,15 +29,14 @@ const heat = (at: number) =>
 
 /**
  * Drill progress as a running circle: one slice per combo, lit clockwise as the combos are drilled.
- * Whatever is passed as children (the clock) sits in the middle, over water that drains with the
- * countdown and jumps to the drums in the music.
+ * Whatever is passed as children (the clock) sits in the middle. The circle beats to the drums in the
+ * music.
  */
 export default function DrillRing({
   total,
   completed,
   progress,
   label,
-  water,
   active,
   children,
 }: {
@@ -49,9 +48,7 @@ export default function DrillRing({
   progress: number;
   /** Under the clock, e.g. "8 left". */
   label: string;
-  /** How full of water the circle is: the share of the countdown still to run. */
-  water: number;
-  /** Whether the water reacts to the music (not while paused). */
+  /** Whether the circle beats to the music (not while paused). */
   active: boolean;
   children: ReactNode;
 }) {
@@ -74,7 +71,7 @@ export default function DrillRing({
 
   return (
     <div className="drill-ring">
-      <WaterDrum level={water} active={active} />
+      <DrumPulse active={active} />
       <svg viewBox="0 0 100 100" role="img" aria-label={`${completed} of ${total} combos done`} fill="none" strokeLinecap={sliced ? 'round' : 'butt'}>
         <g className="ring-track" strokeWidth={WIDTH}>
           {sliced ? (

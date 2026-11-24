@@ -162,9 +162,10 @@ export default function Figure3D({
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
+    // In a session the ring takes the phase's colour (red in a combo, blue in a rest).
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(124, 130, 64),
-      new THREE.MeshStandardMaterial({ color: css('--accent', '#e63946'), roughness: 0.6 }),
+      new THREE.MeshStandardMaterial({ color: getComputedStyle(host).getPropertyValue('--phase').trim() || css('--accent', '#e63946'), roughness: 0.6 }),
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.2;
