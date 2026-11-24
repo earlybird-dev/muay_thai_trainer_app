@@ -406,10 +406,10 @@ describe('cloud sync', () => {
 });
 
 describe('starter combo library', () => {
-  it('has 106 combos across all three levels with unique ids and names', () => {
-    expect(PRESET_COMBOS).toHaveLength(106);
+  it('has 114 combos across all three levels with unique ids and names', () => {
+    expect(PRESET_COMBOS).toHaveLength(114);
     const count = (l: string) => PRESET_COMBOS.filter((c) => c.level === l).length;
-    expect([count('beginner'), count('intermediate'), count('advanced')]).toEqual([37, 37, 32]);
+    expect([count('beginner'), count('intermediate'), count('advanced')]).toEqual([42, 40, 32]);
     expect(new Set(PRESET_COMBOS.map((c) => c.id)).size).toBe(PRESET_COMBOS.length);
     expect(new Set(PRESET_COMBOS.map((c) => c.name.toLowerCase())).size).toBe(PRESET_COMBOS.length);
     expect(new Set(PRESET_COMBOS.map((c) => c.items.join(','))).size).toBe(PRESET_COMBOS.length);
@@ -710,7 +710,8 @@ describe('essentials, favourites and practice', () => {
     const { ESSENTIAL_IDS, PRESET_COMBOS: P } = await import('../data/combos');
     const ess = P.filter((c) => c.essential);
     expect(ess.map((c) => c.id).sort()).toEqual([...ESSENTIAL_IDS].sort()); // every id exists
-    expect(ess.length).toBeGreaterThanOrEqual(10);
+    expect(ess).toHaveLength(27);
+    expect(ess.filter((c) => c.items.includes('switch-kick'))).toHaveLength(7);
   });
 
   it('counts sessions per combo and finds what is due', async () => {

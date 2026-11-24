@@ -162,6 +162,14 @@
     "block": "block.mp3",
     "lean back": "lean-back.mp3",
     "clinch knee": "clinch-knee.mp3",
-    "go": "go.mp3"
+    "go": "go.mp3",
+    "jab kick": "jab-kick.mp3",
+    "hook low kick": "hook-low-kick.mp3",
+    "jab cross hook low kick": "jab-cross-hook-low-kick.mp3",
+    "double jab teep": "double-jab-teep.mp3",
+    "double jab switch kick": "double-jab-switch-kick.mp3",
+    "jab cross hook knee": "jab-cross-hook-knee.mp3",
+    "jab switch kick cross hook low kick": "jab-switch-kick-cross-hook-low-kick.mp3",
+    "check switch kick": "check-switch-kick.mp3"
   }
 }

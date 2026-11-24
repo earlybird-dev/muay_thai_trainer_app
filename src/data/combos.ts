@@ -55,7 +55,7 @@ const A = 'advanced';
 
 // The first 18 ids are kept stable: saved training selections refer to them.
 const ALL_PRESETS: Combo[] = [
-  // ---------- Beginner (37): fundamentals, short punch/kick chains, simple counters ----------
+  // ---------- Beginner (42): fundamentals, short punch/kick chains, simple counters ----------
   p('1-2', 'Jab Cross', 'J C'),
   p('1-1-2', 'Double Jab Cross', 'J J C'),
   p('1-2-3', 'Jab Cross Hook', 'J C LH'),
@@ -93,8 +93,13 @@ const ALL_PRESETS: Combo[] = [
   p('b-kick-2', 'Kick Return Cross', 'K C'),
   p('b-1-rear-teep', 'Jab Rear Teep', 'J RT'),
   p('b-1-2-rear-teep', 'Jab Cross Rear Teep', 'J C RT'),
+  p('b-1-kick', 'Jab Kick', 'J K'),
+  p('b-3-low', 'Hook Low Kick', 'LH LK'),
+  p('b-1-1-teep', 'Double Jab Teep', 'J J T'),
+  p('b-1-2-3-low', 'Jab Cross Hook Low Kick', 'J C LH LK'),
+  p('b-1-2-3-knee', 'Jab Cross Hook Knee', 'J C LH KN'),
 
-  // ---------- Intermediate (37): head/switch kicks, elbows, diagonal knees, defend-and-counter ----------
+  // ---------- Intermediate (40): head/switch kicks, elbows, diagonal knees, defend-and-counter ----------
   p('5-4-kick', 'Uppercut Hook Kick', 'LU RH K', I),
   p('1-2-elbow', 'Jab Cross Elbow', 'J C E', I),
   p('2-3-switch', 'Cross Hook Switch Kick', 'C LH SK', I),
@@ -132,6 +137,9 @@ const ALL_PRESETS: Combo[] = [
   p('i-1-head', 'Jab Head Kick', 'J HK', I),
   p('i-double-teep', 'Teep Rear Teep', 'T RT', I),
   p('i-rear-teep-1-2-kick', 'Rear Teep Jab Cross Kick', 'RT J C K', I),
+  p('i-1-1-switch', 'Double Jab Switch Kick', 'J J SK', I),
+  p('i-check-switch', 'Check Switch Kick', 'CH SK', I),
+  p('i-1-switch-2-3-low', 'Jab Switch Kick Cross Hook Low Kick', 'J SK C LH LK', I),
 
   // ---------- Advanced (32): long chains, spinning elbows, clinch work, layered counters ----------
   p('a-1-2-3-2-head', 'Five-Strike Head Kick', 'J C LH C HK', A),
@@ -182,6 +190,23 @@ export const ESSENTIAL_IDS = [
   'preset-b-2-3-kick',
   'preset-check-kick',
   'preset-parry-2',
+  // more punching, kicking and close range
+  'preset-1-1-2',
+  'preset-b-1-2-3-2',
+  'preset-b-1-kick',
+  'preset-b-3-low',
+  'preset-b-1-1-teep',
+  'preset-b-1-2-3-low',
+  'preset-b-1-2-3-knee',
+  'preset-1-2-elbow',
+  // switch kicks
+  'preset-i-1-switch',
+  'preset-i-1-2-switch',
+  'preset-2-3-switch',
+  'preset-i-1-1-switch',
+  'preset-i-switch-2-3',
+  'preset-i-check-switch',
+  'preset-i-1-switch-2-3-low',
 ];
 
 export const PRESET_COMBOS: Combo[] = ALL_PRESETS.map((c) => (ESSENTIAL_IDS.includes(c.id) ? { ...c, essential: true } : c));
