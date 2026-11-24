@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react';
+import WaterDrum from './WaterDrum';
 
 const R = 45;
 const C = 2 * Math.PI * R;
@@ -7,13 +8,16 @@ const MAX_SLICES = 40;
 
 /**
  * Drill progress as a running circle: one slice per combo, filled clockwise as the combos are
- * drilled. Whatever is passed as children (the clock) sits in the middle.
+ * drilled. Whatever is passed as children (the clock) sits in the middle, over water that drains with
+ * the countdown and jumps to the drums in the music.
  */
 export default function DrillRing({
   total,
   completed,
   progress,
   label,
+  water,
+  active,
   children,
 }: {
   /** Combos in the session. */
@@ -24,6 +28,10 @@ export default function DrillRing({
   progress: number;
   /** Under the clock, e.g. "8 left". */
   label: string;
+  /** How full of water the circle is: the share of the countdown still to run. */
+  water: number;
+  /** Whether the water reacts to the music (not while paused). */
+  active: boolean;
   children: ReactNode;
 }) {
   const maskId = `drill-ring-${useId().replace(/:/g, '')}`;
@@ -38,6 +46,7 @@ export default function DrillRing({
 
   return (
     <div className="drill-ring">
+      <WaterDrum level={water} active={active} />
       <svg viewBox="0 0 100 100" role="img" aria-label={`${completed} of ${total} combos done`}>
         <defs>
           <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">

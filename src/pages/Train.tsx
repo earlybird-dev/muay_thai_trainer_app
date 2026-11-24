@@ -1073,7 +1073,13 @@ function SessionRunner({
           {paused && <span className="pill warn">Paused</span>}
         </div>
 
-        {drill ? <DrillRing {...drillProgress(plan, t)}>{clockFace}</DrillRing> : clockFace}
+        {drill ? (
+          <DrillRing {...drillProgress(plan, t)} water={1 - segProgress} active={!paused && !finished}>
+            {clockFace}
+          </DrillRing>
+        ) : (
+          clockFace
+        )}
 
         <div className="callout-area" aria-live="assertive">
           {drill && blockCombo ? (

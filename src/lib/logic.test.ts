@@ -218,6 +218,8 @@ describe('fighters', () => {
 });
 
 import { practiceLaunch } from './useStartWorkout';
+import { BeatTracker } from './beat';
+import { Water } from './water';
 import { clearAccountData, deleteSession, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
 import { demoAddedAt } from './demoData';
 import type { Combo } from '../data/combos';
@@ -986,5 +988,78 @@ describe('Learn sessions in history', () => {
     ];
     expect(filterSessions(list, { type: 'learn' }).map((s) => s.id)).toEqual(['learn']);
     expect(filterSessions(list, { type: 'drill' }).map((s) => s.id)).toEqual(['drill']);
+  });
+});
+
+describe('drum hits from the music', () => {
+  type Sound = (ms: number) => number[];
+  /** A drum at `bpm`: a sharp rise in the given bands, then a fall, over a steady held note. */
+  const drum = (bpm: number, loud: number, shape = [1, 0.6, 0.4, 0.3, 0.2]): Sound => (ms) => {
+    const since = ms % (60_000 / bpm);
+    return shape.map((s) => loud * (0.05 + s * Math.exp(-since / 80)));
+  };
+  const run = (sound: Sound, seconds: number, fps = 60) => {
+    const b = new BeatTracker();
+    const hits: { ms: number; strength: number }[] = [];
+    for (let k = 0; k < seconds * fps; k++) {
+      const ms = (k * 1000) / fps;
+      const { hit } = b.update(sound(ms), ms);
+      if (hit) hits.push({ ms, strength: hit });
+    }
+    return hits;
+  };
+
+  it('finds each hit once, at any tempo', () => {
+    for (const bpm of [80, 120, 160]) expect(Math.abs(run(drum(bpm, 0.5), 30).length - bpm / 2)).toBeLessThanOrEqual(2);
+  });
+  it('lands on the hit', () => {
+    for (const { ms } of run(drum(120, 0.5), 20)) expect(Math.min(ms % 500, 500 - (ms % 500))).toBeLessThan(40);
+  });
+  it('works the same for quiet and loud tracks', () => {
+    const at = (loud: number) => run(drum(120, loud), 20).map((h) => h.ms);
+    expect(at(0.05)).toEqual(at(0.9));
+  });
+  it('keeps up on a slow phone', () => expect(Math.abs(run(drum(120, 0.5), 30, 24).length - 60)).toBeLessThanOrEqual(2));
+  it('ignores silence, a held note and a wobbling bass note', () => {
+    expect(run(() => [0, 0, 0, 0, 0], 10)).toEqual([]);
+    expect(run(() => [0.5, 0.4, 0.2, 0.1, 0.1], 10).length).toBeLessThanOrEqual(1);
+    expect(run((ms) => [0.4 + 0.15 * Math.sin(ms / 12), 0.2, 0.1, 0.05, 0.05], 10).length).toBeLessThanOrEqual(1);
+  });
+  it('hits harder on a kick than on a cymbal of the same song, however soft the song', () => {
+    const avg = (h: { strength: number }[]) => h.reduce((a, x) => a + x.strength, 0) / h.length;
+    for (const loud of [0.05, 0.9]) {
+      const kick = drum(120, loud, [1, 0.8, 0.4, 0.2, 0.1]);
+      const cymbal = drum(120, loud, [0, 0, 0.1, 1, 1]);
+      const hits = run((ms) => kick(ms).map((v, i) => v + cymbal(ms + 250)[i]), 20); // a cymbal between kicks
+      const onKick = hits.filter(({ ms }) => Math.min(ms % 500, 500 - (ms % 500)) < 60);
+      const between = hits.filter(({ ms }) => Math.abs((ms % 500) - 250) < 60);
+      expect(onKick.length).toBeGreaterThan(30);
+      expect(between.length).toBeGreaterThan(30);
+      expect(avg(onKick)).toBeGreaterThan(0.7);
+      expect(avg(between)).toBeLessThan(0.45);
+    }
+  });
+});
+
+describe('water', () => {
+  it('splashes on a hit, then settles', () => {
+    const w = new Water(() => 0.5);
+    w.hit(1);
+    let most = 0;
+    for (let i = 0; i < 30; i++) (w.step(1 / 60), (most = Math.max(most, w.energy())));
+    expect(most).toBeGreaterThan(0.05);
+    for (let i = 0; i < 600; i++) w.step(1 / 60);
+    expect(w.energy()).toBeLessThan(0.01);
+    expect(w.drops).toEqual([]);
+  });
+  it('stays steady under fast, hard hits and after a stall', () => {
+    const w = new Water();
+    for (let i = 0; i < 1200; i++) {
+      if (i % 11 === 0) w.hit(1, 0.4);
+      w.step(i % 200 === 0 ? 30 : 1 / 60);
+      expect(Number.isFinite(w.energy())).toBe(true);
+      expect(w.energy()).toBeLessThanOrEqual(0.5);
+    }
+    expect(w.drops.length).toBeLessThanOrEqual(40);
   });
 });

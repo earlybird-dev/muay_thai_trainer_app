@@ -3035,3 +3035,24 @@ a.heat-cell:focus-visible {
   background-color: color-mix(in srgb, var(--accent-2) 14%, var(--bg));
   font-weight: 700;
 }
+/* Water in the countdown circle: the drums in the music thump it (--thump is set per frame) */
+.drill-ring {
+  transform: scale(calc(1 + var(--thump, 0) * 0.035));
+}
+.water-drum {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 136%;
+  height: 136%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.drill-ring svg {
+  position: relative;
+}
+/* Readable over the water; the phase still shows in the label, the bar and the glow. */
+.drill-ring .clock,
+.drill-ring .drill-left {
+  color: var(--text);
+}

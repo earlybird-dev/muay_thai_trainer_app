@@ -12,6 +12,7 @@
  * main thread is busy. Music ducks under voice callouts.
  */
 import { getAudioContext, setSpeechListener } from './audio';
+import { BEAT_BANDS } from './beat';
 
 export type MusicScene = 'off' | 'calm' | 'fight' | 'fight-rest';
 
@@ -136,6 +137,8 @@ const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
 // outside training plays at 20%; training music at 80%.
 const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.25, fight: 1, 'fight-rest': 0.45 };
 let trackDuck: GainNode | null = null;
+/** Listens to the music for visuals, before volume and voice ducking, so those don't change the picture. */
+let analysers: { node: AnalyserNode; spectrum: Float32Array }[] = [];
 
 // ---------- public API ----------
 
@@ -249,6 +252,32 @@ function ensureGraph(ctx: AudioContext) {
   // The track is already mastered, so it skips the compressor.
   trackDuck = ctx.createGain();
   trackDuck.connect(ctx.destination);
+  // A long window to tell low notes apart, a short one to catch the sharp attack of the rest.
+  analysers = [2048, 1024].map((size) => {
+    const node = ctx.createAnalyser();
+    node.fftSize = size;
+    node.smoothingTimeConstant = 0;
+    return { node, spectrum: new Float32Array(node.frequencyBinCount) };
+  });
+}
+
+/**
+ * How loud each of the beat bands is right now, and how long that sound takes to reach the ears.
+ * Null when no music is playing.
+ */
+export function musicLevel(): { bands: number[]; latencyMs: number } | null {
+  const ctx = getAudioContext();
+  if (!ctx || !analysers.length || ctx.state !== 'running' || effectiveScene() === 'off') return null;
+  for (const a of analysers) a.node.getFloatFrequencyData(a.spectrum);
+  const bands = BEAT_BANDS.map(([lo, hi]) => {
+    const { node, spectrum } = lo < 250 ? analysers[0] : analysers[1];
+    const hz = ctx.sampleRate / node.fftSize;
+    let sum = 0;
+    for (let k = Math.max(1, Math.floor(lo / hz)); k <= Math.min(spectrum.length - 1, Math.ceil(hi / hz)); k++)
+      if (Number.isFinite(spectrum[k])) sum += 10 ** (spectrum[k] / 10);
+    return Math.sqrt(sum);
+  });
+  return { bands, latencyMs: Math.min(400, (ctx.outputLatency || 0) * 1000) };
 }
 
 function ensureTrack(ctx: AudioContext, t: Track): boolean {
@@ -286,7 +315,9 @@ function ensureTrack(ctx: AudioContext, t: Track): boolean {
     });
     const bus = ctx.createGain();
     bus.gain.value = 0;
-    ctx.createMediaElementSource(el).connect(bus).connect(trackDuck!);
+    const source = ctx.createMediaElementSource(el);
+    source.connect(bus).connect(trackDuck!);
+    for (const a of analysers) source.connect(a.node);
     t.el = el;
     t.bus = bus;
     return true;
@@ -366,6 +397,7 @@ function refresh() {
     const bus = ctx.createGain();
     bus.gain.setValueAtTime(0.0001, now);
     bus.connect(out!);
+    for (const a of analysers) bus.connect(a.node);
     layer = { style, bus, step: 0, nextTime: now + 0.12 };
   }
   layer.bus.gain.cancelScheduledValues(now);
