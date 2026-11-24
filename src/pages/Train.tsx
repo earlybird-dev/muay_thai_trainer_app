@@ -7,7 +7,7 @@ import { calloutDisplay, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { beep, bell, clap, comboSpeech, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases';
-import { DEFAULT_CONFIG, MIN_PREP_SEC, withLimits, buildPlan, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
+import { DEFAULT_CONFIG, MIN_PREP_SEC, withLimits, buildPlan, drillProgress, eventsBetween, formatClock, stateAt, type SessionConfig } from '../lib/sessionEngine';
 import { useStore } from '../lib/store';
 import { newId } from '../data/combos';
 import { dateKey, planEnd, poolBase, resolvePool, workoutSummary, type PoolKind, type Workout } from '../lib/plans';
@@ -15,6 +15,7 @@ import { useStartWorkout, type LaunchState } from '../lib/useStartWorkout';
 import { clearActiveSession, loadActiveSession, saveActiveSession } from '../lib/activeSession';
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
+import DrillRing from '../components/DrillRing';
 import Congrats from './Congrats';
 import MusicToggle from '../components/MusicToggle';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
@@ -734,6 +735,7 @@ function SessionRunner({
   pool,
   workoutId,
   planId,
+  techniqueId,
   seed,
   sessionKey,
   resume,
@@ -776,13 +778,13 @@ function SessionRunner({
     const elapsed = pausedRef.current ? c.offset : c.offset + (performance.now() - c.base);
     saveActiveSession({
       key: sessionKey,
-      launch: { config, pool, ...(workoutId ? { workoutId } : {}), ...(planId ? { planId } : {}) },
+      launch: { config, pool, ...(workoutId ? { workoutId } : {}), ...(planId ? { planId } : {}), ...(techniqueId ? { techniqueId } : {}) },
       seed,
       elapsed: Math.max(lastT.current, Math.min(elapsed, plan.total)),
       callouts: callouts.current,
       used: [...used.current],
     });
-  }, [sessionKey, config, pool, workoutId, planId, seed, plan.total]);
+  }, [sessionKey, config, pool, workoutId, planId, techniqueId, seed, plan.total]);
   const persistRef = useRef(persist);
   persistRef.current = persist;
   useEffect(() => {
@@ -997,6 +999,7 @@ function SessionRunner({
       callouts: callouts.current,
       seconds: Math.round(Math.min(lastT.current, plan.total) / 1000),
       planId,
+      techniqueId,
     };
     // A full session gets the celebration page; ending early goes to History with a summary.
     navigate(early ? '/history' : '/train/done', { replace: true, state: { finished: summary } });
@@ -1046,8 +1049,14 @@ function SessionRunner({
     );
   }
 
+  const clockFace = (
+    <div key={kind !== 'round' && count ? `count-${count}` : 'clock'} className={`clock ${kind !== 'round' && count ? 'counting' : ''}`} aria-live="off">
+      {formatClock(state.remaining)}
+    </div>
+  );
+
   return (
-    <div className={`session kind-${kind} ${paused ? 'is-paused' : ''}`}>
+    <div className={`session kind-${kind} ${drill ? 'is-drill' : ''} ${paused ? 'is-paused' : ''}`}>
       <div className="session-bar" style={{ width: `${segProgress * 100}%` }} />
       <div className="session-inner">
         <div className="session-top">
@@ -1061,9 +1070,7 @@ function SessionRunner({
           {paused && <span className="pill warn">Paused</span>}
         </div>
 
-        <div key={kind !== 'round' && count ? `count-${count}` : 'clock'} className={`clock ${kind !== 'round' && count ? 'counting' : ''}`} aria-live="off">
-          {formatClock(state.remaining)}
-        </div>
+        {drill ? <DrillRing {...drillProgress(plan, t)}>{clockFace}</DrillRing> : clockFace}
 
         <div className="callout-area" aria-live="assertive">
           {drill && blockCombo ? (

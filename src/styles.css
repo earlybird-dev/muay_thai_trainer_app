@@ -2884,6 +2884,8 @@ select.input {
 /* Technique page: Mark as learned under the description */
 .learned-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: -6px 0 16px;
 }
 /* All sessions: delete button in the corner of each row */
@@ -2953,4 +2955,64 @@ a.heat-cell:focus-visible {
 }
 .hd-hero-head .btn {
   flex: none;
+}
+/* Drill mode: the clock sits inside a running circle, one slice per combo */
+.drill-ring {
+  position: relative;
+  flex: none;
+  width: max(170px, min(64vw, 28vh, 320px));
+  aspect-ratio: 1;
+}
+.drill-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ring-track {
+  stroke: color-mix(in srgb, var(--muted) 26%, transparent);
+}
+.ring-current {
+  stroke: color-mix(in srgb, var(--accent-2) 42%, transparent);
+}
+.ring-done {
+  stroke: var(--accent-2);
+}
+.ring-dot {
+  fill: var(--text);
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+.is-paused .drill-ring svg {
+  opacity: 0.6;
+}
+.drill-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.drill-ring .clock {
+  font-size: max(51px, min(19vw, 8.4vh, 96px));
+}
+.drill-left {
+  font-size: clamp(0.9rem, 2.6vh, 1.3rem);
+  font-weight: 800;
+  color: var(--muted);
+}
+/* The ring takes some height, so the fighter gives a little back. */
+.is-drill .figure3d.session-figure {
+  max-height: 30vh;
+}
+/* Big screens have room for a bigger ring and clock */
+@media (min-width: 700px) and (min-height: 900px) {
+  .drill-ring {
+    width: min(34vh, 360px);
+  }
+  .drill-ring .clock {
+    font-size: min(10.2vh, 110px);
+  }
 }

@@ -6,6 +6,9 @@ import FighterPicker from '../components/FighterPicker';
 import type { CameraView } from '../components/Figure3D';
 import { CATEGORIES, TECH_BY_ID, youtubeId, youtubeSearchUrl } from '../data/techniques';
 import { useStore } from '../lib/store';
+import { useDialog } from '../components/Dialog';
+import { loadActiveSession } from '../lib/activeSession';
+import { useStartPractice } from '../lib/useStartWorkout';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 
 const SPEEDS = [0.25, 0.5, 1];
@@ -19,6 +22,8 @@ export default function TechniqueDetail() {
 function Detail({ id }: { id: string }) {
   const t = TECH_BY_ID[id];
   const { data, update } = useStore();
+  const dialog = useDialog();
+  const startPractice = useStartPractice();
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(0.5);
   const [mirror, setMirror] = useState(data.settings.stance === 'southpaw');
@@ -69,6 +74,22 @@ function Detail({ id }: { id: string }) {
     });
   };
 
+  const practice = async () => {
+    // Starting a new session replaces one that is waiting to be resumed.
+    if (
+      loadActiveSession() &&
+      !(await dialog.confirm({
+        title: 'Replace the session in progress?',
+        message: 'You have a paused session. Starting this drill drops it, and what you did in it is not saved.',
+        confirmLabel: 'Start drill',
+        cancelLabel: 'Keep it',
+        danger: true,
+      }))
+    )
+      return;
+    startPractice(t);
+  };
+
   return (
     <div className="page detail">
       <Link to="/learn" className="back">
@@ -83,6 +104,12 @@ function Detail({ id }: { id: string }) {
           <Icon name="check" />
           {learned ? 'Learned' : 'Mark as learned'}
         </button>
+        {t.strike && (
+          <button className="btn small" onClick={() => void practice()}>
+            <Icon name="play" />
+            1-min drill
+          </button>
+        )}
       </div>
 
       <div className="stage card">

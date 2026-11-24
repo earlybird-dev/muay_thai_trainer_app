@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import Icon from '../components/Icon';
 import type { FinishedSummary } from '../components/FinishedCard';
+import { TECH_BY_ID } from '../data/techniques';
 import { dateKey, planStats } from '../lib/plans';
 import { streakDays } from '../lib/stats';
 import { useStore } from '../lib/store';
@@ -43,6 +44,7 @@ export default function Congrats() {
   const today = dateKey(new Date());
   const streak = streakDays(data.history);
   const plan = s.planId ? data.plans.find((p) => p.id === s.planId) : undefined;
+  const tech = s.techniqueId ? TECH_BY_ID[s.techniqueId] : undefined;
   const ps = plan ? planStats(plan, data.history, today) : null;
   const mins = Math.floor(s.seconds / 60);
   const secs = String(s.seconds % 60).padStart(2, '0');
@@ -123,6 +125,11 @@ export default function Congrats() {
           <Link className="btn primary big" to={`/plans/${plan.id}`}>
             <Icon name="back" />
             Back to plan
+          </Link>
+        ) : tech ? (
+          <Link className="btn primary big" to={`/learn/${tech.id}`}>
+            <Icon name="back" />
+            Back to {tech.name.replace(/ [(].*/, '')}
           </Link>
         ) : (
           <Link className="btn primary big" to="/train">

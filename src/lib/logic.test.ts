@@ -3,7 +3,7 @@ import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig }
 import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
 import { filterSessions, streakDays } from './stats';
 import { calloutTokens, PRESET_COMBOS } from '../data/combos';
-import { TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
+import { STRIKES, TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
 import { solve, withGuard } from './pose';
 
 const pool = [
@@ -217,6 +217,7 @@ describe('fighters', () => {
   });
 });
 
+import { practiceLaunch } from './useStartWorkout';
 import { clearAccountData, deleteSession, mergeAll, stampChanges, type ComboRow, type RemoteData } from './sync';
 import { demoAddedAt } from './demoData';
 import type { Combo } from '../data/combos';
@@ -422,7 +423,7 @@ describe('starter combo library', () => {
   });
 });
 
-import { drillOrder, mulberry32 } from './sessionEngine';
+import { drillOrder, drillProgress, mulberry32 } from './sessionEngine';
 
 describe('combo drill mode', () => {
   const pool3 = [
@@ -867,4 +868,56 @@ describe('session filters', () => {
     expect(ids({ q: ' TEEP ' })).toEqual(['early', 'edge']);
   });
   it('combines filters', () => expect(ids({ days: 7, type: 'drill', q: 'jab' })).toEqual(['late', 'edge']));
+});
+
+describe('1-min drill', () => {
+  it('drills just that strike for exactly one minute, for every strike', () => {
+    for (const t of STRIKES) {
+      const { config, pool, techniqueId } = practiceLaunch(t, null);
+      const plan = buildPlan(config, pool, 1);
+      const work = plan.segments.filter((s) => s.kind === 'round');
+      expect(work).toHaveLength(1);
+      expect(work[0].end - work[0].start).toBe(60_000);
+      expect(plan.segments.map((s) => s.kind)).toEqual(['prep', 'round']);
+      expect(pool[0].items).toEqual([t.id]);
+      expect(techniqueId).toBe(t.id);
+    }
+  });
+  it('keeps your usual pace but not the rest of your last setup', () => {
+    const { config } = practiceLaunch(STRIKES[0], { mode: 'rounds', drillSec: 30, drillCount: 40, minGap: 1, maxGap: 2 });
+    expect(config).toMatchObject({ mode: 'drill', drillSec: 60, drillCount: 1, minGap: 1, maxGap: 2 });
+  });
+});
+
+describe('drill progress ring', () => {
+  const cfg = { ...DEFAULT_CONFIG, mode: 'drill' as const, drillSec: 30, drillRestSec: 10, drillCount: 3, prepSec: 10 };
+  const pool = [{ id: 'a', items: ['jab'] }, { id: 'b', items: ['cross'] }];
+  const plan = buildPlan(cfg, pool, 1);
+  const at = (sec: number) => drillProgress(plan, sec * 1000);
+
+  it('starts empty during get-ready', () => expect(at(5)).toEqual({ total: 3, completed: 0, progress: 0, label: '3 to go' }));
+  it('fills through the current combo', () => {
+    expect(at(10)).toEqual({ total: 3, completed: 0, progress: 0, label: '2 left' });
+    expect(at(25)).toEqual({ total: 3, completed: 0, progress: 0.5, label: '2 left' });
+  });
+  it('holds still during the rest', () => {
+    expect(at(40)).toEqual({ total: 3, completed: 1, progress: 1, label: '2 to go' });
+    expect(at(49)).toEqual({ total: 3, completed: 1, progress: 1, label: '2 to go' });
+  });
+  it('says when it is the last one, and ends full', () => {
+    expect(at(90 + 15).label).toBe('Last combo');
+    expect(at(plan.total / 1000)).toEqual({ total: 3, completed: 3, progress: 3, label: '' });
+  });
+  it('never runs backwards', () => {
+    let last = 0;
+    for (let ms = 0; ms <= plan.total; ms += 250) {
+      const p = drillProgress(plan, ms).progress;
+      expect(p).toBeGreaterThanOrEqual(last);
+      last = p;
+    }
+  });
+  it('shows no count for a single combo', () => {
+    const one = buildPlan({ ...cfg, drillCount: 1 }, pool, 1);
+    expect(drillProgress(one, 20_000).label).toBe('');
+  });
 });

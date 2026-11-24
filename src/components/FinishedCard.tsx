@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
+import { TECH_BY_ID } from '../data/techniques';
 
 /** What a session hands to History when it ends. */
 export interface FinishedSummary {
@@ -10,12 +11,14 @@ export interface FinishedSummary {
   callouts: number;
   seconds: number;
   planId?: string;
+  techniqueId?: string;
 }
 
 /** "Session complete" summary shown at the top of History right after a session. */
 export default function FinishedCard({ s, onClose }: { s: FinishedSummary; onClose: () => void }) {
   const unit = s.drill ? (s.completed === 1 ? 'combo drilled' : 'combos drilled') : s.completed === 1 ? 'round' : 'rounds';
   const calls = s.drill ? (s.callouts === 1 ? 'rep' : 'reps') : s.callouts === 1 ? 'combo called' : 'combos called';
+  const tech = s.techniqueId ? TECH_BY_ID[s.techniqueId] : undefined;
   const mins = Math.floor(s.seconds / 60);
   const secs = String(s.seconds % 60).padStart(2, '0');
   return (
@@ -40,8 +43,13 @@ export default function FinishedCard({ s, onClose }: { s: FinishedSummary; onClo
             <Icon name="back" />
             Back to plan
           </Link>
+        ) : tech ? (
+          <Link className="btn primary" to={`/learn/${tech.id}`}>
+            <Icon name="back" />
+            Back to {tech.name.replace(/ [(].*/, '')}
+          </Link>
         ) : null}
-        <Link className={`btn ${s.planId ? '' : 'primary'}`} to="/train">
+        <Link className={`btn ${s.planId || tech ? '' : 'primary'}`} to="/train">
           <Icon name="play" />
           Train again
         </Link>

@@ -258,6 +258,19 @@ export function stateAt(plan: Plan, t: number): SessionState {
   return { done: false, segment: seg, remaining: seg.end - t, elapsed: t - seg.start };
 }
 
+/** How far through a drill's combos we are: how many are done, and that plus the share of the current one. */
+export function drillProgress(plan: Plan, t: number): { total: number; completed: number; progress: number; label: string } {
+  const work = plan.segments.filter((s) => s.kind === 'round');
+  const total = work.length;
+  const completed = work.filter((s) => s.end <= t).length;
+  const now = work.find((s) => t >= s.start && t < s.end);
+  const progress = completed + (now ? (t - now.start) / (now.end - now.start) : 0);
+  // While drilling: how many come after this one. Otherwise: how many are still to do.
+  const left = total - completed - (now ? 1 : 0);
+  const label = total <= 1 || completed === total ? '' : now ? (left ? `${left} left` : 'Last combo') : `${left} to go`;
+  return { total, completed, progress, label };
+}
+
 /** Events with t0 < at <= t1. */
 export const eventsBetween = (plan: Plan, t0: number, t1: number) => plan.events.filter((e) => e.at > t0 && e.at <= t1);
 
