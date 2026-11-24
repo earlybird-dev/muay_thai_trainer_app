@@ -7,7 +7,7 @@ import { useStore } from '../lib/store';
 import HistoryDashboard from '../components/HistoryDashboard';
 import Icon from '../components/Icon';
 import type { SessionLog } from '../lib/storage';
-import { dateKey, parseDay } from '../lib/plans';
+import { addDays, dateKey, parseDay } from '../lib/plans';
 import { SESSION_TYPES, filterSessions, learnedStrike, sessionTimeRange, sessionTimes, sessionType } from '../lib/stats';
 import { deleteSession } from '../lib/sync';
 import { useDialog } from '../components/Dialog';
@@ -60,6 +60,29 @@ export default function History() {
 }
 
 const PERIODS = [7, 30, 90];
+
+/** Sessions (newest first) as the timeline's days. */
+function byDay(sessions: SessionLog[]) {
+  const days: { day: string; sessions: SessionLog[] }[] = [];
+  for (const s of sessions) {
+    const day = dateKey(new Date(s.date));
+    if (days[days.length - 1]?.day === day) days[days.length - 1].sessions.push(s);
+    else days.push({ day, sessions: [s] });
+  }
+  return days;
+}
+
+/** "Today" with its date, or just the date (with its year when that isn't this year's). */
+function dayName(day: string, today: string): { name: string; date?: string } {
+  const date = parseDay(day).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: day.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric',
+  });
+  if (day === today) return { name: 'Today', date };
+  return day === addDays(today, -1) ? { name: 'Yesterday', date } : { name: date };
+}
 
 export function HistoryLog() {
   const dialog = useDialog();
@@ -172,49 +195,58 @@ export function HistoryLog() {
       ) : shown.length === 0 ? (
         <p className="muted">{day && !type && !workoutId ? 'No sessions on this day.' : 'No sessions match these filters.'}</p>
       ) : (
-        <>
-          <ul className="list">
-            {shown.map((s) => (
-              <li key={s.id} className="card history-row">
-                <button
-                  type="button"
-                  className="history-delete"
-                  aria-label={`Delete session from ${new Date(s.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
-                  title="Delete session"
-                  onClick={() => void remove(s)}
-                >
-                  <Icon name="trash" size={18} />
-                </button>
-                <div>
-                  <b>
-                    {new Date(s.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                  </b>{' '}
-                  <span
-                    className="muted session-times"
-                    title={sessionTimes(s).exact ? 'Start – finish' : 'Start – finish. This start is estimated from the time trained, without pauses.'}
-                  >
-                    {sessionTimeRange(s)}
-                  </span>
-                </div>
-                <div className="small">
-                  <span className={`tag session-type ${sessionType(s)}`}>{SESSION_TYPES.find((t) => t.id === sessionType(s))!.chip}</span>{' '}
-                  {learnedStrike(s) ? (
-                    <>
-                      <Link to={`/learn/${learnedStrike(s)!.id}`} className="session-strike">
-                        {learnedStrike(s)!.name}
-                      </Link>{' '}
-                      · {s.callouts} rep{s.callouts === 1 ? '' : 's'} · {formatClock(s.durationSec * 1000)} total{s.completedRounds < s.rounds ? ' · ended early' : ''}
-                    </>
-                  ) : (
-                    <>
-                      {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </>
+        <div className="timeline">
+          {byDay(shown).map((g) => {
+            const { name, date } = dayName(g.day, today);
+            return (
+              <section key={g.day}>
+                <h2 className={`timeline-day ${g.day === today ? 'today' : ''}`}>
+                  {name} {date && <span className="muted">{date}</span>}
+                </h2>
+                <ul className="list">
+                  {g.sessions.map((s) => (
+                    <li key={s.id} className={`timeline-item ${sessionType(s)}`}>
+                      <div className="card history-row">
+                        <button
+                          type="button"
+                          className="history-delete"
+                          aria-label={`Delete session from ${new Date(s.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                          title="Delete session"
+                          onClick={() => void remove(s)}
+                        >
+                          <Icon name="trash" size={18} />
+                        </button>
+                        <div>
+                          <b
+                            className="session-times"
+                            title={sessionTimes(s).exact ? 'Start – finish' : 'Start – finish. This start is estimated from the time trained, without pauses.'}
+                          >
+                            {sessionTimeRange(s)}
+                          </b>
+                        </div>
+                        <div className="small">
+                          <span className={`tag session-type ${sessionType(s)}`}>{SESSION_TYPES.find((t) => t.id === sessionType(s))!.chip}</span>{' '}
+                          {learnedStrike(s) ? (
+                            <>
+                              <Link to={`/learn/${learnedStrike(s)!.id}`} className="session-strike">
+                                {learnedStrike(s)!.name}
+                              </Link>{' '}
+                              · {s.callouts} rep{s.callouts === 1 ? '' : 's'} · {formatClock(s.durationSec * 1000)} total{s.completedRounds < s.rounds ? ' · ended early' : ''}
+                            </>
+                          ) : (
+                            <>
+                              {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
     </div>
   );

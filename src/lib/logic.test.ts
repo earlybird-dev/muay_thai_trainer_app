@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig } from './sessionEngine';
 import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
 import { filterSessions, learnedStrike, sessionId, sessionTimeRange, sessionTimes, sessionType, streakDays } from './stats';
-import { calloutTokens, PRESET_COMBOS } from '../data/combos';
+import { calloutTokens, PRESET_COMBOS, searchCombos } from '../data/combos';
 import { STRIKES, TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
 import { solve, withGuard } from './pose';
 
@@ -417,6 +417,18 @@ describe('starter combo library', () => {
 
   it('only uses techniques that can be combo strikes', () => {
     for (const c of PRESET_COMBOS) for (const i of c.items) expect(TECH_BY_ID[i]?.strike, `${c.id}:${i}`).toBe(true);
+  });
+
+  it('can be searched by name, callout, strike and level', () => {
+    const names = (q: string) => searchCombos(PRESET_COMBOS, q).map((c) => c.name);
+    expect(names('  ')).toHaveLength(PRESET_COMBOS.length);
+    expect(names('classic FOUR')).toEqual(['Classic Four', 'Teep Into Classic Four']);
+    expect(names('jab switch kick')).toContain('Jab Cross Switch Kick');
+    expect(names('1-2')).toContain('Jab Cross');
+    expect(names('1-2')).not.toContain('Teep Kick');
+    expect(searchCombos(PRESET_COMBOS, 'advanced teep').every((c) => c.level === 'advanced' && c.items.some((i) => i.includes('teep')))).toBe(true);
+    expect(searchCombos(PRESET_COMBOS, 'essential').every((c) => c.essential)).toBe(true);
+    expect(names('zzz')).toEqual([]);
   });
 
   it('keeps the original starter ids so saved selections still work', () => {

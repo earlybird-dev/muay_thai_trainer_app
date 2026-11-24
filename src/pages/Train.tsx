@@ -3,7 +3,7 @@ import Icon from '../components/Icon';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
-import { calloutDisplay, type Combo } from '../data/combos';
+import { calloutDisplay, searchCombos, type Combo } from '../data/combos';
 import { TECH_BY_ID } from '../data/techniques';
 import { beep, bell, clap, comboSpeech, preloadVoice, requestWakeLock, speak, stopSpeech, unlockAudio } from '../lib/audio';
 import { PHRASES, countPhrase, fixedPhrases, roundPhrase } from '../data/phrases';
@@ -16,6 +16,7 @@ import { clearActiveSession, loadActiveSession, saveActiveSession } from '../lib
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
 import DrillRing from '../components/DrillRing';
+import Stepper from '../components/Stepper';
 import { sessionId } from '../lib/stats';
 import Congrats from './Congrats';
 import MusicToggle from '../components/MusicToggle';
@@ -42,63 +43,10 @@ export default function Train() {
   );
 }
 
-/** − value + control for a time in seconds. Hold a button to keep changing. */
-function TimeStepper({ label, value, step, min, max, onChange }: { label: string; value: number; step: number; min: number; max: number; onChange: (v: number) => void }) {
-  const ref = useRef({ value, onChange });
-  ref.current = { value, onChange };
-  const timers = useRef<number[]>([]);
-  const stop = () => {
-    timers.current.forEach((t) => window.clearTimeout(t));
-    timers.current = [];
-  };
-  useEffect(() => stop, []);
-  /** One step; false when already at the limit. */
-  const nudge = (dir: 1 | -1): boolean => {
-    const { value: v, onChange: on } = ref.current;
-    // Snap onto the step grid, then move one step.
-    const next = Math.min(max, Math.max(min, dir > 0 ? Math.floor(v / step) * step + step : Math.ceil(v / step) * step - step));
-    if (next === v) return false;
-    ref.current.value = next;
-    on(next);
-    return true;
-  };
-  const press = (dir: 1 | -1) => {
-    stop();
-    nudge(dir);
-    const repeat = () => {
-      timers.current = nudge(dir) ? [window.setTimeout(repeat, 90)] : [];
-    };
-    timers.current = [window.setTimeout(repeat, 450)];
-  };
-  const btn = (dir: 1 | -1) => (
-    <button
-      type="button"
-      className="btn icon"
-      aria-label={`${dir > 0 ? 'More' : 'Less'} ${label.toLowerCase()}`}
-      disabled={dir > 0 ? value >= max : value <= min}
-      onPointerDown={(e) => {
-        if (e.button === 0) press(dir);
-      }}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          nudge(dir);
-        }
-      }}
-    >
-      {dir > 0 ? '+' : '−'}
-    </button>
-  );
-  return (
-    <div className="stepper">
-      {btn(-1)}
-      <b className="stepper-time">{value === 0 ? 'Off' : value < 60 ? `${value}s` : formatClock(value * 1000)}</b>
-      {btn(1)}
-    </div>
-  );
+/** A stepper for a time in seconds. */
+function TimeStepper({ label, ...rest }: { label: string; value: number; step: number; min: number; max: number; onChange: (v: number) => void }) {
+  const name = label.toLowerCase();
+  return <Stepper less={`Less ${name}`} more={`More ${name}`} format={(v) => (v === 0 ? 'Off' : v < 60 ? `${v}s` : formatClock(v * 1000))} {...rest} />;
 }
 
 const SMART_POOLS: { id: PoolKind; icon: string; name: string; hint: string }[] = [
@@ -337,17 +285,8 @@ function Setup() {
     });
   const togglePick = (id: string) => toggle(poolMode === 'pick' ? setPicked : setExcluded, id);
 
-  // Every word must appear in the combo's name, callout, technique names or level.
   const shownPicks = useMemo(() => {
-    const words = pickQuery.toLowerCase().split(/\s+/).filter(Boolean);
-    const base = poolMode === 'pick' && selectedOnly ? pool : listed;
-    if (!words.length) return base;
-    return base.filter((c) => {
-      const hay = [c.name, calloutDisplay(c.items, c.style), ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i), c.level, c.preset ? '' : 'mine my']
-        .join(' ')
-        .toLowerCase();
-      return words.every((w) => hay.includes(w));
-    });
+    return searchCombos(poolMode === 'pick' && selectedOnly ? pool : listed, pickQuery);
   }, [pickQuery, listed, poolMode, selectedOnly, pool]);
 
   /** Tick or untick every combo currently shown (respects the search). */
@@ -469,33 +408,17 @@ function Setup() {
                 <span>Rest between combos</span>
                 <TimeStepper label="Rest between combos" value={cfg.drillRestSec} step={5} min={0} max={300} onChange={(v) => set('drillRestSec', v)} />
               </div>
-              <label className="field">
+              <div className="field">
                 <span>Number of combos</span>
-                <div className="stepper">
-                  <button className="btn icon" onClick={() => set('drillCount', Math.max(1, cfg.drillCount - 1))} aria-label="Fewer combos">
-                    −
-                  </button>
-                  <b>{cfg.drillCount}</b>
-                  <button className="btn icon" onClick={() => set('drillCount', Math.min(50, cfg.drillCount + 1))} aria-label="More combos">
-                    +
-                  </button>
-                </div>
-              </label>
+                <Stepper less="Fewer combos" more="More combos" value={cfg.drillCount} min={1} max={50} onChange={(v) => set('drillCount', v)} />
+              </div>
             </>
           ) : (
             <>
-              <label className="field">
+              <div className="field">
                 <span>Rounds</span>
-                <div className="stepper">
-                  <button className="btn icon" onClick={() => set('rounds', Math.max(1, cfg.rounds - 1))} aria-label="Fewer rounds">
-                    −
-                  </button>
-                  <b>{cfg.rounds}</b>
-                  <button className="btn icon" onClick={() => set('rounds', Math.min(12, cfg.rounds + 1))} aria-label="More rounds">
-                    +
-                  </button>
-                </div>
-              </label>
+                <Stepper less="Fewer rounds" more="More rounds" value={cfg.rounds} min={1} max={12} onChange={(v) => set('rounds', v)} />
+              </div>
               <div className="field">
                 <span>Round length</span>
                 <TimeStepper label="Round length" value={cfg.roundSec} step={15} min={30} max={600} onChange={(v) => set('roundSec', v)} />

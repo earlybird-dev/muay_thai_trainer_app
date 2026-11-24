@@ -1649,6 +1649,8 @@ input[type='range'] {
 .stepper .btn {
   touch-action: manipulation;
   -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ---------- Favourites, essentials, practice ---------- */
@@ -3079,4 +3081,199 @@ a.heat-cell:focus-visible {
     margin-top: clamp(0px, 13.3vh - 82px, 44px);
     margin-top: clamp(0px, 13.3dvh - 82px, 44px);
   }
+}
+/* All sessions: a timeline down the left, a ring per day and a dot per session */
+.timeline {
+  --rail: 26px;
+  position: relative;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 12px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--accent), var(--border) 120px calc(100% - 60px), transparent);
+}
+.timeline-day {
+  position: relative;
+  margin: 18px 0 8px;
+  padding-left: var(--rail);
+  font-size: 0.95rem;
+  line-height: 24px;
+}
+.timeline section:first-child .timeline-day {
+  margin-top: 0;
+}
+.timeline-day .muted {
+  margin-left: 4px;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.timeline-day::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--accent-2);
+  border-radius: 50%;
+  background: var(--bg);
+}
+.timeline-day.today::before {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.timeline-item {
+  position: relative;
+  padding-left: var(--rail);
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 22px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.timeline-item.learn::before {
+  background: var(--ok);
+}
+/* Lean combo cards: text on the left, icon buttons on the right */
+.icon-btn,
+.combo-row .fav-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-btn:hover,
+.icon-btn:focus-visible,
+.combo-row .fav-btn:hover,
+.combo-row .fav-btn:focus-visible {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.icon-btn.danger:hover,
+.icon-btn.danger:focus-visible,
+.combo-row .fav-btn.on {
+  color: var(--accent);
+}
+.icon-btn.go {
+  position: relative;
+  margin-left: 4px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-2);
+}
+.icon-btn.go:hover {
+  border-color: var(--muted);
+}
+/* A bigger area to tap than it looks */
+.icon-btn.go::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
+.combo-row {
+  gap: 0 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px 10px 10px 14px;
+}
+.combo-row .combo-main {
+  flex: 1 1 0;
+}
+.combo-row .combo-name {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+.combo-row .combo-call {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+.combo-row .combo-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+}
+.combo-row .combo-preview {
+  flex: 0 0 100%;
+}
+.combo-meta {
+  flex: 0 0 100%;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-top: 3px;
+}
+.combo-chevron {
+  display: inline-block;
+  margin: 0 9px 0 auto;
+  height: 16px;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.combo-chevron.open {
+  transform: rotate(180deg);
+}
+/* Combos: search box */
+.search-box {
+  position: relative;
+  margin-top: 14px;
+}
+.search-box > .btn-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.search-box .input {
+  padding-left: 40px;
+  padding-right: 44px;
+}
+.search-box .input::-webkit-search-cancel-button {
+  display: none;
+}
+.search-box .icon-btn {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* Train: a compact list of combos to tick */
+.pick-row .check {
+  margin: 5px 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.pick-row .check input {
+  width: 15px;
+  height: 15px;
+  margin-left: 0;
+}
+.pick-row .practice {
+  font-size: 0.74rem;
 }

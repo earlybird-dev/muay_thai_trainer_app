@@ -3,7 +3,7 @@ import Icon from '../components/Icon';
 import { Link, useNavigate } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
-import { calloutDisplay, newId, type Combo } from '../data/combos';
+import { calloutDisplay, newId, searchCombos, type Combo } from '../data/combos';
 import { LEVELS, TECH_BY_ID, type Level } from '../data/techniques';
 import { useStore } from '../lib/store';
 import { useDialog } from '../components/Dialog';
@@ -25,6 +25,8 @@ export default function Combos() {
   const dialog = useDialog();
   const [preview, setPreview] = useState<string | null>(null);
   const [level, setLevel] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+  const searching = !!query.trim();
   const favs = data.settings.favorites;
   const practice = usePractice();
   const matches = (l: Filter, c: Combo) =>
@@ -37,11 +39,16 @@ export default function Combos() {
           ? practiceLabel(practice.get(c.name.toLowerCase())).due
           : c.level === l);
   const byLevel = (c: Combo) => matches(level, c);
-  // Filters apply to the starter library; your own combos are always listed in their own section.
-  const mine = data.combos;
-  const presets = allCombos.filter((c) => c.preset && byLevel(c));
+  // Filters apply to the starter library; your own combos are always listed in their own section. A search
+  // looks through both.
+  const mine = searchCombos(data.combos, query);
+  const starters = searchCombos(
+    allCombos.filter((c) => c.preset),
+    query,
+  );
+  const presets = starters.filter(byLevel);
   const mirror = data.settings.stance === 'southpaw';
-  const countOf = (l: Filter) => allCombos.filter((c) => c.preset && matches(l, c)).length;
+  const countOf = (l: Filter) => starters.filter((c) => matches(l, c)).length;
 
   const duplicate = (c: Combo) => {
     const copy: Combo = { ...c, id: newId(), name: `${c.name} (copy)`, preset: undefined, essential: undefined };
@@ -70,11 +77,7 @@ export default function Combos() {
         tabIndex={0}
         aria-expanded={preview === c.id}
         aria-label={`${c.name}: ${preview === c.id ? 'hide' : 'show'} preview`}
-        onClick={(e) => {
-          // Dragging/tapping the animation itself (e.g. rotating the 3D fighter) shouldn't close it.
-          if ((e.target as HTMLElement).closest('.combo-preview')) return;
-          setPreview(preview === c.id ? null : c.id);
-        }}
+        onClick={() => setPreview(preview === c.id ? null : c.id)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -83,47 +86,54 @@ export default function Combos() {
         }}
       >
         <div className="combo-name">
-          {c.name} <span className={`tag tag-${c.level}`}>{c.level}</span>
-          {c.essential && <span className="tag tag-essential">★ essential</span>}
+          {c.name}
+          {c.essential && (
+            <span className="essential-tag" title="Essential combo">
+              ★
+            </span>
+          )}
         </div>
         <div className="combo-call">{calloutDisplay(c.items, c.style)}</div>
-        {(() => {
-          const l = practiceLabel(practice.get(c.name.toLowerCase()));
-          return <div className={`practice ${l.due ? 'due' : ''}`}>{l.text}</div>;
-        })()}
-        {preview === c.id && (
-          <FigureView
-            phases={chainPhases(c.items.map((i) => TECH_BY_ID[i]?.phases ?? []))}
-            speed={0.8}
-            mirror={mirror}
-            className="combo-preview"
-            label={`${c.name} animation`}
-          />
-        )}
       </div>
       <div className="combo-actions">
         <FavButton id={c.id} name={c.name} />
-        <button className="btn small" onClick={() => setPreview(preview === c.id ? null : c.id)}>
-          {preview === c.id ? 'Hide' : 'Preview'}
-        </button>
-        <Link className="btn small" to={`/train?combo=${c.id}`}>
-          Train
-        </Link>
         {c.preset ? (
-          <button className="btn small" onClick={() => duplicate(c)}>
-            Copy & edit
+          <button type="button" className="icon-btn" aria-label={`Copy and edit ${c.name}`} title="Copy & edit" onClick={() => duplicate(c)}>
+            <Icon name="copy" />
           </button>
         ) : (
           <>
-            <Link className="btn small" to={`/combos/${c.id}`}>
-              Edit
+            <Link className="icon-btn" aria-label={`Edit ${c.name}`} title="Edit" to={`/combos/${c.id}`}>
+              <Icon name="edit" />
             </Link>
-            <button className="btn small danger" onClick={() => remove(c)}>
-              Delete
+            <button type="button" className="icon-btn danger" aria-label={`Delete ${c.name}`} title="Delete" onClick={() => void remove(c)}>
+              <Icon name="trash" />
             </button>
           </>
         )}
+        <Link className="icon-btn go" aria-label={`Train ${c.name}`} title="Train" to={`/train?combo=${c.id}`}>
+          <Icon name="play" size={13} />
+        </Link>
       </div>
+      <div className="combo-meta" onClick={() => setPreview(preview === c.id ? null : c.id)}>
+        <span className={`tag tag-${c.level}`}>{c.level}</span>
+        {(() => {
+          const l = practiceLabel(practice.get(c.name.toLowerCase()));
+          return <span className={`practice ${l.due ? 'due' : ''}`}>{l.text}</span>;
+        })()}
+        <span className={`combo-chevron ${preview === c.id ? 'open' : ''}`}>
+          <Icon name="chevron" size={14} />
+        </span>
+      </div>
+      {preview === c.id && (
+        <FigureView
+          phases={chainPhases(c.items.map((i) => TECH_BY_ID[i]?.phases ?? []))}
+          speed={0.8}
+          mirror={mirror}
+          className="combo-preview"
+          label={`${c.name} animation`}
+        />
+      )}
     </li>
   );
 
@@ -137,46 +147,68 @@ export default function Combos() {
         </Link>
       </div>
 
-      <section className="section">
-        <h2>
-          My combos <span className="muted small">({mine.length})</span>
-        </h2>
-        {mine.length === 0 ? (
-          <p className="muted">No custom combos yet. Build one, or copy a starter combo below and tweak it.</p>
-        ) : (
-          <ul className="list">{mine.map(row)}</ul>
+      <div className="search-box">
+        <Icon name="search" />
+        <input
+          type="search"
+          className="input"
+          placeholder="Search combos: name, strike, level…"
+          aria-label="Search combos"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button type="button" className="icon-btn" aria-label="Clear search" title="Clear search" onClick={() => setQuery('')}>
+            <Icon name="close" size={16} />
+          </button>
         )}
-      </section>
+      </div>
+
+      {(!searching || mine.length > 0) && (
+        <section className="section">
+          <h2>
+            My combos <span className="muted small">({mine.length})</span>
+          </h2>
+          {mine.length === 0 ? (
+            <p className="muted">No custom combos yet. Build one, or copy a starter combo below and tweak it.</p>
+          ) : (
+            <ul className="list">{mine.map(row)}</ul>
+          )}
+        </section>
+      )}
 
       <section className="section">
         <h2>
           Starter combos <span className="muted small">({presets.length})</span>
         </h2>
         <div className="pool-picker combo-filter">
-          <div className="pool-cards" role="group" aria-label="Suggested filters">
-            {SMART_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`pool-card pool-${f.cls} ${level === f.id ? 'on' : ''}`}
-                aria-pressed={level === f.id}
-                onClick={() => setLevel(level === f.id ? 'all' : f.id)}
-              >
-                <span className="pool-icon" aria-hidden>
-                  {f.icon}
-                </span>
-                <span className="pool-text">
-                  <b>{f.name}</b>
-                  <small>{f.hint}</small>
-                </span>
-                <span className="pool-count">{countOf(f.id)}</span>
-              </button>
-            ))}
-          </div>
+          {/* A search shows these as chips below, so its results aren't pushed off the screen. */}
+          {!searching && (
+            <div className="pool-cards" role="group" aria-label="Suggested filters">
+              {SMART_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`pool-card pool-${f.cls} ${level === f.id ? 'on' : ''}`}
+                  aria-pressed={level === f.id}
+                  onClick={() => setLevel(level === f.id ? 'all' : f.id)}
+                >
+                  <span className="pool-icon" aria-hidden>
+                    {f.icon}
+                  </span>
+                  <span className="pool-text">
+                    <b>{f.name}</b>
+                    <small>{f.hint}</small>
+                  </span>
+                  <span className="pool-count">{countOf(f.id)}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="pool-library">
-            <span className="pool-label">Library</span>
-            <div className="pool-chips" role="group" aria-label="Filter by level">
-              {LIBRARY_FILTERS.map((f) => (
+            {!searching && <span className="pool-label">Library</span>}
+            <div className="pool-chips" role="group" aria-label={searching ? 'Filter results' : 'Filter by level'}>
+              {(searching ? [...LIBRARY_FILTERS, ...SMART_FILTERS] : LIBRARY_FILTERS).map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -192,6 +224,15 @@ export default function Combos() {
         </div>
         {presets.length ? (
           <ul className="list">{presets.map(row)}</ul>
+        ) : searching && starters.length > 0 ? (
+          <p className="muted">
+            No match here, but {starters.length} in the whole library.{' '}
+            <button type="button" className="btn small" onClick={() => setLevel('all')}>
+              Show all
+            </button>
+          </p>
+        ) : searching ? (
+          <p className="muted">No starter combos match “{query.trim()}”.</p>
         ) : (
           <p className="muted">{level === 'favorites' ? 'No favourite starter combos yet — tap ♡ on any combo to add it.' : 'No combos here.'}</p>
         )}

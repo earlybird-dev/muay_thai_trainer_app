@@ -223,4 +223,24 @@ export function calloutTokens(items: string[], style: CalloutStyle): string[] {
 export const calloutDisplay = (items: string[], style: CalloutStyle) => calloutTokens(items, style).join(' · ');
 export const calloutSpeech = (items: string[], style: CalloutStyle) => calloutTokens(items, style).join(', ');
 
+/** Combos whose name, callout, strikes or level hold every word of the search ("1-2", "switch kick", "advanced"). */
+export function searchCombos(combos: Combo[], query: string): Combo[] {
+  const words = query.toLowerCase().split(/[\s·,-]+/).filter(Boolean);
+  if (!words.length) return combos;
+  return combos.filter((c) => {
+    const hay = [
+      c.name,
+      calloutDisplay(c.items, 'numbers'),
+      calloutDisplay(c.items, 'names'),
+      ...c.items.map((i) => TECH_BY_ID[i]?.name ?? i),
+      c.level,
+      c.essential ? 'essential' : '',
+      c.preset ? '' : 'mine my',
+    ]
+      .join(' ')
+      .toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
 export const newId = () => `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '../components/Icon';
+import Stepper from '../components/Stepper';
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { newId } from '../data/combos';
 import {
@@ -91,60 +92,6 @@ function PlanList() {
           <ul className="list">{archived.map(card)}</ul>
         </section>
       )}
-    </div>
-  );
-}
-
-/** − 30 days + — hold a button to keep changing. */
-function DayStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const ref = useRef({ value, onChange });
-  ref.current = { value, onChange };
-  const timer = useRef<number | null>(null);
-  const stop = () => {
-    if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = null;
-  };
-  useEffect(() => stop, []);
-  const nudge = (dir: 1 | -1) => {
-    const next = clampDays(ref.current.value + dir);
-    if (next === ref.current.value) return false;
-    ref.current.value = next;
-    ref.current.onChange(next);
-    return true;
-  };
-  const press = (dir: 1 | -1) => {
-    stop();
-    nudge(dir);
-    const repeat = () => {
-      timer.current = nudge(dir) ? window.setTimeout(repeat, 70) : null;
-    };
-    timer.current = window.setTimeout(repeat, 450);
-  };
-  const btn = (dir: 1 | -1) => (
-    <button
-      type="button"
-      className="btn icon"
-      aria-label={dir > 0 ? 'Longer plan' : 'Shorter plan'}
-      disabled={dir > 0 ? value >= MAX_DAYS : value <= MIN_DAYS}
-      onPointerDown={(e) => e.button === 0 && press(dir)}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          nudge(dir);
-        }
-      }}
-    >
-      {dir > 0 ? '+' : '−'}
-    </button>
-  );
-  return (
-    <div className="stepper">
-      {btn(-1)}
-      <b className="stepper-time">{value}</b>
-      {btn(1)}
     </div>
   );
 }
@@ -241,7 +188,7 @@ function PlanForm() {
           <div className="field">
             <span>Length (days)</span>
             <div className="length-row">
-              <DayStepper value={days} onChange={setDays} />
+              <Stepper less="Shorter plan" more="Longer plan" value={days} min={MIN_DAYS} max={MAX_DAYS} onChange={setDays} />
               <select
                 className="input length-preset"
                 aria-label="Length preset"
