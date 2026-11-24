@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig } from './sessionEngine';
 import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
-import { filterSessions, streakDays } from './stats';
+import { filterSessions, sessionId, sessionTimeRange, sessionTimes, streakDays } from './stats';
 import { calloutTokens, PRESET_COMBOS } from '../data/combos';
 import { STRIKES, TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
 import { solve, withGuard } from './pose';
@@ -863,11 +863,8 @@ describe('session filters', () => {
     expect(ids({ type: 'rounds' })).toEqual(['early', 'old']);
     expect(ids({ type: 'drill' })).toEqual(['late', 'edge']);
   });
-  it('filters by workout and by combo name', () => {
-    expect(ids({ workoutId: 'w1' })).toEqual(['late']);
-    expect(ids({ q: ' TEEP ' })).toEqual(['early', 'edge']);
-  });
-  it('combines filters', () => expect(ids({ days: 7, type: 'drill', q: 'jab' })).toEqual(['late', 'edge']));
+  it('filters by workout', () => expect(ids({ workoutId: 'w1' })).toEqual(['late']));
+  it('combines filters', () => expect(ids({ days: 7, type: 'drill', workoutId: 'w2' })).toEqual(['edge']));
 });
 
 describe('1-min drill', () => {
@@ -919,5 +916,40 @@ describe('drill progress ring', () => {
   it('shows no count for a single combo', () => {
     const one = buildPlan({ ...cfg, drillCount: 1 }, pool, 1);
     expect(drillProgress(one, 20_000).label).toBe('');
+  });
+});
+
+describe('session start and finish', () => {
+  const at = (d: number, h: number, m: number) => new Date(2026, 10, d, h, m).getTime();
+  const log = (id: string, end: number, durationSec: number) => ({ id, date: new Date(end).toISOString(), durationSec });
+
+  it('keeps the real start, pauses included', () => {
+    const start = at(24, 17, 40);
+    const end = at(24, 18, 11);
+    const t = sessionTimes(log(sessionId(start, end), end, 1330)); // 22 min trained over 31 min
+    expect(t).toEqual({ start: new Date(start), end: new Date(end), exact: true });
+  });
+  it('estimates the start of older sessions, and says so', () => {
+    const end = at(24, 18, 11);
+    const t = sessionTimes(log('s-abc123', end, 1320));
+    expect(t.start.getTime()).toBe(at(24, 17, 49));
+    expect(t.exact).toBe(false);
+    expect(sessionTimeRange(log('s-abc123', end, 1320)).startsWith('~')).toBe(true);
+  });
+  it('ignores an impossible start', () => {
+    const end = at(24, 18, 0);
+    expect(sessionTimes(log(sessionId(end + 60_000, end), end, 600)).exact).toBe(false); // after the finish
+    expect(sessionTimes(log(sessionId(end - 60_000, end), end, 600)).exact).toBe(false); // too short for the time trained
+    expect(sessionTimes(log(sessionId(at(20, 18, 0), end), end, 600)).exact).toBe(false); // days earlier
+  });
+  it('names the day before when it ran past midnight', () => {
+    const end = at(25, 0, 0);
+    const range = sessionTimeRange(log(sessionId(at(24, 23, 57), end), end, 160));
+    const tue = new Date(at(24, 23, 57)).toLocaleDateString(undefined, { weekday: 'short' });
+    expect(range.startsWith(`${tue} `)).toBe(true);
+  });
+  it('leaves sample sessions alone', () => {
+    const end = at(24, 18, 0);
+    expect(sessionTimes(log('demo-mwrpzce1-s-2026-11-24', end, 600)).exact).toBe(false);
   });
 });

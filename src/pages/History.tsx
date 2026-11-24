@@ -8,7 +8,7 @@ import HistoryDashboard from '../components/HistoryDashboard';
 import Icon from '../components/Icon';
 import type { SessionLog } from '../lib/storage';
 import { dateKey, parseDay } from '../lib/plans';
-import { filterSessions } from '../lib/stats';
+import { filterSessions, sessionTimeRange, sessionTimes } from '../lib/stats';
 import { deleteSession } from '../lib/sync';
 import { useDialog } from '../components/Dialog';
 
@@ -75,9 +75,8 @@ export function HistoryLog() {
   const period = PERIODS.find((n) => String(n) === params.get('days')) ?? null;
   const type = (['drill', 'rounds'] as const).find((t) => t === params.get('type')) ?? null;
   const workoutId = params.get('workout') ?? '';
-  const q = params.get('q') ?? '';
-  const filtering = !!(day || period || type || workoutId || q.trim());
-  const shown = filtering ? filterSessions(h, { day, days: period, type, workoutId, q }) : h;
+  const filtering = !!(day || period || type || workoutId);
+  const shown = filtering ? filterSessions(h, { day, days: period, type, workoutId }) : h;
   const set = (changes: Record<string, string>) =>
     setParams(
       (prev) => {
@@ -95,7 +94,7 @@ export function HistoryLog() {
   const today = dateKey(new Date());
 
   const remove = async (s: SessionLog) => {
-    const when = new Date(s.date).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const when = `${new Date(s.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}, ${sessionTimeRange(s)}`;
     const ok = await dialog.confirm({
       title: 'Delete this session?',
       message: `${when} · ${formatClock(s.durationSec * 1000)}. It is removed from your history, streaks and plan progress${account ? ' on all your devices' : ''}. It cannot be undone.`,
@@ -182,7 +181,6 @@ export function HistoryLog() {
               ))}
             </select>
           )}
-          <input className="input history-search" type="search" placeholder="Search a combo…" aria-label="Search a combo" value={q} onChange={(e) => set({ q: e.target.value })} />
         </div>
       )}
       <div className="history-count">
@@ -202,7 +200,7 @@ export function HistoryLog() {
           No sessions yet. <Link to="/train">Start your first session</Link>.
         </p>
       ) : shown.length === 0 ? (
-        <p className="muted">{day && !type && !workoutId && !q.trim() ? 'No sessions on this day.' : 'No sessions match these filters.'}</p>
+        <p className="muted">{day && !type && !workoutId ? 'No sessions on this day.' : 'No sessions match these filters.'}</p>
       ) : (
         <>
           <ul className="list">
@@ -221,13 +219,16 @@ export function HistoryLog() {
                   <b>
                     {new Date(s.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                   </b>{' '}
-                  <span className="muted">{new Date(s.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span
+                    className="muted session-times"
+                    title={sessionTimes(s).exact ? 'Start – finish' : 'Start – finish. This start is estimated from the time trained, without pauses.'}
+                  >
+                    {sessionTimeRange(s)}
+                  </span>
                 </div>
                 <div className="small">
-                  {s.mode === 'drill' ? <span className="tag">Drill</span> : null} {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
+                  <span className="tag">{s.mode === 'drill' ? 'Drill' : 'Rounds'}</span> {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
                 </div>
-                {/* While searching, list every combo so the match is visible. */}
-                {s.combos.length > 0 && <div className="muted small">{(q.trim() ? s.combos : s.combos.slice(0, 6)).join(', ')}{!q.trim() && s.combos.length > 6 ? '…' : ''}</div>}
               </li>
             ))}
           </ul>

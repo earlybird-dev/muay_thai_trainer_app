@@ -129,7 +129,7 @@ export default function Congrats() {
         ) : tech ? (
           <Link className="btn primary big" to={`/learn/${tech.id}`}>
             <Icon name="back" />
-            Back to {tech.name.replace(/ [(].*/, '')}
+            Back to learn
           </Link>
         ) : (
           <Link className="btn primary big" to="/train">

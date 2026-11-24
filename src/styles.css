@@ -2752,8 +2752,13 @@ select.input {
 .congrats-actions {
   margin-top: 18px;
 }
+.congrats-actions {
+  align-items: stretch;
+}
 .congrats-actions .btn {
   flex: 1 1 0;
+  padding-inline: 10px;
+  white-space: nowrap;
 }
 @media (prefers-reduced-motion: reduce) {
   .confetti {
@@ -2931,9 +2936,6 @@ a.heat-cell:focus-visible {
   flex: 1 1 150px;
   width: auto;
   min-width: 0;
-}
-.history-filters .history-search {
-  flex: 2 1 220px;
 }
 .history-count {
   display: flex;

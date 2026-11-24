@@ -169,20 +169,44 @@ export interface SessionFilter {
   type?: 'drill' | 'rounds' | null;
   /** A saved workout's id. */
   workoutId?: string | null;
-  /** Part of a combo's name. */
-  q?: string;
 }
 
 /** The sessions matching every filter that is set, in the same order. */
-export function filterSessions<T extends Pick<SessionLog, 'date' | 'mode' | 'combos' | 'workoutId'>>(history: T[], f: SessionFilter, today = new Date()): T[] {
+export function filterSessions<T extends Pick<SessionLog, 'date' | 'mode' | 'workoutId'>>(history: T[], f: SessionFilter, today = new Date()): T[] {
   const from = startOfDay(today);
   from.setDate(from.getDate() - ((f.days ?? 1) - 1));
-  const q = f.q?.trim().toLowerCase();
   return history.filter((s) => {
     const when = new Date(s.date);
     if (f.day ? localKey(when) !== f.day : f.days ? when < from : false) return false;
     if (f.type && (s.mode === 'drill' ? 'drill' : 'rounds') !== f.type) return false;
-    if (f.workoutId && s.workoutId !== f.workoutId) return false;
-    return !q || (s.combos ?? []).some((c) => c.toLowerCase().includes(q));
+    return !f.workoutId || s.workoutId === f.workoutId;
   });
+}
+
+// ---------- Start and finish times ----------
+
+/** Session id that also carries when it started: "s-<start>-<finish>" (base 36 ms). Ids sync as they are. */
+export const sessionId = (startedAt: number, finishedAt: number) => `s-${startedAt.toString(36)}-${finishedAt.toString(36)}`;
+
+/**
+ * When a session started and finished. Sessions logged before starts were recorded only know their
+ * finish, so their start is estimated from the time trained (pauses aren't counted): `exact` is false.
+ */
+export function sessionTimes(s: Pick<SessionLog, 'id' | 'date' | 'durationSec'>): { start: Date; end: Date; exact: boolean } {
+  const end = new Date(s.date);
+  const trainedMs = Math.max(0, s.durationSec) * 1000;
+  const m = /^s-([0-9a-z]+)-[0-9a-z]+$/.exec(s.id);
+  const start = m ? parseInt(m[1], 36) : NaN;
+  const span = end.getTime() - start;
+  // Ignore a start that can't be right (it must leave room for the time trained).
+  const exact = span >= trainedMs - 5000 && span <= 24 * 60 * 60 * 1000;
+  return { start: exact ? new Date(start) : new Date(end.getTime() - trainedMs), end, exact };
+}
+
+/** "5:49 PM – 6:11 PM"; "~" marks an estimated start, and a start on the day before names that day. */
+export function sessionTimeRange(s: Pick<SessionLog, 'id' | 'date' | 'durationSec'>): string {
+  const { start, end, exact } = sessionTimes(s);
+  const time = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const day = localKey(start) === localKey(end) ? '' : `${start.toLocaleDateString(undefined, { weekday: 'short' })} `;
+  return `${exact ? '' : '~'}${day}${time(start)} – ${time(end)}`;
 }

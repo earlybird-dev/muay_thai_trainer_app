@@ -16,6 +16,7 @@ import { clearActiveSession, loadActiveSession, saveActiveSession } from '../lib
 import type { FinishedSummary } from '../components/FinishedCard';
 import TodayCard from '../components/TodayCard';
 import DrillRing from '../components/DrillRing';
+import { sessionId } from '../lib/stats';
 import Congrats from './Congrats';
 import MusicToggle from '../components/MusicToggle';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
@@ -820,12 +821,14 @@ function SessionRunner({
     clearActiveSession();
     setFinished({ completed, callouts: callouts.current, early });
     if (completed === 0 && callouts.current === 0) return;
+    const finishedAt = Date.now();
     update((d) => ({
       ...d,
       history: [
         {
-          id: `s-${Date.now().toString(36)}`,
-          date: new Date().toISOString(),
+          // The seed is the moment the session was started (kept through a refresh or resume).
+          id: sessionId(seed, finishedAt),
+          date: new Date(finishedAt).toISOString(),
           mode: config.mode,
           rounds: blocks,
           completedRounds: completed,

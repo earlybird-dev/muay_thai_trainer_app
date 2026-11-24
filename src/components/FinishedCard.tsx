@@ -46,7 +46,7 @@ export default function FinishedCard({ s, onClose }: { s: FinishedSummary; onClo
         ) : tech ? (
           <Link className="btn primary" to={`/learn/${tech.id}`}>
             <Icon name="back" />
-            Back to {tech.name.replace(/ [(].*/, '')}
+            Back to learn
           </Link>
         ) : null}
         <Link className={`btn ${s.planId || tech ? '' : 'primary'}`} to="/train">
