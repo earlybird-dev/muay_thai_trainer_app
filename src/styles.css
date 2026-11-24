@@ -2944,3 +2944,13 @@ a.heat-cell:focus-visible {
 .history-count p {
   margin: 0;
 }
+/* Time trained card: View all sits opposite the label */
+.hd-hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hd-hero-head .btn {
+  flex: none;
+}

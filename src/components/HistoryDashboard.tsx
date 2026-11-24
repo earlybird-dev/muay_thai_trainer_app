@@ -59,7 +59,12 @@ export default function HistoryDashboard({ history }: { history: SessionLog[] })
       {/* ---- Headline cards ---- */}
       <div className="hd-tiles">
         <div className="hd-tile hd-hero card">
-          <span className="hd-label">Time trained</span>
+          <div className="hd-hero-head">
+            <span className="hd-label">Time trained</span>
+            <Link to="/history/sessions" className="btn small" aria-label="View all sessions">
+              View all
+            </Link>
+          </div>
           <b className="hd-value">{fmtDuration(stats.totalSec)}</b>
           <span className="hd-sub">
             {stats.sessions} session{stats.sessions === 1 ? '' : 's'} in total
