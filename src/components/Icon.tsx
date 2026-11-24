@@ -10,6 +10,7 @@ const PATHS = {
   history: 'M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8M12 7.5V12l3 2',
   copy: 'M8 8h11v11H8zM5 16V5h11',
   trash: 'M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10.5 11v5M13.5 11v5',
+  close: 'M6 6l12 12M18 6L6 18',
   bolt: 'M13 3L5 13.5h6.5L10 21l8.5-10.5H12z',
 } as const;
 

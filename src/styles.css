@@ -2785,13 +2785,13 @@ select.input {
   border-color: color-mix(in srgb, var(--ok) 45%, transparent);
   background: color-mix(in srgb, var(--ok) 14%, transparent);
 }
-/* Phones: with three buttons (editing a workout), Start goes on its own row */
+/* Phones: with three buttons (editing a workout), Save changes goes on its own row */
 @media (max-width: 600px) {
   .setup-actions {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .setup-actions .start-btn:not(:only-child):not(:nth-last-child(2)) {
+  .setup-actions .save-btn {
     flex: 1 1 100%;
   }
   .setup-actions .btn {

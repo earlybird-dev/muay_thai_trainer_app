@@ -164,6 +164,20 @@ function Setup() {
   const [editName, setEditName] = useState(editing0?.name ?? '');
   useEffect(() => setEditName(editing?.name ?? ''), [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
   const setupTitle = useRef<HTMLHeadingElement>(null);
+  /** The setup form as it was before editing started, for Discard. */
+  const beforeEdit = useRef<{ cfg: SessionConfig; poolMode: PoolMode; picked: Set<string>; excluded: Set<string> } | null>(null);
+  const rememberForm = () => {
+    if (!editing) beforeEdit.current = { cfg, poolMode, picked, excluded };
+  };
+  /** Everything Save changes would store, as text, to tell whether there is something to discard. */
+  const formKey = (c: SessionConfig, kind: PoolMode, picks: string[], left: string[], name: string) =>
+    JSON.stringify([
+      Object.entries({ ...c, comboIds: [], excludedIds: [], poolKind: null }).sort(([a], [b]) => a.localeCompare(b)),
+      kind,
+      kind === 'pick' ? picks : [],
+      kind === 'pick' ? [] : [...left].sort(),
+      name.trim(),
+    ]);
 
   const currentWorkout = (id: string, name: string): Workout => ({
     id,
@@ -194,6 +208,7 @@ function Setup() {
     if (!name || nameTaken(name)) return;
     const w = currentWorkout(newId().replace('c-', 'w-'), name);
     update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
+    rememberForm();
     setEditingId(w.id);
     setSavedMsg(`Saved "${name}". You can add it to a plan on the Plans page.`);
   };
@@ -207,7 +222,34 @@ function Setup() {
     // Done editing: back to a normal session setup with these settings.
     setEditingId(null);
   };
+  /** Throw away unsaved edits and put the setup form back to what it was before editing. */
+  const discardChanges = async () => {
+    if (!editing) return;
+    const p = editing.pool;
+    const dirty =
+      formKey(cfg, poolMode, [...picked], [...excluded], editName) !==
+      formKey(withLimits(editing.config), p.kind, p.comboIds, p.excluded ?? [], editing.name);
+    if (
+      dirty &&
+      !(await dialog.confirm({
+        title: 'Discard changes?',
+        message: `Your changes to “${editing.name}” are not saved. The workout stays as it was.`,
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+        danger: true,
+      }))
+    )
+      return;
+    const b = beforeEdit.current;
+    setCfg(b?.cfg ?? withLimits(saved));
+    setPoolMode(b?.poolMode ?? (saved.comboIds.length ? 'pick' : (saved.poolKind ?? 'essentials')));
+    setPicked(b?.picked ?? new Set(saved.comboIds));
+    setExcluded(b?.excluded ?? new Set(saved.excludedIds ?? []));
+    setSavedMsg(null);
+    setEditingId(null);
+  };
   const loadWorkout = (w: Workout) => {
+    rememberForm();
     setCfg(withLimits(w.config));
     setPoolMode(w.pool.kind);
     setPicked(new Set(w.pool.comboIds));
@@ -631,13 +673,17 @@ function Setup() {
           {!tech &&
             (editing ? (
               <>
-                <button className="btn primary big" onClick={saveChanges} disabled={pool.length === 0 || renameTaken}>
+                <button className="btn primary big save-btn" onClick={saveChanges} disabled={pool.length === 0 || renameTaken}>
                   <Icon name="save" />
                   Save changes
                 </button>
                 <button className="btn big" onClick={saveAsNew} disabled={pool.length === 0}>
                   <Icon name="copy" />
                   Save as new
+                </button>
+                <button className="btn danger big" onClick={() => void discardChanges()}>
+                  <Icon name="close" />
+                  Discard
                 </button>
               </>
             ) : (
