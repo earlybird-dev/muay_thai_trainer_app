@@ -112,7 +112,7 @@ export function HistoryLog() {
       {h.length > 0 && (
         <div className="history-filters" role="group" aria-label="Filter sessions">
           <select
-            className="input"
+            className={`input ${day || period ? 'on' : ''}`}
             aria-label="When"
             value={day ? 'day' : period ?? ''}
             onChange={(e) => {
@@ -131,9 +131,9 @@ export function HistoryLog() {
             <option value="day">Pick a day…</option>
           </select>
           {day && (
-            <input className="input" type="date" aria-label="Day" value={day} max={today} onChange={(e) => e.target.value && set({ day: e.target.value })} />
+            <input className="input on" type="date" aria-label="Day" value={day} max={today} onChange={(e) => e.target.value && set({ day: e.target.value })} />
           )}
-          <select className="input" aria-label="Type" value={type ?? ''} onChange={(e) => set({ type: e.target.value })}>
+          <select className={`input ${type ? 'on' : ''}`} aria-label="Type" value={type ?? ''} onChange={(e) => set({ type: e.target.value })}>
             <option value="">All types</option>
             {SESSION_TYPES.map((t) => (
               <option key={t.id} value={t.id}>
@@ -142,7 +142,7 @@ export function HistoryLog() {
             ))}
           </select>
           {usedWorkouts.length > 0 && (
-            <select className="input" aria-label="Workout" value={workoutId} onChange={(e) => set({ workout: e.target.value })}>
+            <select className={`input ${workoutId ? 'on' : ''}`} aria-label="Workout" value={workoutId} onChange={(e) => set({ workout: e.target.value })}>
               <option value="">All workouts</option>
               {usedWorkouts.map((w) => (
                 <option key={w.id} value={w.id}>

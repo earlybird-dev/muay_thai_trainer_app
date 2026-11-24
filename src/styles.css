@@ -3028,3 +3028,10 @@ a.heat-cell:focus-visible {
   color: inherit;
   font-weight: 700;
 }
+/* A filter that is narrowing the list stands out */
+.history-filters .input.on {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2);
+  background-color: color-mix(in srgb, var(--accent-2) 14%, var(--bg));
+  font-weight: 700;
+}
