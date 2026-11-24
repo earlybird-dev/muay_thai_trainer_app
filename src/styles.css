@@ -3237,10 +3237,13 @@ a.heat-cell:focus-visible {
 .combo-chevron.open {
   transform: rotate(180deg);
 }
-/* Combos: search box */
+/* Combos: search box. Its results keep some height, so the box doesn't jump as they shrink. */
 .search-box {
   position: relative;
   margin-top: 14px;
+}
+.search-results {
+  min-height: 75vh;
 }
 .search-box > .btn-icon {
   position: absolute;

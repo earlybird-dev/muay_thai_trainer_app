@@ -39,9 +39,8 @@ export default function Combos() {
           ? practiceLabel(practice.get(c.name.toLowerCase())).due
           : c.level === l);
   const byLevel = (c: Combo) => matches(level, c);
-  // Filters apply to the starter library; your own combos are always listed in their own section. A search
-  // looks through both.
-  const mine = searchCombos(data.combos, query);
+  // The filters and search apply to the starter library; your own combos are always listed in their own section.
+  const mine = data.combos;
   const starters = searchCombos(
     allCombos.filter((c) => c.preset),
     query,
@@ -147,68 +146,46 @@ export default function Combos() {
         </Link>
       </div>
 
-      <div className="search-box">
-        <Icon name="search" />
-        <input
-          type="search"
-          className="input"
-          placeholder="Search combos: name, strike, level…"
-          aria-label="Search combos"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button type="button" className="icon-btn" aria-label="Clear search" title="Clear search" onClick={() => setQuery('')}>
-            <Icon name="close" size={16} />
-          </button>
+      <section className="section">
+        <h2>
+          My combos <span className="muted small">({mine.length})</span>
+        </h2>
+        {mine.length === 0 ? (
+          <p className="muted">No custom combos yet. Build one, or copy a starter combo below and tweak it.</p>
+        ) : (
+          <ul className="list">{mine.map(row)}</ul>
         )}
-      </div>
-
-      {(!searching || mine.length > 0) && (
-        <section className="section">
-          <h2>
-            My combos <span className="muted small">({mine.length})</span>
-          </h2>
-          {mine.length === 0 ? (
-            <p className="muted">No custom combos yet. Build one, or copy a starter combo below and tweak it.</p>
-          ) : (
-            <ul className="list">{mine.map(row)}</ul>
-          )}
-        </section>
-      )}
+      </section>
 
       <section className="section">
         <h2>
           Starter combos <span className="muted small">({presets.length})</span>
         </h2>
         <div className="pool-picker combo-filter">
-          {/* A search shows these as chips below, so its results aren't pushed off the screen. */}
-          {!searching && (
-            <div className="pool-cards" role="group" aria-label="Suggested filters">
-              {SMART_FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`pool-card pool-${f.cls} ${level === f.id ? 'on' : ''}`}
-                  aria-pressed={level === f.id}
-                  onClick={() => setLevel(level === f.id ? 'all' : f.id)}
-                >
-                  <span className="pool-icon" aria-hidden>
-                    {f.icon}
-                  </span>
-                  <span className="pool-text">
-                    <b>{f.name}</b>
-                    <small>{f.hint}</small>
-                  </span>
-                  <span className="pool-count">{countOf(f.id)}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="pool-cards" role="group" aria-label="Suggested filters">
+            {SMART_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`pool-card pool-${f.cls} ${level === f.id ? 'on' : ''}`}
+                aria-pressed={level === f.id}
+                onClick={() => setLevel(level === f.id ? 'all' : f.id)}
+              >
+                <span className="pool-icon" aria-hidden>
+                  {f.icon}
+                </span>
+                <span className="pool-text">
+                  <b>{f.name}</b>
+                  <small>{f.hint}</small>
+                </span>
+                <span className="pool-count">{countOf(f.id)}</span>
+              </button>
+            ))}
+          </div>
           <div className="pool-library">
-            {!searching && <span className="pool-label">Library</span>}
-            <div className="pool-chips" role="group" aria-label={searching ? 'Filter results' : 'Filter by level'}>
-              {(searching ? [...LIBRARY_FILTERS, ...SMART_FILTERS] : LIBRARY_FILTERS).map((f) => (
+            <span className="pool-label">Library</span>
+            <div className="pool-chips" role="group" aria-label="Filter by level">
+              {LIBRARY_FILTERS.map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -222,20 +199,38 @@ export default function Combos() {
             </div>
           </div>
         </div>
-        {presets.length ? (
-          <ul className="list">{presets.map(row)}</ul>
-        ) : searching && starters.length > 0 ? (
-          <p className="muted">
-            No match here, but {starters.length} in the whole library.{' '}
-            <button type="button" className="btn small" onClick={() => setLevel('all')}>
-              Show all
+        <div className="search-box">
+          <Icon name="search" />
+          <input
+            type="search"
+            className="input"
+            placeholder="Search combos: name, strike, level…"
+            aria-label="Search combos"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button type="button" className="icon-btn" aria-label="Clear search" title="Clear search" onClick={() => setQuery('')}>
+              <Icon name="close" size={16} />
             </button>
-          </p>
-        ) : searching ? (
-          <p className="muted">No starter combos match “{query.trim()}”.</p>
-        ) : (
-          <p className="muted">{level === 'favorites' ? 'No favourite starter combos yet — tap ♡ on any combo to add it.' : 'No combos here.'}</p>
-        )}
+          )}
+        </div>
+        <div className={searching ? 'search-results' : undefined}>
+          {presets.length ? (
+            <ul className="list">{presets.map(row)}</ul>
+          ) : searching && starters.length > 0 ? (
+            <p className="muted">
+              No match here, but {starters.length} in the whole library.{' '}
+              <button type="button" className="btn small" onClick={() => setLevel('all')}>
+                Show all
+              </button>
+            </p>
+          ) : searching ? (
+            <p className="muted">No starter combos match “{query.trim()}”.</p>
+          ) : (
+            <p className="muted">{level === 'favorites' ? 'No favourite starter combos yet — tap ♡ on any combo to add it.' : 'No combos here.'}</p>
+          )}
+        </div>
       </section>
     </div>
   );
