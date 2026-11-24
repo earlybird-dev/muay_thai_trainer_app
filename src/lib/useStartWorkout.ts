@@ -5,7 +5,7 @@ import { unlockAudio } from './audio';
 import { primeTrainingMusic } from './music';
 import { resolvePool, type Workout } from './plans';
 import type { Technique } from '../data/techniques';
-import { DEFAULT_CONFIG, withLimits, type SessionConfig } from './sessionEngine';
+import { DEFAULT_CONFIG, PRACTICE_SEC, withLimits, type SessionConfig } from './sessionEngine';
 import { useStore } from './store';
 
 /** What the session screen needs to run. */
@@ -17,9 +17,6 @@ export interface LaunchState {
   /** Practising one technique from its Learn page (to link back to it afterwards). */
   techniqueId?: string;
 }
-
-/** How long "1-min drill" on a technique's page lasts. */
-export const PRACTICE_SEC = 60;
 
 /** Drill one technique on its own for a minute, at your usual pace. */
 export function practiceLaunch(t: Technique, last: Partial<SessionConfig> | null): LaunchState {

@@ -1,3 +1,5 @@
+import { STRIKES, type Technique } from '../data/techniques';
+import { PRACTICE_SEC } from './sessionEngine';
 import type { SessionLog } from './storage';
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -159,6 +161,28 @@ export function topCombos(history: Pick<SessionLog, 'date' | 'combos'>[], n = 6)
   return [...count.values()].sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name)).slice(0, n);
 }
 
+// ---------- Session types ----------
+
+const STRIKE_BY_NAME = new Map(STRIKES.map((t) => [t.name, t]));
+
+/**
+ * The strike a "1-min drill" from its Learn page was about, if this was one: a single one-minute block
+ * named after a strike, outside any workout. (Going by the content labels older ones too.)
+ */
+export function learnedStrike(s: Pick<SessionLog, 'mode' | 'rounds' | 'roundSec' | 'combos' | 'workoutId' | 'planId'>): Technique | null {
+  if (s.mode !== 'drill' || s.rounds !== 1 || s.roundSec !== PRACTICE_SEC || s.workoutId || s.planId || s.combos?.length !== 1) return null;
+  return STRIKE_BY_NAME.get(s.combos[0]) ?? null;
+}
+
+export type SessionType = 'drill' | 'rounds' | 'learn';
+export const SESSION_TYPES: { id: SessionType; chip: string; name: string }[] = [
+  { id: 'drill', chip: 'Drill', name: 'Combo drill' },
+  { id: 'rounds', chip: 'Rounds', name: 'Rounds' },
+  { id: 'learn', chip: 'Learn', name: 'Learn (1-min drill)' },
+];
+export const sessionType = (s: Parameters<typeof learnedStrike>[0]): SessionType =>
+  learnedStrike(s) ? 'learn' : s.mode === 'drill' ? 'drill' : 'rounds';
+
 // ---------- Session list filters ----------
 
 export interface SessionFilter {
@@ -166,19 +190,19 @@ export interface SessionFilter {
   day?: string | null;
   /** The last N days, today included. */
   days?: number | null;
-  type?: 'drill' | 'rounds' | null;
+  type?: SessionType | null;
   /** A saved workout's id. */
   workoutId?: string | null;
 }
 
 /** The sessions matching every filter that is set, in the same order. */
-export function filterSessions<T extends Pick<SessionLog, 'date' | 'mode' | 'workoutId'>>(history: T[], f: SessionFilter, today = new Date()): T[] {
+export function filterSessions<T extends Pick<SessionLog, 'date'> & Parameters<typeof sessionType>[0]>(history: T[], f: SessionFilter, today = new Date()): T[] {
   const from = startOfDay(today);
   from.setDate(from.getDate() - ((f.days ?? 1) - 1));
   return history.filter((s) => {
     const when = new Date(s.date);
     if (f.day ? localKey(when) !== f.day : f.days ? when < from : false) return false;
-    if (f.type && (s.mode === 'drill' ? 'drill' : 'rounds') !== f.type) return false;
+    if (f.type && sessionType(s) !== f.type) return false;
     return !f.workoutId || s.workoutId === f.workoutId;
   });
 }

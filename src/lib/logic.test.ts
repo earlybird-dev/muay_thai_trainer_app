@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, buildPlan, eventsBetween, stateAt, type SessionConfig } from './sessionEngine';
 import { DEFAULT_SETTINGS, emptyData, parseData, serializeData } from './storage';
-import { filterSessions, sessionId, sessionTimeRange, sessionTimes, streakDays } from './stats';
+import { filterSessions, learnedStrike, sessionId, sessionTimeRange, sessionTimes, sessionType, streakDays } from './stats';
 import { calloutTokens, PRESET_COMBOS } from '../data/combos';
 import { STRIKES, TECHNIQUES, TECH_BY_ID, youtubeId } from '../data/techniques';
 import { solve, withGuard } from './pose';
@@ -848,10 +848,10 @@ describe('session filters', () => {
   const at = (y: number, m: number, d: number, h: number) => new Date(y, m - 1, d, h).toISOString();
   const today = new Date(2026, 10, 24, 12);
   const list = [
-    { id: 'late', date: at(2026, 11, 24, 23), mode: 'drill' as const, combos: ['Jab Cross'], workoutId: 'w1' },
-    { id: 'early', date: at(2026, 11, 24, 0), mode: 'rounds' as const, combos: ['Teep Kick'] },
-    { id: 'edge', date: at(2026, 11, 18, 0), mode: 'drill' as const, combos: ['Jab Teep'], workoutId: 'w2' },
-    { id: 'old', date: at(2026, 11, 17, 23), combos: ['Classic Four'] },
+    { id: 'late', date: at(2026, 11, 24, 23), mode: 'drill' as const, rounds: 12, roundSec: 35, combos: ['Jab Cross'], workoutId: 'w1' },
+    { id: 'early', date: at(2026, 11, 24, 0), mode: 'rounds' as const, rounds: 3, roundSec: 180, combos: ['Teep Kick'] },
+    { id: 'edge', date: at(2026, 11, 18, 0), mode: 'drill' as const, rounds: 12, roundSec: 35, combos: ['Jab Teep'], workoutId: 'w2' },
+    { id: 'old', date: at(2026, 11, 17, 23), rounds: 3, roundSec: 180, combos: ['Classic Four'] },
   ];
   const ids = (f: Parameters<typeof filterSessions>[1]) => filterSessions(list, f, today).map((s) => s.id);
 
@@ -951,5 +951,37 @@ describe('session start and finish', () => {
   it('leaves sample sessions alone', () => {
     const end = at(24, 18, 0);
     expect(sessionTimes(log('demo-mwrpzce1-s-2026-11-24', end, 600)).exact).toBe(false);
+  });
+});
+
+describe('Learn sessions in history', () => {
+  // What a 1-min drill of a strike is logged as.
+  const logOf = (t: (typeof STRIKES)[number]) => {
+    const { config, pool } = practiceLaunch(t, null);
+    return { mode: config.mode, rounds: config.drillCount, roundSec: config.drillSec, combos: [pool[0].name] };
+  };
+
+  it('recognises the 1-min drill of every strike', () => {
+    for (const t of STRIKES) {
+      expect(learnedStrike(logOf(t))?.id).toBe(t.id);
+      expect(sessionType(logOf(t))).toBe('learn');
+    }
+  });
+  it('leaves other sessions as they are', () => {
+    const jab = logOf(STRIKES[0]);
+    expect(sessionType({ ...jab, rounds: 12 })).toBe('drill'); // a full drill
+    expect(sessionType({ ...jab, roundSec: 30 })).toBe('drill'); // not a minute
+    expect(sessionType({ ...jab, combos: ['Jab Cross'] })).toBe('drill'); // a combo
+    expect(sessionType({ ...jab, combos: [] })).toBe('drill');
+    expect(sessionType({ ...jab, workoutId: 'w1' })).toBe('drill'); // from a saved workout
+    expect(sessionType({ ...jab, mode: 'rounds' as const })).toBe('rounds');
+  });
+  it('has its own filter, apart from Combo drill', () => {
+    const list = [
+      { id: 'learn', date: new Date().toISOString(), ...logOf(STRIKES[0]) },
+      { id: 'drill', date: new Date().toISOString(), mode: 'drill' as const, rounds: 12, roundSec: 35, combos: ['Jab Cross'] },
+    ];
+    expect(filterSessions(list, { type: 'learn' }).map((s) => s.id)).toEqual(['learn']);
+    expect(filterSessions(list, { type: 'drill' }).map((s) => s.id)).toEqual(['drill']);
   });
 });

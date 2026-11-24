@@ -8,7 +8,7 @@ import HistoryDashboard from '../components/HistoryDashboard';
 import Icon from '../components/Icon';
 import type { SessionLog } from '../lib/storage';
 import { dateKey, parseDay } from '../lib/plans';
-import { filterSessions, sessionTimeRange, sessionTimes } from '../lib/stats';
+import { SESSION_TYPES, filterSessions, learnedStrike, sessionTimeRange, sessionTimes, sessionType } from '../lib/stats';
 import { deleteSession } from '../lib/sync';
 import { useDialog } from '../components/Dialog';
 
@@ -64,8 +64,7 @@ const PERIODS = [7, 30, 90];
 export function HistoryLog() {
   const dialog = useDialog();
   const { data, update } = useStore();
-  const { account, clearRemoteHistory } = useAuth();
-  const [error, setError] = useState<string | null>(null);
+  const { account } = useAuth();
   const h = data.history;
 
   // Filters live in the address, so Back and links (e.g. from the activity calendar) keep them.
@@ -73,7 +72,7 @@ export function HistoryLog() {
   const dayParam = params.get('day') ?? '';
   const day = /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : '';
   const period = PERIODS.find((n) => String(n) === params.get('days')) ?? null;
-  const type = (['drill', 'rounds'] as const).find((t) => t === params.get('type')) ?? null;
+  const type = SESSION_TYPES.find((t) => t.id === params.get('type'))?.id ?? null;
   const workoutId = params.get('workout') ?? '';
   const filtering = !!(day || period || type || workoutId);
   const shown = filtering ? filterSessions(h, { day, days: period, type, workoutId }) : h;
@@ -104,44 +103,12 @@ export function HistoryLog() {
     if (ok) update((d) => deleteSession(d, s.id));
   };
 
-  const clear = async () => {
-    const where = account ? ' from this device and your account' : '';
-    if (
-      !(await dialog.confirm({
-        title: 'Clear all history?',
-        message: `This deletes every logged session${where}. It cannot be undone — export a backup in Settings first if you want one.`,
-        confirmLabel: 'Delete history',
-        danger: true,
-      }))
-    )
-      return;
-    if (account) {
-      try {
-        await clearRemoteHistory();
-      } catch (e) {
-        setError(`Could not reach your account, history was not deleted: ${(e as Error).message}`);
-        return;
-      }
-    }
-    setError(null);
-    // Remember when, so other signed-in devices drop these sessions too instead of uploading them again.
-    update((d) => ({ ...d, history: [], settings: { ...d.settings, historyClearedAt: new Date().toISOString() } }));
-  };
-
   return (
     <div className="page">
       <Link to="/history" className="back">
         ← History
       </Link>
-      <div className="page-head">
-        <h1>All sessions</h1>
-        {h.length > 0 && (
-          <button className="btn danger small" onClick={() => void clear()}>
-            Clear history
-          </button>
-        )}
-      </div>
-      {error && <p className="small error-text">{error}</p>}
+      <h1>All sessions</h1>
       {h.length > 0 && (
         <div className="history-filters" role="group" aria-label="Filter sessions">
           <select
@@ -168,8 +135,11 @@ export function HistoryLog() {
           )}
           <select className="input" aria-label="Type" value={type ?? ''} onChange={(e) => set({ type: e.target.value })}>
             <option value="">All types</option>
-            <option value="drill">Combo drill</option>
-            <option value="rounds">Rounds</option>
+            {SESSION_TYPES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
           </select>
           {usedWorkouts.length > 0 && (
             <select className="input" aria-label="Workout" value={workoutId} onChange={(e) => set({ workout: e.target.value })}>
@@ -227,7 +197,19 @@ export function HistoryLog() {
                   </span>
                 </div>
                 <div className="small">
-                  <span className="tag">{s.mode === 'drill' ? 'Drill' : 'Rounds'}</span> {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
+                  <span className={`tag session-type ${sessionType(s)}`}>{SESSION_TYPES.find((t) => t.id === sessionType(s))!.chip}</span>{' '}
+                  {learnedStrike(s) ? (
+                    <>
+                      <Link to={`/learn/${learnedStrike(s)!.id}`} className="session-strike">
+                        {learnedStrike(s)!.name}
+                      </Link>{' '}
+                      · {s.callouts} rep{s.callouts === 1 ? '' : 's'} · {formatClock(s.durationSec * 1000)} total{s.completedRounds < s.rounds ? ' · ended early' : ''}
+                    </>
+                  ) : (
+                    <>
+                      {s.completedRounds}/{s.rounds} {s.mode === 'drill' ? 'combos' : 'rounds'} × {formatClock(s.roundSec * 1000)} · {s.callouts} {s.mode === 'drill' ? 'reps' : 'combos called'} · {formatClock(s.durationSec * 1000)} total
+                    </>
+                  )}
                 </div>
               </li>
             ))}

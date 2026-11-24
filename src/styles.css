@@ -3018,3 +3018,13 @@ a.heat-cell:focus-visible {
     font-size: min(10.2vh, 110px);
   }
 }
+/* All sessions: a Learn chip stands apart, and its strike opens its page */
+.tag.session-type.learn {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.session-strike {
+  color: inherit;
+  font-weight: 700;
+}

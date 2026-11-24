@@ -33,6 +33,9 @@ export interface SessionConfig {
   poolKind?: 'all' | 'beginner' | 'intermediate' | 'advanced' | 'mine' | 'essentials' | 'favorites' | 'due' | 'pick';
 }
 
+/** How long "1-min drill" on a technique's page lasts. */
+export const PRACTICE_SEC = 60;
+
 export const DEFAULT_CONFIG: SessionConfig = {
   mode: 'drill',
   drillSec: 30,
