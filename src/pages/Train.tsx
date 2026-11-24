@@ -1083,7 +1083,7 @@ function SessionRunner({
           {drill && blockCombo ? (
             kind === 'round' ? (
               <>
-                <div key={current?.index ?? 'start'} className={`callout ${current ? 'pop' : ''}`}>
+                <div className="callout">
                   {calloutDisplay(blockCombo.items, blockCombo.style)}
                 </div>
                 <div className="callout-sub">
