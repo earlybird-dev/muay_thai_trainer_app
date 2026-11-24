@@ -3055,3 +3055,28 @@ a.heat-cell:focus-visible {
   color: var(--phase);
   border-color: color-mix(in srgb, var(--phase) 50%, var(--border));
 }
+/* Lower the ring by a share of the spare height, so the gaps above and below it look even. It depends on
+   the screen only, so the ring stays put when a combo gives way to a rest. */
+.drill-ring {
+  margin-top: clamp(0px, 13.3vh - 89px, 44px);
+  margin-top: clamp(0px, 13.3dvh - 89px, 44px);
+}
+/* The bigger ring of big screens leaves less to spare */
+@media (min-width: 700px) and (min-height: 900px) {
+  .drill-ring {
+    margin-top: clamp(0px, 13.3vh - 120px, 44px);
+  }
+  .is-drill .figure3d.session-figure {
+    max-height: 29vh;
+  }
+}
+/* Short screens: a smaller fighter, so a rest with a long combo still fits */
+@media (max-height: 740px) {
+  .is-drill .figure3d.session-figure {
+    max-height: 24vh;
+  }
+  .drill-ring {
+    margin-top: clamp(0px, 13.3vh - 82px, 44px);
+    margin-top: clamp(0px, 13.3dvh - 82px, 44px);
+  }
+}
