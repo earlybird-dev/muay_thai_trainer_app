@@ -1,4 +1,7 @@
 :root {
+  --ring-1: #ff2d46; /* countdown ring: red, orange, gold */
+  --ring-2: #ff7a2f;
+  --ring-3: #ffd24a;
   --today: #f5b83d; /* plan calendar: today (gold, apart from missed red) */
   --bg: #141416;
   --surface: #1e1e22;
@@ -39,6 +42,7 @@
     --muted: #66626b;
     --accent: #c8102e;
     --accent-2: #d9822b;
+    --ring-3: #f2a100;
     --fig-lead: #24232a;
     --fig-rear: #8f8b96;
     --fig-glove: #c8102e;
@@ -58,6 +62,7 @@
   --muted: #66626b;
   --accent: #c8102e;
   --accent-2: #d9822b;
+  --ring-3: #f2a100;
   --fig-lead: #24232a;
   --fig-rear: #8f8b96;
   --fig-glove: #c8102e;
@@ -2972,18 +2977,15 @@ a.heat-cell:focus-visible {
   overflow: visible;
 }
 .ring-track {
-  stroke: color-mix(in srgb, var(--muted) 26%, transparent);
+  stroke: color-mix(in srgb, var(--text) 11%, transparent);
 }
-.ring-current {
-  stroke: color-mix(in srgb, var(--accent-2) 42%, transparent);
+/* The combo being drilled, or next up */
+.ring-track .now {
+  stroke: color-mix(in srgb, var(--text) 30%, transparent);
 }
-.ring-done {
-  stroke: var(--accent-2);
-}
-.ring-dot {
-  fill: var(--text);
-  stroke: var(--accent);
-  stroke-width: 1.6;
+.ring-head {
+  fill: #fff;
+  stroke-width: 1.5;
 }
 .is-paused .drill-ring svg {
   opacity: 0.6;
