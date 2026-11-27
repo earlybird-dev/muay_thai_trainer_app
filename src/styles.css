@@ -3381,12 +3381,16 @@ a.heat-cell:focus-visible {
   color: var(--muted);
   font-size: 0.82rem;
 }
-/* New workout: Save workout and Discard side by side, also on phones */
-@media (max-width: 600px) {
-  .setup-actions .save-btn:first-child:nth-last-child(2) {
-    flex: 1 1 0;
-  }
-  .setup-actions .save-btn:first-child:nth-last-child(2) + .btn {
-    flex: 0 0 auto;
-  }
+/* New workout: Save workout and Discard side by side and the same size, also on phones */
+.setup-actions .save-btn:first-child:nth-last-child(2),
+.setup-actions .save-btn:first-child:nth-last-child(2) + .btn {
+  flex: 1 1 0;
+}
+/* Saved workouts: Start, then Edit and Delete as icons */
+.workout-row .combo-actions {
+  align-items: center;
+  gap: 2px;
+}
+.workout-row .combo-actions .btn.primary {
+  margin-right: 4px;
 }

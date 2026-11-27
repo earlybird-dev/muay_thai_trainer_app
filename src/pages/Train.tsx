@@ -167,11 +167,11 @@ function TrainHome() {
                       <Icon name="play" size={14} />
                       Start
                     </button>
-                    <button className="btn small" onClick={() => navigate(`/train/workout/${w.id}`)}>
-                      Edit
+                    <button type="button" className="icon-btn" aria-label={`Edit ${w.name}`} title="Edit" onClick={() => navigate(`/train/workout/${w.id}`)}>
+                      <Icon name="edit" />
                     </button>
-                    <button className="btn small danger" onClick={() => void deleteWorkout(w)}>
-                      Delete
+                    <button type="button" className="icon-btn danger" aria-label={`Delete ${w.name}`} title="Delete" onClick={() => void deleteWorkout(w)}>
+                      <Icon name="trash" />
                     </button>
                   </div>
                 </li>
