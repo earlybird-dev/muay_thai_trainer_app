@@ -13,7 +13,7 @@
  */
 import { getAudioContext, setSpeechListener } from './audio';
 import { BEAT_BANDS } from './beat';
-import { loadShuffleQueue, saveShuffleQueue, takeNext } from './shuffleQueue';
+import { newQueue, takeNext, type ShuffleQueue } from './shuffleQueue';
 
 export type MusicScene = 'off' | 'calm' | 'fight' | 'fight-rest';
 
@@ -143,10 +143,13 @@ const PLAYER = '__shuffle__';
 /** Tracks that failed to load this visit; shuffle passes over them. */
 const broken = new Set<string>();
 const fileUrl = (file: string) => `${import.meta.env.BASE_URL}music/${file}`;
-/** The next track in the shuffled order (every track once before any repeats), kept across sessions. */
+/** This session's shuffled order: every track once before any repeats. A new one each session. */
+let queue: ShuffleQueue | null = null;
+const trackFiles = () => TRAINING_TRACKS.map((t) => t.file);
+/** The next track in this session's shuffled order. */
 function nextShuffleFile(): string {
-  const r = takeNext(loadShuffleQueue(), TRAINING_TRACKS.map((t) => t.file), Math.random, broken);
-  saveShuffleQueue(r.queue);
+  const r = takeNext(queue, trackFiles(), Math.random, broken);
+  queue = r.queue;
   return r.file ?? TRAINING_TRACKS[0].file;
 }
 /** Point the shuffle player at a track (starting from its beginning). */
@@ -216,8 +219,9 @@ export function primeTrainingMusic() {
   const ctx = getAudioContext();
   if (!ctx || !enabled) return;
   const t = trainingTrack();
-  // Shuffle: a new session starts with the next track in the shuffled order.
+  // Shuffle: each new session shuffles all the tracks again (not starting with the last one heard).
   if (shuffle && !t.wanted) {
+    queue = newQueue(trackFiles(), Math.random, t.el ? trainingFile : undefined);
     trainingFile = nextShuffleFile();
     setPlayerFile(trainingFile);
   }
@@ -260,16 +264,37 @@ if (typeof document !== 'undefined') {
   });
 }
 
-setSpeechListener((on) => {
-  speaking = Math.max(0, speaking + (on ? 1 : -1));
+/**
+ * How the music makes room for the coach's voice: 'dip' drops it while the coach speaks; 'under' keeps
+ * it steady but quieter than the voice the whole time (Rounds, where combos are called non-stop).
+ */
+export type VoiceRoom = 'dip' | 'under';
+let voiceRoom: VoiceRoom = 'dip';
+/** Music level in 'under' mode, about 7 dB down. */
+const UNDER_LEVEL = 0.45;
+
+function applyDuck() {
   const ctx = getAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
+  const down = voiceRoom === 'dip' && speaking > 0;
+  const level = voiceRoom === 'under' ? UNDER_LEVEL : down ? 0.15 : 1;
   for (const d of [duck, trackDuck]) {
     if (!d) continue;
     d.gain.cancelScheduledValues(now);
-    d.gain.setTargetAtTime(speaking > 0 ? 0.15 : 1, now, speaking > 0 ? 0.03 : 0.4);
+    d.gain.setTargetAtTime(level, now, down ? 0.03 : 0.4);
   }
+}
+
+export function setVoiceRoom(room: VoiceRoom) {
+  if (room === voiceRoom) return;
+  voiceRoom = room;
+  applyDuck();
+}
+
+setSpeechListener((on) => {
+  speaking = Math.max(0, speaking + (on ? 1 : -1));
+  applyDuck();
 });
 
 // ---------- engine ----------
@@ -293,6 +318,8 @@ function ensureGraph(ctx: AudioContext) {
   // The track is already mastered, so it skips the compressor.
   trackDuck = ctx.createGain();
   trackDuck.connect(ctx.destination);
+  // Start at the level the session asked for (Rounds keeps the music under the voice).
+  duck.gain.value = trackDuck.gain.value = voiceRoom === 'under' ? UNDER_LEVEL : 1;
   // A long window to tell low notes apart, a short one to catch the sharp attack of the rest.
   analysers = [2048, 1024].map((size) => {
     const node = ctx.createAnalyser();

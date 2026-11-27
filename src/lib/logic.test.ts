@@ -835,22 +835,19 @@ describe('shuffle order', () => {
     for (let i = 1; i < played.length; i++) expect(played[i]).not.toBe(played[i - 1]); // no track twice in a row
   });
 
-  it('drops removed tracks, slots in new ones and passes over broken ones', async () => {
-    const { takeNext } = await import('./shuffleQueue');
+  it('drops removed tracks, passes over broken ones and can avoid a first track', async () => {
+    const { takeNext, newQueue } = await import('./shuffleQueue');
     const rand = mulberry32(3);
-    // 'a' and 'b' played; 'c' was removed; 'z' is new.
-    const q = { order: ['a', 'b', 'c', 'd'], next: 2 };
+    // 'a' and 'b' played; 'c' was removed.
     const seen = new Set<string>();
-    let cur: typeof q | null = q;
-    for (let i = 0; i < 2; i++) {
-      const r = takeNext(cur, ['a', 'b', 'd', 'z'], rand);
-      cur = r.queue;
-      seen.add(r.file!);
-    }
-    expect(seen).toEqual(new Set(['d', 'z']));
+    let cur: { order: string[]; next: number } | null = { order: ['a', 'b', 'c', 'd'], next: 2 };
+    const r = takeNext(cur, ['a', 'b', 'd'], rand);
+    cur = r.queue;
+    seen.add(r.file!);
+    expect(seen).toEqual(new Set(['d']));
     expect(takeNext({ order: ['a', 'b'], next: 0 }, ['a', 'b'], rand, new Set(['a'])).file).toBe('b');
     expect(takeNext(null, ['a'], rand, new Set(['a'])).file).toBeNull();
-    expect(takeNext({ order: ['a', 'a', 'b'], next: 0 }, ['a', 'b'], rand).queue.order).toEqual(['a', 'b']);
+    for (let i = 0; i < 20; i++) expect(newQueue(['a', 'b', 'c'], mulberry32(i), 'a').order[0]).not.toBe('a');
   });
 });
 
