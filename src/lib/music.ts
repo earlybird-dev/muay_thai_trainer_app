@@ -2,7 +2,7 @@
  * Background music.
  *
  *  - calm:  public/music/calm.mp3, looped, for browsing and learning.
- *  - fight: public/music/training.mp3, looped, while training; quieter during prep/rest (`fight-rest`).
+ *  - fight: public/music/training.mp3, looped, while training, at the same volume during prep/rest (`fight-rest`).
  *
  * If a track can't load (e.g. offline before it was ever fetched), generated music stands in: soft
  * pentatonic mallets over a pad (calm), or a sarama-style groove — klong drums, ching/chap and a reedy
@@ -27,7 +27,7 @@ interface Layer {
 
 const BPM: Record<StyleId, number> = { calm: 72, fight: 138 };
 /** Relative loudness of each scene before the user's music volume. */
-const SCENE_LEVEL: Record<MusicScene, number> = { off: 0, calm: 0.25, fight: 1.9, 'fight-rest': 1 };
+const SCENE_LEVEL: Record<MusicScene, number> = { off: 0, calm: 0.25, fight: 1.9, 'fight-rest': 1.9 };
 
 let scene: MusicScene = 'off';
 let enabled = true;
@@ -140,7 +140,7 @@ const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
 /** Track level per scene (before the user's music volume). */
 // Track gain = level × min(1, 2 × music volume). At the default volume (40%) the background music
 // outside training plays at 20%; training music at 80%.
-const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.25, fight: 1, 'fight-rest': 0.45 };
+const TRACK_LEVEL: Partial<Record<MusicScene, number>> = { calm: 0.25, fight: 1, 'fight-rest': 1 };
 let trackDuck: GainNode | null = null;
 /** Listens to the music for visuals, before volume and voice ducking, so those don't change the picture. */
 let analysers: { node: AnalyserNode; spectrum: Float32Array }[] = [];
