@@ -37,7 +37,7 @@ export default function TodayCard({ compact = false }: { compact?: boolean }) {
         return (
           <div key={plan.id} className={`today-item ${status}`}>
             <span className={`today-badge ${done ? 'done' : 'due'}`} aria-hidden>
-              {done ? '✓' : <Icon name="play" size={18} />}
+              {done ? '✓' : <Icon name="calendar" size={20} />}
             </span>
             <div className="today-text">
               <span className="today-eyebrow">

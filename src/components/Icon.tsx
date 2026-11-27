@@ -14,6 +14,7 @@ const PATHS = {
   search: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5L20.5 20.5',
   chevron: 'M6 9.5l6 6 6-6',
   close: 'M6 6l12 12M18 6L6 18',
+  calendar: 'M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4M8 14h2M14 14h2M8 17h2',
   bolt: 'M13 3L5 13.5h6.5L10 21l8.5-10.5H12z',
 } as const;
 
