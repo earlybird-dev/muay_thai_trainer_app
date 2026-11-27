@@ -3280,3 +3280,50 @@ a.heat-cell:focus-visible {
 .pick-row .practice {
   font-size: 0.74rem;
 }
+/* Training: the track that's playing, and a line across the screen that runs with the music */
+.session-top.with-music {
+  align-self: stretch;
+  display: block;
+}
+.session-top-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.music-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -16px -16px 6px;
+  padding-right: 16px;
+}
+.now-playing-name {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.music-wave {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  color: var(--phase);
+}
+/* The phase label inside a drill's ring */
+.drill-ring-center .pill {
+  padding: 3px 10px;
+  font-size: clamp(0.62rem, 1.6vh, 0.75rem);
+}
+/* Short screens: a flatter line, so a rest with a long combo still fits */
+@media (max-height: 740px) {
+  .music-wave {
+    height: 20px;
+  }
+}

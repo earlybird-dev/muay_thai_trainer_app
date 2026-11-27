@@ -207,6 +207,15 @@ export function primeTrainingMusic() {
   }
 }
 
+/** Name of the training track playing right now, or null when none is (music off, held, or not training). */
+export function nowPlaying(): string | null {
+  const s = effectiveScene();
+  if (s !== 'fight' && s !== 'fight-rest') return null;
+  const el = TRACKS[trainingFile]?.el;
+  if (!el || el.paused || TRACKS[trainingFile].failed) return null;
+  return TRAINING_TRACKS.find((t) => t.file === trainingFile)?.name ?? null;
+}
+
 /** Call after a user gesture created the audio context, so music can start. */
 export function refreshMusic() {
   refresh();

@@ -20,6 +20,7 @@ import Stepper from '../components/Stepper';
 import { sessionId } from '../lib/stats';
 import Congrats from './Congrats';
 import MusicToggle from '../components/MusicToggle';
+import { MusicWave, NowPlayingName, useNowPlaying } from '../components/NowPlaying';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
 import { useDialog } from '../components/Dialog';
 import { primeTrainingMusic, setMusicScene } from '../lib/music';
@@ -669,6 +670,7 @@ function SessionRunner({
   const { data, update } = useStore();
   const navigate = useNavigate();
   const settings = data.settings;
+  const track = useNowPlaying();
   const plan = useMemo(() => buildPlan(config, pool, seed), [config, pool, seed]);
   const byId = useMemo(() => Object.fromEntries(pool.map((c) => [c.id, c])), [pool]);
   const drill = config.mode === 'drill';
@@ -980,22 +982,35 @@ function SessionRunner({
     </div>
   );
 
+  const phasePill = (
+    <span className="pill">
+      {kind === 'prep' ? 'Get ready' : kind === 'rest' ? 'Rest' : `${drill ? 'Combo' : 'Round'} ${seg?.round ?? blocks} / ${blocks}`}
+    </span>
+  );
+
   return (
     <div className={`session kind-${kind} ${drill ? 'is-drill' : ''} ${paused ? 'is-paused' : ''}`}>
       <div className="session-inner">
-        <div className="session-top">
-          <span className="pill">
-            {kind === 'prep'
-              ? 'Get ready'
-              : kind === 'rest'
-                ? 'Rest'
-                : `${drill ? 'Combo' : 'Round'} ${seg?.round ?? blocks} / ${blocks}`}
-          </span>
-          {paused && <span className="pill warn">Paused</span>}
+        <div className={`session-top ${settings.music ? 'with-music' : ''}`}>
+          {/* Kept while the music is on (even between tracks), so the screen doesn't jump. */}
+          {settings.music && (
+            <div className="music-line">
+              <MusicWave playing={!!track && !paused} />
+              <NowPlayingName name={track} />
+            </div>
+          )}
+          {/* A drill shows the phase inside its ring instead. */}
+          {(!drill || paused) && (
+            <div className="session-top-row">
+              {!drill && phasePill}
+              {paused && <span className="pill warn">Paused</span>}
+            </div>
+          )}
         </div>
 
         {drill ? (
           <DrillRing {...drillProgress(plan, t)} active={!paused && !finished}>
+            {phasePill}
             {clockFace}
           </DrillRing>
         ) : (
