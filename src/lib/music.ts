@@ -105,13 +105,25 @@ const DOWNLOADED_TRACKS = [
   'gr0za-trap-trap-beat-610220.mp3',
   'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3',
   'yevhenastafiev-advertising-advertising-music-640077.mp3',
+  'yevhenastafiev-baseball-cricket-highlights-music-526079.mp3',
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3',
+  'yevhenastafiev-epic-epic-battle-607250.mp3',
+  'yevhenastafiev-fun-fun-hip-hop-534564.mp3',
+  'yevhenastafiev-hip-hop-hip-hop-fun-534553.mp3',
+  'yevhenastafiev-hollywood-movie-trailer-519458.mp3',
+  'yevhenastafiev-stadium-football-soccer-526075.mp3',
 ];
 /** Names chosen by hand where the file name doesn't make a good one. */
 const NAME_OVERRIDES: Record<string, string> = {
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3': 'Sport Music',
   'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3': 'Game Day',
   'yevhenastafiev-advertising-advertising-music-640077.mp3': 'Big Stage',
+  'yevhenastafiev-baseball-cricket-highlights-music-526079.mp3': 'Highlights',
+  'yevhenastafiev-epic-epic-battle-607250.mp3': 'Epic Battle',
+  'yevhenastafiev-fun-fun-hip-hop-534564.mp3': 'Hip Hop Groove',
+  'yevhenastafiev-hip-hop-hip-hop-fun-534553.mp3': 'Hip Hop Fun',
+  'yevhenastafiev-hollywood-movie-trailer-519458.mp3': 'Movie Trailer',
+  'yevhenastafiev-stadium-football-soccer-526075.mp3': 'Stadium',
 };
 export const TRAINING_TRACKS: { id: string; name: string; file: string }[] = [
   { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },
