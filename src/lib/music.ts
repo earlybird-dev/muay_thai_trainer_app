@@ -103,11 +103,15 @@ const DOWNLOADED_TRACKS = [
   'gr0za-racing-racing-speed-brass-music-610347.mp3',
   'gr0za-rap-rap-beat-610255.mp3',
   'gr0za-trap-trap-beat-610220.mp3',
+  'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3',
+  'yevhenastafiev-advertising-advertising-music-640077.mp3',
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3',
 ];
 /** Names chosen by hand where the file name doesn't make a good one. */
 const NAME_OVERRIDES: Record<string, string> = {
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3': 'Sport Music',
+  'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3': 'Game Day',
+  'yevhenastafiev-advertising-advertising-music-640077.mp3': 'Big Stage',
 };
 export const TRAINING_TRACKS: { id: string; name: string; file: string }[] = [
   { id: 'fight-night', name: 'Fight Night', file: 'training.mp3' },

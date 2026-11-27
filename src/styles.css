@@ -1,5 +1,5 @@
 :root {
-  --rest: #4ea8de; /* training: resting (blue); combos use the red --accent */
+  --rest: #34c77b; /* training: resting (green); combos use the red --accent */
   --today: #f5b83d; /* plan calendar: today (gold, apart from missed red) */
   --bg: #141416;
   --surface: #1e1e22;
@@ -40,7 +40,7 @@
     --muted: #66626b;
     --accent: #c8102e;
     --accent-2: #d9822b;
-    --rest: #1c78bd;
+    --rest: #1f9d5c;
     --fig-lead: #24232a;
     --fig-rear: #8f8b96;
     --fig-glove: #c8102e;
@@ -60,7 +60,7 @@
   --muted: #66626b;
   --accent: #c8102e;
   --accent-2: #d9822b;
-  --rest: #1c78bd;
+  --rest: #1f9d5c;
   --fig-lead: #24232a;
   --fig-rear: #8f8b96;
   --fig-glove: #c8102e;
@@ -3281,10 +3281,6 @@ a.heat-cell:focus-visible {
   font-size: 0.74rem;
 }
 /* Training: the track that's playing, and a line across the screen that runs with the music */
-.session-top.with-music {
-  align-self: stretch;
-  display: block;
-}
 .session-top-row {
   display: flex;
   justify-content: center;
@@ -3293,10 +3289,11 @@ a.heat-cell:focus-visible {
   min-height: 34px;
 }
 .music-line {
+  align-self: stretch;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: -16px -16px 6px;
+  margin: -4px -16px -16px;
   padding-right: 16px;
 }
 .now-playing-name {

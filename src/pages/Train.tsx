@@ -991,26 +991,19 @@ function SessionRunner({
   return (
     <div className={`session kind-${kind} ${drill ? 'is-drill' : ''} ${paused ? 'is-paused' : ''}`}>
       <div className="session-inner">
-        <div className={`session-top ${settings.music ? 'with-music' : ''}`}>
-          {/* Kept while the music is on (even between tracks), so the screen doesn't jump. */}
-          {settings.music && (
-            <div className="music-line">
-              <MusicWave playing={!!track && !paused} />
-              <NowPlayingName name={track} />
-            </div>
-          )}
-          {/* A drill shows the phase inside its ring instead. */}
-          {(!drill || paused) && (
+        {/* A drill shows the phase (or Paused) inside its ring instead. */}
+        {!drill && (
+          <div className="session-top">
             <div className="session-top-row">
-              {!drill && phasePill}
+              {phasePill}
               {paused && <span className="pill warn">Paused</span>}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {drill ? (
           <DrillRing {...drillProgress(plan, t)} active={!paused && !finished}>
-            {phasePill}
+            {paused ? <span className="pill warn">Paused</span> : phasePill}
             {clockFace}
           </DrillRing>
         ) : (
@@ -1083,6 +1076,13 @@ function SessionRunner({
             End
           </button>
         </div>
+        {/* Kept while the music is on (even between tracks), so the screen doesn't jump. */}
+        {settings.music && (
+          <div className="music-line">
+            <MusicWave playing={!!track && !paused} />
+            <NowPlayingName name={track} />
+          </div>
+        )}
       </div>
     </div>
   );
