@@ -157,8 +157,16 @@ function setPlayerFile(file: string) {
   p.url = fileUrl(file);
   if (p.el && !p.el.src.endsWith(`/music/${file}`)) p.el.src = p.url;
 }
-/** The track element that plays training music right now. */
-const trainingTrack = () => getTrack(shuffle ? PLAYER : trainingFile);
+/** The track that plays training music right now. The shuffle player always has a real file to play. */
+function trainingTrack(): Track {
+  if (!shuffle) return getTrack(trainingFile);
+  const p = getTrack(PLAYER);
+  if (!p.url.endsWith('.mp3')) {
+    trainingFile = nextShuffleFile();
+    setPlayerFile(trainingFile);
+  }
+  return p;
+}
 
 
 const TRACKS: Record<string, Track> = {};
@@ -376,6 +384,8 @@ function updateTrack(ctx: AudioContext, t: Track, want: boolean, level: number):
           t.wanted = false;
           return;
         }
+        // The shuffle player's 'error' event moves on to another track instead.
+        if (t === TRACKS[PLAYER]) return;
         t.failed = true; // unplayable: fall back to generated music
         refresh();
       });
