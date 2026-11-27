@@ -82,7 +82,7 @@ function PlanList() {
       </p>
       {data.workouts.length === 0 && (
         <p className="card small">
-          First save a workout: set it up on the <Link to="/train">Train</Link> page and tap <b>Save as workout</b>.
+          First save a workout: <Link to="/train/workout/new">create one</Link> on the Train page.
         </p>
       )}
       {active.length === 0 ? <p className="muted">No active plans yet.</p> : <ul className="list">{active.map(card)}</ul>}
@@ -127,7 +127,7 @@ function PlanForm() {
         </Link>
         <h1>New plan</h1>
         <p className="card">
-          A plan needs a saved workout. Set one up on the <Link to="/train">Train</Link> page and tap <b>Save as workout</b>, then come back.
+          A plan needs a saved workout. <Link to="/train/workout/new">Create one</Link> on the Train page, then come back.
         </p>
       </div>
     );

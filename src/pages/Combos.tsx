@@ -110,7 +110,7 @@ export default function Combos() {
             </button>
           </>
         )}
-        <Link className="icon-btn go" aria-label={`Train ${c.name}`} title="Train" to={`/train?combo=${c.id}`}>
+        <Link className="icon-btn go" aria-label={`Train ${c.name}`} title="Train" to={`/train/new?combo=${c.id}`}>
           <Icon name="play" size={13} />
         </Link>
       </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icon';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { chainPhases } from '../components/Figure';
 import FigureView from '../components/FigureView';
 import { calloutDisplay, searchCombos, type Combo } from '../data/combos';
@@ -23,7 +23,7 @@ import MusicToggle from '../components/MusicToggle';
 import { MusicWave, NowPlayingName, useNowPlaying } from '../components/NowPlaying';
 import { FavButton, practiceLabel, usePractice } from '../components/ComboMeta';
 import { useDialog } from '../components/Dialog';
-import { primeTrainingMusic, setMusicScene } from '../lib/music';
+import { primeTrainingMusic, setMusicScene, setVoiceRoom } from '../lib/music';
 
 type PoolMode = PoolKind;
 
@@ -36,7 +36,10 @@ const PACES = [
 export default function Train() {
   return (
     <Routes>
-      <Route index element={<Setup />} />
+      <Route index element={<TrainHome />} />
+      <Route path="new" element={<Setup kind="session" />} />
+      <Route path="workout/new" element={<Setup kind="new-workout" />} />
+      <Route path="workout/:id" element={<EditWorkout />} />
       <Route path="session" element={<Session />} />
       <Route path="done" element={<Congrats />} />
       <Route path="*" element={<Navigate to="/train" replace />} />
@@ -63,25 +66,156 @@ const LIBRARY_POOLS: { id: Exclude<PoolKind, 'pick'>; name: string }[] = [
   { id: 'mine', name: 'My combos' },
 ];
 
+/** Train: today's plan, a new session or workout, and the saved workouts. */
+function TrainHome() {
+  const { data, update } = useStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  const startWorkout = useStartWorkout();
+  const dialog = useDialog();
+  const [savedMsg] = useState<string | null>(() => (location.state as { savedMsg?: string } | null)?.savedMsg ?? null);
+
+  // Older links (?combo=, ?technique=, ?edit=) open the matching page.
+  const edit = params.get('edit');
+  if (edit) return <Navigate to={`/train/workout/${edit}`} replace />;
+  if (params.get('combo') || params.get('technique')) return <Navigate to={`/train/new?${params}`} replace />;
+
+  const deleteWorkout = async (w: Workout) => {
+    // A workout that an active plan runs can't be deleted: the plan would be left with nothing to start.
+    const today = dateKey(new Date());
+    const active = data.plans.filter((p) => p.workoutId === w.id && !p.archived && today <= planEnd(p));
+    if (active.length) {
+      const names = active.map((p) => `“${p.name}”`).join(', ');
+      await dialog.alert({
+        title: 'This workout is in use',
+        message: `${names} ${active.length === 1 ? 'uses' : 'use'} “${w.name}”. Pick a different workout in ${active.length === 1 ? 'that plan' : 'those plans'}, or archive ${active.length === 1 ? 'it' : 'them'}, before deleting.`,
+      });
+      return;
+    }
+    const usedBy = data.plans.filter((p) => p.workoutId === w.id);
+    const extra = usedBy.length ? ` ${usedBy.length} finished or archived plan${usedBy.length === 1 ? '' : 's'} used it.` : '';
+    if (
+      !(await dialog.confirm({
+        title: `Delete “${w.name}”?`,
+        message: `The saved workout is removed. Your training history is kept.${extra}`,
+        confirmLabel: 'Delete workout',
+        danger: true,
+      }))
+    )
+      return;
+    update((d) => ({ ...d, workouts: d.workouts.filter((x) => x.id !== w.id) }));
+  };
+
+  return (
+    <div className="page">
+      <h1>Train</h1>
+      <p className="muted">Combos are called out by voice and shown big on screen — prop your phone up and go.</p>
+
+      <TodayCard />
+
+      <div className="train-new">
+        <Link to="/train/new" className="card train-new-card">
+          <span className="train-new-icon" aria-hidden>
+            <Icon name="play" size={18} />
+          </span>
+          <span className="train-new-text">
+            <b>New session</b>
+            <small>Set it up and start now</small>
+          </span>
+        </Link>
+        <Link to="/train/workout/new" className="card train-new-card">
+          <span className="train-new-icon" aria-hidden>
+            <Icon name="plus" size={18} />
+          </span>
+          <span className="train-new-text">
+            <b>New workout</b>
+            <small>Save it to start in one tap or use in a plan</small>
+          </span>
+        </Link>
+      </div>
+
+      {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
+
+      <section className="section">
+        <h2>Saved workouts</h2>
+        {data.workouts.length === 0 ? (
+          <p className="muted small section-note">
+            No saved workouts yet. <Link to="/train/workout/new">Create one</Link> to start it in one tap, or to train it on set days in a{' '}
+            <Link to="/plans/new">plan</Link>.
+          </p>
+        ) : (
+          <>
+            <p className="muted small section-note">
+              Start one any time, or turn it into a routine: pick it in a <Link to="/plans/new">plan</Link> to train on set days for 7–90 days.
+            </p>
+            <ul className="list">
+              {data.workouts.map((w) => (
+                <li key={w.id} className="card workout-row">
+                  <div className="workout-main">
+                    <b>{w.name}</b>
+                    <span className="muted small">{workoutSummary(w)}</span>
+                  </div>
+                  <div className="combo-actions">
+                    <button
+                      className="btn small primary"
+                      onClick={() => {
+                        if (!startWorkout(w))
+                          void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
+                      }}
+                    >
+                      <Icon name="play" size={14} />
+                      Start
+                    </button>
+                    <button className="btn small" onClick={() => navigate(`/train/workout/${w.id}`)}>
+                      Edit
+                    </button>
+                    <button className="btn small danger" onClick={() => void deleteWorkout(w)}>
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** Edit a saved workout; back to Train if it no longer exists. */
+function EditWorkout() {
+  const { id } = useParams();
+  const { data } = useStore();
+  if (!id || !data.workouts.some((w) => w.id === id)) return <Navigate to="/train" replace />;
+  return <Setup key={id} kind="edit-workout" workoutId={id} />;
+}
+
 const EMPTY_POOL: Partial<Record<PoolKind, string>> = {
   mine: 'You have no combos of your own yet.',
   favorites: 'No favourites yet — tap ♡ on a combo (here or on the Combos page) to add it.',
   due: 'Nothing due — you’ve drilled all your essentials, favourites and own combos in the last week. 👊',
 };
 
-function Setup() {
+/**
+ * The setup form, on its own page: a session to start now, a new workout to save, or a saved workout to
+ * edit.
+ */
+type SetupKind = 'session' | 'new-workout' | 'edit-workout';
+
+function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
   const { data, update, allCombos } = useStore();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const techParam = params.get('technique');
-  const comboParam = params.get('combo');
+  const techParam = kind === 'session' ? params.get('technique') : null;
+  const comboParam = kind === 'session' ? params.get('combo') : null;
   const tech = techParam ? TECH_BY_ID[techParam] : undefined;
-  const editParam = params.get('edit');
-  const startWorkout = useStartWorkout();
   const dialog = useDialog();
 
   const saved = { ...DEFAULT_CONFIG, ...(data.lastSession ?? {}) };
-  const editing0 = editParam ? data.workouts.find((w) => w.id === editParam) : undefined;
+  const editing0 = kind === 'edit-workout' && workoutId ? data.workouts.find((w) => w.id === workoutId) : undefined;
+  const isWorkout = kind !== 'session';
   // Coming from one technique or one combo: drill just that, once.
   const [cfg, setCfg] = useState<SessionConfig>(() =>
     withLimits(
@@ -107,19 +241,9 @@ function Setup() {
   const [excluded, setExcluded] = useState<Set<string>>(
     () => new Set(editing0 ? (editing0.pool.excluded ?? []) : comboParam ? [] : (saved.excludedIds ?? [])),
   );
-  /** The saved workout currently loaded for editing, if any. */
-  const [editingId, setEditingId] = useState<string | null>(editing0?.id ?? null);
-  const editing = editingId ? data.workouts.find((w) => w.id === editingId) : undefined;
+  /** The saved workout being edited, if any. */
+  const editing = editing0 ? data.workouts.find((w) => w.id === editing0.id) : undefined;
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  /** Name field shown while editing a saved workout. */
-  const [editName, setEditName] = useState(editing0?.name ?? '');
-  useEffect(() => setEditName(editing?.name ?? ''), [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const setupTitle = useRef<HTMLHeadingElement>(null);
-  /** The setup form as it was before editing started, for Discard. */
-  const beforeEdit = useRef<{ cfg: SessionConfig; poolMode: PoolMode; picked: Set<string>; excluded: Set<string> } | null>(null);
-  const rememberForm = () => {
-    if (!editing) beforeEdit.current = { cfg, poolMode, picked, excluded };
-  };
   /** Everything Save changes would store, as text, to tell whether there is something to discard. */
   const formKey = (c: SessionConfig, kind: PoolMode, picks: string[], left: string[], name: string) =>
     JSON.stringify([
@@ -147,7 +271,22 @@ function Setup() {
     if (!nameTaken(base)) return base;
     for (let i = 2; ; i++) if (!nameTaken(`${base} ${i}`)) return `${base} ${i}`;
   };
-  const renameTaken = !!editing && !!editName.trim() && nameTaken(editName, editing.id);
+  /** Name field of a workout (new or edited). */
+  const [editName, setEditName] = useState(() => editing0?.name ?? '');
+  /** The form as the page opened, to tell whether a new workout has anything to discard. */
+  const [startKey] = useState(() => formKey(cfg, poolMode, [...picked], [...excluded], ''));
+  /** A new workout left unnamed takes this name, which follows the mode. */
+  const suggestedName = kind === 'new-workout' ? uniqueName(cfg.mode === 'drill' ? 'Combo drill' : 'Rounds') : '';
+  const renameTaken = isWorkout && !!editName.trim() && nameTaken(editName, editing?.id);
+  const nameMissing = kind === 'edit-workout' && !editName.trim();
+  /** New workout page: save it and go back to the list. */
+  const saveNew = () => {
+    const name = editName.trim() || suggestedName;
+    if (!name || nameTaken(name)) return;
+    const w = currentWorkout(newId().replace('c-', 'w-'), name);
+    update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
+    navigate('/train', { state: { savedMsg: `Saved "${name}". Start it any time, or add it to a plan on the Plans page.` } });
+  };
   const saveAsNew = async () => {
     const name = await dialog.prompt({
       title: 'Name this workout',
@@ -159,9 +298,8 @@ function Setup() {
     if (!name || nameTaken(name)) return;
     const w = currentWorkout(newId().replace('c-', 'w-'), name);
     update((d) => ({ ...d, workouts: [w, ...d.workouts] }));
-    rememberForm();
-    setEditingId(w.id);
-    setSavedMsg(`Saved "${name}". You can add it to a plan on the Plans page.`);
+    if (editing) navigate('/train', { state: { savedMsg: `Saved "${name}".` } });
+    else setSavedMsg(`Saved "${name}". Start it any time from the Train page, or add it to a plan on the Plans page.`);
   };
   const saveChanges = () => {
     if (!editing) return;
@@ -169,73 +307,25 @@ function Setup() {
     if (nameTaken(name, editing.id)) return;
     const w = currentWorkout(editing.id, name);
     update((d) => ({ ...d, workouts: d.workouts.map((x) => (x.id === w.id ? w : x)) }));
-    setSavedMsg(`Updated "${name}".`);
-    // Done editing: back to a normal session setup with these settings.
-    setEditingId(null);
+    navigate('/train', { state: { savedMsg: `Updated "${name}".` } });
   };
-  /** Throw away unsaved edits and put the setup form back to what it was before editing. */
+  /** Throw away unsaved edits and go back to the list. */
   const discardChanges = async () => {
-    if (!editing) return;
-    const p = editing.pool;
-    const dirty =
-      formKey(cfg, poolMode, [...picked], [...excluded], editName) !==
-      formKey(withLimits(editing.config), p.kind, p.comboIds, p.excluded ?? [], editing.name);
+    const p = editing?.pool;
+    const now = formKey(cfg, poolMode, [...picked], [...excluded], editName);
+    const dirty = editing && p ? now !== formKey(withLimits(editing.config), p.kind, p.comboIds, p.excluded ?? [], editing.name) : now !== startKey;
     if (
       dirty &&
       !(await dialog.confirm({
-        title: 'Discard changes?',
-        message: `Your changes to “${editing.name}” are not saved. The workout stays as it was.`,
-        confirmLabel: 'Discard changes',
+        title: editing ? 'Discard changes?' : 'Discard this workout?',
+        message: editing ? `Your changes to “${editing.name}” are not saved. The workout stays as it was.` : 'This new workout is not saved yet.',
+        confirmLabel: editing ? 'Discard changes' : 'Discard',
         cancelLabel: 'Keep editing',
         danger: true,
       }))
     )
       return;
-    const b = beforeEdit.current;
-    setCfg(b?.cfg ?? withLimits(saved));
-    setPoolMode(b?.poolMode ?? (saved.comboIds.length ? 'pick' : (saved.poolKind ?? 'essentials')));
-    setPicked(b?.picked ?? new Set(saved.comboIds));
-    setExcluded(b?.excluded ?? new Set(saved.excludedIds ?? []));
-    setSavedMsg(null);
-    setEditingId(null);
-  };
-  const loadWorkout = (w: Workout) => {
-    rememberForm();
-    setCfg(withLimits(w.config));
-    setPoolMode(w.pool.kind);
-    setPicked(new Set(w.pool.comboIds));
-    setExcluded(new Set(w.pool.excluded ?? []));
-    setEditingId(w.id);
-    setEditName(w.name);
-    setSavedMsg(null);
-    // Jump to the form being edited, once it has re-rendered.
-    requestAnimationFrame(() => setupTitle.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  };
-  const deleteWorkout = async (w: Workout) => {
-    // A workout that an active plan runs can't be deleted: the plan would be left with nothing to start.
-    const today = dateKey(new Date());
-    const active = data.plans.filter((p) => p.workoutId === w.id && !p.archived && today <= planEnd(p));
-    if (active.length) {
-      const names = active.map((p) => `“${p.name}”`).join(', ');
-      await dialog.alert({
-        title: 'This workout is in use',
-        message: `${names} ${active.length === 1 ? 'uses' : 'use'} “${w.name}”. Pick a different workout in ${active.length === 1 ? 'that plan' : 'those plans'}, or archive ${active.length === 1 ? 'it' : 'them'}, before deleting.`,
-      });
-      return;
-    }
-    const usedBy = data.plans.filter((p) => p.workoutId === w.id);
-    const extra = usedBy.length ? ` ${usedBy.length} finished or archived plan${usedBy.length === 1 ? '' : 's'} used it.` : '';
-    if (
-      !(await dialog.confirm({
-        title: `Delete “${w.name}”?`,
-        message: `The saved workout is removed. Your training history is kept.${extra}`,
-        confirmLabel: 'Delete workout',
-        danger: true,
-      }))
-    )
-      return;
-    update((d) => ({ ...d, workouts: d.workouts.filter((x) => x.id !== w.id) }));
-    if (editingId === w.id) setEditingId(null);
+    navigate('/train');
   };
 
   const set = <K extends keyof SessionConfig>(k: K, v: SessionConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
@@ -309,79 +399,33 @@ function Setup() {
 
   return (
     <div className="page">
-      <h1>Train</h1>
+      <Link to="/train" className="back">
+        ← Train
+      </Link>
+      <h1>{kind === 'edit-workout' ? 'Edit workout' : kind === 'new-workout' ? 'New workout' : 'New session'}</h1>
       {tech ? (
         <p className="lead">
-          Drilling <strong>{tech.name}</strong> on its own. <Link to="/train">Train combos instead</Link>
+          Drilling <strong>{tech.name}</strong> on its own. <Link to="/train/new">Train combos instead</Link>
         </p>
-      ) : (
-        <p className="muted">Combos are called out by voice and shown big on screen — prop your phone up and go.</p>
-      )}
-
-      {!tech && <TodayCard />}
-
-      {!tech && data.workouts.length > 0 && (
-        <section className="section">
-          <h2>Saved workouts</h2>
-          <p className="muted small section-note">
-            Start one any time, or turn it into a routine: pick it in a <Link to="/plans/new">plan</Link> to train on set days for 7–90 days.
-          </p>
-          <ul className="list">
-            {data.workouts.map((w) => (
-              <li key={w.id} className={`card workout-row ${editingId === w.id ? 'is-editing' : ''}`}>
-                <div className="workout-main">
-                  <b>{w.name}</b>
-                  <span className="muted small">{workoutSummary(w)}</span>
-                </div>
-                <div className="combo-actions">
-                  <button
-                    className="btn small primary"
-                    onClick={() => {
-                      if (!startWorkout(w))
-                        void dialog.alert({ title: 'No combos to call', message: 'This workout has no combos left. Edit it and pick some combos.' });
-                    }}
-                  >
-                    <Icon name="play" size={14} />
-                    Start
-                  </button>
-                  <button className="btn small" onClick={() => loadWorkout(w)}>
-                    Edit
-                  </button>
-                  <button className="btn small danger" onClick={() => deleteWorkout(w)}>
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <h2 className="setup-title" ref={setupTitle}>
-        {editing ? 'Edit workout' : 'New session'}
-      </h2>
-      {editing && (
-        <div className="editing-banner">
-          <span>
-            Editing <b>{editing.name}</b> — change the settings below, then <b>Save changes</b>.
-          </span>
-          <button type="button" className="btn small stop-editing" onClick={() => setEditingId(null)}>
-            <span aria-hidden>✕</span> Stop editing
-          </button>
-        </div>
-      )}
+      ) : kind === 'new-workout' ? (
+        <p className="muted">Save a workout to start it in one tap, or to train it on set days in a plan.</p>
+      ) : kind === 'session' ? (
+        <p className="muted">Set it up and start. Combos are called out by voice and shown big on screen — prop your phone up and go.</p>
+      ) : null}
 
       <section className="card">
-        {editing && (
+        {isWorkout && (
           <label className="field workout-name">
             <span>Workout name</span>
             <input
               className="input"
               value={editName}
               maxLength={60}
-              aria-invalid={renameTaken}
+              aria-invalid={renameTaken || nameMissing}
+              placeholder={suggestedName || 'Workout name'}
               onChange={(e) => setEditName(e.target.value)}
             />
+            {nameMissing && <span className="field-error">Give the workout a name.</span>}
             {renameTaken && <span className="field-error">You already have a workout with this name.</span>}
           </label>
         )}
@@ -590,16 +634,29 @@ function Setup() {
 
         {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
         <div className="row actions sticky-actions setup-actions">
-          {!editing && (
+          {kind === 'session' && (
             <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
               <Icon name="play" />
               Start session
             </button>
           )}
+          {kind === 'new-workout' && (
+            <button className="btn primary big save-btn" onClick={saveNew} disabled={pool.length === 0 || nameMissing || renameTaken}>
+              <Icon name="save" />
+              Save workout
+            </button>
+          )}
+          {kind === 'new-workout' && (
+            <button className="btn danger big" onClick={() => void discardChanges()}>
+              <Icon name="close" />
+              Discard
+            </button>
+          )}
           {!tech &&
+            kind !== 'new-workout' &&
             (editing ? (
               <>
-                <button className="btn primary big save-btn" onClick={saveChanges} disabled={pool.length === 0 || renameTaken}>
+                <button className="btn primary big save-btn" onClick={saveChanges} disabled={pool.length === 0 || renameTaken || nameMissing}>
                   <Icon name="save" />
                   Save changes
                 </button>
@@ -674,6 +731,14 @@ function SessionRunner({
   const plan = useMemo(() => buildPlan(config, pool, seed), [config, pool, seed]);
   const byId = useMemo(() => Object.fromEntries(pool.map((c) => [c.id, c])), [pool]);
   const drill = config.mode === 'drill';
+  // Rounds call combos all the time, so the music stays steady, just quieter than the voice; drills dip it
+  // while the coach speaks.
+  // (Before the effects below, so the first words of the session already find the music at its level.)
+  useEffect(() => {
+    setVoiceRoom(drill ? 'dip' : 'under');
+    return () => setVoiceRoom('dip');
+  }, [drill]);
+
   const blocks = drill ? plan.segments.filter((s) => s.kind === 'round').length : config.rounds;
 
   const [t, setT] = useState(resume?.elapsed ?? 0);
