@@ -13,6 +13,7 @@
  */
 import { getAudioContext, setSpeechListener } from './audio';
 import { BEAT_BANDS } from './beat';
+import { loadShuffleQueue, saveShuffleQueue, takeNext } from './shuffleQueue';
 
 export type MusicScene = 'off' | 'calm' | 'fight' | 'fight-rest';
 
@@ -136,16 +137,29 @@ const CALM_FILE = 'calm.mp3';
 export const SHUFFLE_TRAINING = 'shuffle';
 let shuffle = true;
 let trainingFile: string = TRAINING_TRACKS[Math.floor(Math.random() * TRAINING_TRACKS.length)].file;
-/** Shuffle: the two tracks picked for this session; they alternate (only two get downloaded). */
-let sessionPair: string[] = [];
-
-/** A random training track, different from `avoid` when there's a choice and skipping broken ones. */
-function pickTrainingFile(avoid?: string): string {
-  const ok = TRAINING_TRACKS.map((t) => t.file).filter((f) => !TRACKS[f]?.failed);
-  const pool = ok.filter((f) => f !== avoid);
-  const from = pool.length ? pool : ok.length ? ok : [TRAINING_TRACKS[0].file];
-  return from[Math.floor(Math.random() * from.length)];
+/**
+ * Shuffle plays through one player that swaps its file when a track ends. Phones only let a sound
+ * start from a tap, but a player that was started by one may carry on with the next file by itself.
+ */
+const PLAYER = '__shuffle__';
+/** Tracks that failed to load this visit; shuffle passes over them. */
+const broken = new Set<string>();
+const fileUrl = (file: string) => `${import.meta.env.BASE_URL}music/${file}`;
+/** The next track in the shuffled order (every track once before any repeats), kept across sessions. */
+function nextShuffleFile(): string {
+  const r = takeNext(loadShuffleQueue(), TRAINING_TRACKS.map((t) => t.file), Math.random, broken);
+  saveShuffleQueue(r.queue);
+  return r.file ?? TRAINING_TRACKS[0].file;
 }
+/** Point the shuffle player at a track (starting from its beginning). */
+function setPlayerFile(file: string) {
+  const p = getTrack(PLAYER);
+  p.url = fileUrl(file);
+  if (p.el && !p.el.src.endsWith(`/music/${file}`)) p.el.src = p.url;
+}
+/** The track element that plays training music right now. */
+const trainingTrack = () => getTrack(shuffle ? PLAYER : trainingFile);
+
 
 const TRACKS: Record<string, Track> = {};
 const getTrack = (file: string) => (TRACKS[file] ??= newTrack(file));
@@ -163,9 +177,8 @@ export function configureMusic(opts: { enabled: boolean; volume: number; trainin
   const wasShuffle = shuffle;
   // Shuffle all, or a track that no longer exists (e.g. one that was removed).
   shuffle = opts.trainingTrack === SHUFFLE_TRAINING || !TRAINING_TRACKS.some((t) => t.id === opts.trainingTrack);
-  if (shuffle) {
-    if (!wasShuffle) trainingFile = pickTrainingFile();
-  } else trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
+  if (!shuffle) trainingFile = (TRAINING_TRACKS.find((t) => t.id === opts.trainingTrack) ?? TRAINING_TRACKS[0]).file;
+  else if (!wasShuffle) setPlayerFile(trainingFile);
   enabled = opts.enabled;
   volume = Math.max(0, Math.min(1, opts.volume));
   refresh();
@@ -196,40 +209,36 @@ export function holdMusic(reason: string, on: boolean) {
 export function primeTrainingMusic() {
   const ctx = getAudioContext();
   if (!ctx || !enabled) return;
-  const fresh = !getTrack(trainingFile).wanted;
-  // Shuffle: each new session picks two random tracks and alternates between them. Both are unlocked
-  // now, inside the tap, so phones let the second one start later on its own.
-  if (shuffle && fresh) {
-    trainingFile = pickTrainingFile();
-    sessionPair = [trainingFile, pickTrainingFile(trainingFile)];
+  const t = trainingTrack();
+  // Shuffle: a new session starts with the next track in the shuffled order.
+  if (shuffle && !t.wanted) {
+    trainingFile = nextShuffleFile();
+    setPlayerFile(trainingFile);
   }
-  const files = shuffle ? [...new Set(sessionPair.length ? sessionPair : [trainingFile])] : [trainingFile];
-  for (const file of files) {
-    const t = getTrack(file);
-    if (!ensureTrack(ctx, t) || !t.el) continue;
-    const el = t.el;
-    if (!t.wanted) {
-      try {
-        el.currentTime = 0;
-      } catch {
-        /* not loaded yet */
-      }
+  if (!ensureTrack(ctx, t) || !t.el) return;
+  const el = t.el;
+  if (!t.wanted) {
+    try {
+      el.currentTime = 0;
+    } catch {
+      /* not loaded yet */
     }
-    if (el.paused)
-      el.play()
-        .then(() => {
-          if (!t.wanted) el.pause();
-        })
-        .catch(() => {});
   }
+  if (el.paused)
+    el.play()
+      .then(() => {
+        if (!t.wanted) el.pause();
+      })
+      .catch(() => {});
 }
 
 /** Name of the training track playing right now, or null when none is (music off, held, or not training). */
 export function nowPlaying(): string | null {
   const s = effectiveScene();
   if (s !== 'fight' && s !== 'fight-rest') return null;
-  const el = TRACKS[trainingFile]?.el;
-  if (!el || el.paused || TRACKS[trainingFile].failed) return null;
+  const t = TRACKS[shuffle ? PLAYER : trainingFile];
+  const el = t?.el;
+  if (!el || el.paused || t.failed) return null;
   return TRAINING_TRACKS.find((t) => t.file === trainingFile)?.name ?? null;
 }
 
@@ -312,31 +321,26 @@ function ensureTrack(ctx: AudioContext, t: Track): boolean {
   ensureGraph(ctx);
   try {
     const el = new Audio(t.url);
-    // Shuffled training tracks play once and hand over to the next; everything else loops.
-    el.loop = !(shuffle && TRAINING_TRACKS.some((x) => t.url.endsWith(`/${x.file}`)));
+    const player = t === TRACKS[PLAYER];
+    // The shuffle player plays each track once and moves on; everything else loops.
+    el.loop = !player;
     el.preload = 'auto';
     el.addEventListener('error', () => {
-      t.failed = true;
-      if (shuffle && t.url.endsWith(`/${trainingFile}`)) trainingFile = pickTrainingFile(trainingFile);
+      if (player) {
+        // Pass over a track that won't load; give up only when none will.
+        broken.add(trainingFile);
+        if (broken.size >= TRAINING_TRACKS.length) t.failed = true;
+        else {
+          trainingFile = nextShuffleFile();
+          setPlayerFile(trainingFile);
+        }
+      } else t.failed = true;
       refresh();
     });
-    // Shuffle mode doesn't loop: when a training track ends, move on to another one.
     el.addEventListener('ended', () => {
-      if (!shuffle || !t.wanted) return;
-      const other = sessionPair.find((f) => f !== trainingFile && !TRACKS[f]?.failed);
-      const next = other ?? pickTrainingFile(trainingFile);
-      t.wanted = false;
-      const n = getTrack(next);
-      if (n.el && n !== t) {
-        try {
-          n.el.currentTime = 0;
-        } catch {
-          /* not loaded yet */
-        }
-      } else {
-        el.currentTime = 0; // only one playable track: start it again
-      }
-      trainingFile = next;
+      if (!player || !t.wanted) return;
+      trainingFile = nextShuffleFile();
+      setPlayerFile(trainingFile);
       refresh();
     });
     const bus = ctx.createGain();
@@ -394,11 +398,7 @@ function refresh() {
   const fight = wanted === 'fight' || wanted === 'fight-rest';
   const level = TRACK_LEVEL[wanted] ?? 0;
   const calmT = getTrack(CALM_FILE);
-  const fightT = getTrack(trainingFile);
-  for (const x of TRAINING_TRACKS) {
-    const el = TRACKS[x.file]?.el;
-    if (el) el.loop = !shuffle;
-  }
+  const fightT = trainingTrack();
   const calmTrack = updateTrack(ctx, calmT, wanted === 'calm', level);
   const fightTrack = updateTrack(ctx, fightT, fight, level);
   // Fade out a training track that was just swapped for another.

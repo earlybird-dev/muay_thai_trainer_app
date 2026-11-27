@@ -819,6 +819,41 @@ describe('training music', () => {
   });
 });
 
+describe('shuffle order', () => {
+  it('plays every track once before any repeats, across rounds', async () => {
+    const { takeNext } = await import('./shuffleQueue');
+    const files = ['a', 'b', 'c', 'd', 'e'];
+    const rand = mulberry32(7);
+    let q = null;
+    const played: string[] = [];
+    for (let i = 0; i < 25; i++) {
+      const r = takeNext(q, files, rand);
+      q = r.queue;
+      played.push(r.file!);
+    }
+    for (let round = 0; round < 5; round++) expect([...played.slice(round * 5, round * 5 + 5)].sort()).toEqual(files);
+    for (let i = 1; i < played.length; i++) expect(played[i]).not.toBe(played[i - 1]); // no track twice in a row
+  });
+
+  it('drops removed tracks, slots in new ones and passes over broken ones', async () => {
+    const { takeNext } = await import('./shuffleQueue');
+    const rand = mulberry32(3);
+    // 'a' and 'b' played; 'c' was removed; 'z' is new.
+    const q = { order: ['a', 'b', 'c', 'd'], next: 2 };
+    const seen = new Set<string>();
+    let cur: typeof q | null = q;
+    for (let i = 0; i < 2; i++) {
+      const r = takeNext(cur, ['a', 'b', 'd', 'z'], rand);
+      cur = r.queue;
+      seen.add(r.file!);
+    }
+    expect(seen).toEqual(new Set(['d', 'z']));
+    expect(takeNext({ order: ['a', 'b'], next: 0 }, ['a', 'b'], rand, new Set(['a'])).file).toBe('b');
+    expect(takeNext(null, ['a'], rand, new Set(['a'])).file).toBeNull();
+    expect(takeNext({ order: ['a', 'a', 'b'], next: 0 }, ['a', 'b'], rand).queue.order).toEqual(['a', 'b']);
+  });
+});
+
 describe('history dashboard', () => {
   const at = (d: string, min = 20, combos: string[] = []) => ({ date: new Date(`${d}T18:00:00`).toISOString(), durationSec: min * 60, combos }) as SessionLog;
   it('computes best streak, daily levels, weekly totals and top combos', async () => {
