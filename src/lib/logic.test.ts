@@ -814,7 +814,8 @@ describe('training music', () => {
     expect(trackNameFromFile('alex-morgan-dark-trap-lazy-beat-instrumental-587390.mp3')).toBe('Dark Trap Lazy Beat');
     const names = TRAINING_TRACKS.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length); // no two the same
-    expect(TRAINING_TRACKS).toHaveLength(10);
+    expect(trackNameFromFile('alex-morgan-trap-591318.mp3')).toBe('Trap');
+    expect(TRAINING_TRACKS).toHaveLength(11);
   });
 });
 
