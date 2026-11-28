@@ -3415,3 +3415,11 @@ a.heat-cell:focus-visible {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
+/* Gradients start at the outer edge, so a transparent border doesn't show a sliver of the gradient's
+   far end at each side (backgrounds are sized to the padding box and repeat under the border otherwise).
+   !important because every `background:` shorthand resets the origin to padding-box. */
+*,
+*::before,
+*::after {
+  background-origin: border-box !important;
+}

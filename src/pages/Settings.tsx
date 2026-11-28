@@ -206,7 +206,9 @@ export default function Settings() {
       <section className="card">
         <h2>Your data</h2>
         <p className="muted small">
-          Everything is stored on this device only. Export a backup file to keep it safe or move it to another device.
+          {account
+            ? 'Your combos, workouts, plans, history and most settings sync to your account, so they show up on any device you sign in on. Music and voice choices stay on this device. You can still export a backup file.'
+            : 'Everything is stored on this device only. Sign in to sync across devices, or export a backup file to keep it safe.'}
         </p>
         <div className="row">
           <button className="btn" onClick={() => downloadBackup(data)}>
