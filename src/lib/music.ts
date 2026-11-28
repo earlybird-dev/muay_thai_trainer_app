@@ -46,7 +46,7 @@ let noise: AudioBuffer | null = null;
  * Bump when any file in public/music changes (trimmed, replaced). Each change then gets a new link, so
  * phones fetch it instead of replaying the copy they downloaded before under the same name.
  */
-const MUSIC_REV = '2';
+const MUSIC_REV = '3';
 const fileUrl = (file: string) => `${import.meta.env.BASE_URL}music/${file}?v=${MUSIC_REV}`;
 
 // Recorded tracks: <audio> elements streamed through the audio graph (volume, fades, ducking).
