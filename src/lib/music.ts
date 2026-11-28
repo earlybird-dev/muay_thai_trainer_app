@@ -42,6 +42,13 @@ let timer: number | null = null;
 let speaking = 0;
 let noise: AudioBuffer | null = null;
 
+/**
+ * Bump when any file in public/music changes (trimmed, replaced). Each change then gets a new link, so
+ * phones fetch it instead of replaying the copy they downloaded before under the same name.
+ */
+const MUSIC_REV = '2';
+const fileUrl = (file: string) => `${import.meta.env.BASE_URL}music/${file}?v=${MUSIC_REV}`;
+
 // Recorded tracks: <audio> elements streamed through the audio graph (volume, fades, ducking).
 interface Track {
   url: string;
@@ -52,7 +59,7 @@ interface Track {
   pauseTimer: number | null;
 }
 const newTrack = (file: string): Track => ({
-  url: `${import.meta.env.BASE_URL}music/${file}`,
+  url: fileUrl(file),
   el: null,
   bus: null,
   failed: false,
@@ -149,7 +156,6 @@ let trainingFile: string = TRAINING_TRACKS[Math.floor(Math.random() * TRAINING_T
 const PLAYER = '__shuffle__';
 /** Tracks that failed to load this visit; shuffle passes over them. */
 const broken = new Set<string>();
-const fileUrl = (file: string) => `${import.meta.env.BASE_URL}music/${file}`;
 /** This session's shuffled order: every track once before any repeats. A new one each session. */
 let queue: ShuffleQueue | null = null;
 const trackFiles = () => TRAINING_TRACKS.map((t) => t.file);
@@ -163,13 +169,13 @@ function nextShuffleFile(): string {
 function setPlayerFile(file: string) {
   const p = getTrack(PLAYER);
   p.url = fileUrl(file);
-  if (p.el && !p.el.src.endsWith(`/music/${file}`)) p.el.src = p.url;
+  if (p.el && !p.el.src.endsWith(`/music/${file}?v=${MUSIC_REV}`)) p.el.src = p.url;
 }
 /** The track that plays training music right now. The shuffle player always has a real file to play. */
 function trainingTrack(): Track {
   if (!shuffle) return getTrack(trainingFile);
   const p = getTrack(PLAYER);
-  if (!p.url.endsWith('.mp3')) {
+  if (!p.url.includes('.mp3')) {
     trainingFile = nextShuffleFile();
     setPlayerFile(trainingFile);
   }
