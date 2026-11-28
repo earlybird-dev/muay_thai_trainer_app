@@ -317,8 +317,12 @@ function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
     if (
       dirty &&
       !(await dialog.confirm({
-        title: editing ? 'Discard changes?' : 'Discard this workout?',
-        message: editing ? `Your changes to “${editing.name}” are not saved. The workout stays as it was.` : 'This new workout is not saved yet.',
+        title: editing ? 'Discard changes?' : kind === 'session' ? 'Discard this session?' : 'Discard this workout?',
+        message: editing
+          ? `Your changes to “${editing.name}” are not saved. The workout stays as it was.`
+          : kind === 'session'
+            ? 'Your settings for this session are not kept.'
+            : 'This new workout is not saved yet.',
         confirmLabel: editing ? 'Discard changes' : 'Discard',
         cancelLabel: 'Keep editing',
         danger: true,
@@ -634,7 +638,7 @@ function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
       )}
 
         {savedMsg && <p className="small saved-msg">{savedMsg}</p>}
-        <div className="row actions sticky-actions setup-actions">
+        <div className={`row actions sticky-actions setup-actions setup-${kind}`}>
           {kind === 'session' && (
             <button className="btn primary big start-btn" onClick={start} disabled={pool.length === 0}>
               <Icon name="play" />
@@ -676,6 +680,12 @@ function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
                 Save as workout
               </button>
             ))}
+          {kind === 'session' && (
+            <button className="btn danger big" onClick={() => void discardChanges()}>
+              <Icon name="close" />
+              Discard
+            </button>
+          )}
         </div>
       </section>
     </div>

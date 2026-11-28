@@ -3423,3 +3423,13 @@ a.heat-cell:focus-visible {
 *::after {
   background-origin: border-box !important;
 }
+/* New session: Start session on its own row, Save as workout and Discard below, the same size */
+.setup-actions.setup-session {
+  flex-wrap: wrap;
+}
+.setup-actions.setup-session .start-btn {
+  flex: 1 1 100%;
+}
+.setup-actions.setup-session .btn:not(.start-btn) {
+  flex: 1 1 0;
+}
