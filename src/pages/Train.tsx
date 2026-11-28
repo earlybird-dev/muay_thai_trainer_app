@@ -805,7 +805,7 @@ function SessionRunner({
   }, []);
 
   const say = (text: string | string[]) => {
-    if (settings.voice) speak(text, { voiceURI: settings.voiceURI, rate: settings.rate, volume: settings.volume });
+    if (settings.voice) speak(text, { voiceURI: settings.voiceURI, rate: settings.rate });
   };
   const sayRef = useRef(say);
   sayRef.current = say;
@@ -880,7 +880,7 @@ function SessionRunner({
       for (const e of evs) {
         switch (e.type) {
           case 'round-start':
-            if (settings.sounds) bell(1, settings.volume);
+            if (settings.sounds) bell(1);
             setBanner(drill ? null : `Round ${e.round}`);
             setCurrent(null);
             // Drill: the first rep is called straight away, no extra announcement.
@@ -888,7 +888,7 @@ function SessionRunner({
             break;
           case 'round-end':
             setCount(null);
-            if (settings.sounds) bell(drill ? 2 : 3, settings.volume);
+            if (settings.sounds) bell(drill ? 2 : 3);
             setCurrent(null);
             setBanner(e.round < blocks ? 'Rest' : 'Time!');
             // Drill rests are announced by the "next" event instead.
@@ -907,10 +907,10 @@ function SessionRunner({
             // 3, 2, 1 into the combo; n = 0 is "Go!" as it starts (the bell rings with it).
             setCount(e.n > 0 ? e.n : null);
             if (settings.voice) sayRef.current(e.n > 0 ? countPhrase(e.n) : PHRASES.go);
-            else if (settings.sounds && e.n > 0) beep(settings.volume);
+            else if (settings.sounds && e.n > 0) beep();
             break;
           case 'warning':
-            if (settings.sounds) clap(settings.volume);
+            if (settings.sounds) clap();
             break;
           case 'freestyle':
             setCurrent(null);
@@ -931,7 +931,7 @@ function SessionRunner({
             }
             break;
           case 'done':
-            if (settings.sounds && drill) bell(3, settings.volume);
+            if (settings.sounds && drill) bell(3);
             sayRef.current(PHRASES.done);
             logRef.current(blocks, false, plan.total);
             break;
@@ -944,7 +944,7 @@ function SessionRunner({
       pausedRef.current = true;
       persistRef.current();
     };
-  }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.voice, settings.volume]);
+  }, [paused, finished, plan, byId, blocks, drill, settings.sounds, settings.voice]);
 
   const state = stateAt(plan, t);
   const seg = state.segment;

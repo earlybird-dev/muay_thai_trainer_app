@@ -50,7 +50,7 @@ export default function App() {
   const { pathname } = useLocation();
   const inSession = pathname.startsWith('/train/session');
   const { data } = useStore();
-  const { music, musicVolume, trainingTrack } = data.settings;
+  const { music, trainingTrack } = data.settings;
 
   // Background music: calm everywhere except the session screen, which sets its own scene.
   // Page title, description and social tags for search engines and link previews.
@@ -60,7 +60,8 @@ export default function App() {
   useEffect(() => {
     if (navType !== 'POP') window.scrollTo(0, 0);
   }, [pathname, navType]);
-  useEffect(() => configureMusic({ enabled: music, volume: musicVolume, trainingTrack }), [music, musicVolume, trainingTrack]);
+  // Fixed levels: there's no music volume setting (see TRACK_LEVEL in lib/music.ts).
+  useEffect(() => configureMusic({ enabled: music, volume: 1, trainingTrack }), [music, trainingTrack]);
   useEffect(() => {
     if (!inSession) setMusicScene('calm');
   }, [inSession]);

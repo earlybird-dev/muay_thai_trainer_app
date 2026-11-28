@@ -50,9 +50,9 @@ export default function Settings() {
 
   const test = () => {
     unlockAudio();
-    if (s.sounds) bell(1, s.volume);
+    if (s.sounds) bell(1);
     const ready = preloadVoice([PHRASES.test]);
-    setTimeout(() => void ready.then(() => speak(PHRASES.test, { voiceURI: s.voiceURI, rate: s.rate, volume: s.volume })), 600);
+    setTimeout(() => void ready.then(() => speak(PHRASES.test, { voiceURI: s.voiceURI, rate: s.rate })), 600);
   };
 
   const onImport = async (file: File) => {
@@ -121,13 +121,7 @@ export default function Settings() {
         <label className="check">
           <input type="checkbox" checked={s.music} onChange={(e) => set('music', e.target.checked)} /> Background music
         </label>
-        <p className="muted small">Calm music while you browse; driving fight music while you train. It dips under voice callouts.</p>
-        {s.music && (
-          <label className="field">
-            <span>Music volume: {Math.round(s.musicVolume * 100)}%</span>
-            <input type="range" min={0.05} max={1} step={0.05} value={s.musicVolume} onChange={(e) => set('musicVolume', Number(e.target.value))} />
-          </label>
-        )}
+        <p className="muted small">Quiet music while you browse; full-volume training music while you train. It makes room for the coach's voice.</p>
         {s.music && (
           <div className="field">
             <span>Training music</span>
@@ -183,10 +177,6 @@ export default function Settings() {
         <label className="field">
           <span>Speech rate: {s.rate.toFixed(2)}x</span>
           <input type="range" min={0.7} max={1.6} step={0.05} value={s.rate} onChange={(e) => set('rate', Number(e.target.value))} />
-        </label>
-        <label className="field">
-          <span>Volume: {Math.round(s.volume * 100)}%</span>
-          <input type="range" min={0.1} max={1} step={0.05} value={s.volume} onChange={(e) => set('volume', Number(e.target.value))} />
         </label>
         <button className="btn" onClick={test}>
           🔊 Test sound

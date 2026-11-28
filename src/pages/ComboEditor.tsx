@@ -101,7 +101,7 @@ export default function ComboEditor() {
                     void loadVoiceManifest()
                       .then(() => preloadVoice([name.trim(), ...strikes].filter(Boolean)))
                       .then(() =>
-                        speak(comboSpeech(name, items), { voiceURI: data.settings.voiceURI, rate: data.settings.rate, volume: data.settings.volume }),
+                        speak(comboSpeech(name, items), { voiceURI: data.settings.voiceURI, rate: data.settings.rate }),
                       );
                   }}
                 >
