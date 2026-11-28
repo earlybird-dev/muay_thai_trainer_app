@@ -478,6 +478,13 @@ function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
             <span>Get-ready countdown</span>
             <TimeStepper label="Get-ready countdown" value={cfg.prepSec} step={1} min={MIN_PREP_SEC} max={30} onChange={(v) => set('prepSec', v)} />
           </div>
+          <div className="field">
+            <span>Total time</span>
+            <div className="total-time-box">
+              <Icon name="clock" size={18} />
+              <b>{formatClock(totalSec * 1000)}</b>
+            </div>
+          </div>
         </div>
         <div className="setup-line">
           <div className="field">
@@ -499,12 +506,6 @@ function Setup({ kind, workoutId }: { kind: SetupKind; workoutId?: string }) {
               <button className={`seg-btn ${cfg.order === 'sequential' ? 'on' : ''}`} onClick={() => set('order', 'sequential')}>
                 In order
               </button>
-            </div>
-          </div>
-          <div className="field">
-            <span>Total time</span>
-            <div className="seg total-time">
-              <b>{formatClock(totalSec * 1000)}</b>
             </div>
           </div>
         </div>

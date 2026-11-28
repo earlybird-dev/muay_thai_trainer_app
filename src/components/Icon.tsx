@@ -15,6 +15,7 @@ const PATHS = {
   chevron: 'M6 9.5l6 6 6-6',
   close: 'M6 6l12 12M18 6L6 18',
   calendar: 'M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4M8 14h2M14 14h2M8 17h2',
+  clock: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 7.5V12l3 2',
   bolt: 'M13 3L5 13.5h6.5L10 21l8.5-10.5H12z',
 } as const;
 

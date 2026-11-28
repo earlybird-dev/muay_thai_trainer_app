@@ -1631,12 +1631,14 @@ input[type='range'] {
 .setup-line .seg {
   width: fit-content;
 }
-.setup-line .total-time {
+.setup-line .total-time,
+.form-grid .total-time {
   min-height: 44px;
   align-items: center;
   padding: 3px 14px;
 }
-.setup-line .total-time b {
+.setup-line .total-time b,
+.form-grid .total-time b {
   color: var(--text);
   font-size: 1.15rem;
   font-weight: 800;
@@ -3393,4 +3395,23 @@ a.heat-cell:focus-visible {
 }
 .workout-row .combo-actions .btn.primary {
   margin-right: 4px;
+}
+/* Total time: a read-only figure next to Get-ready countdown, as tall as the steppers */
+.total-time-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  height: 42px;
+  padding: 0 16px 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-2) 40%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-2) 12%, var(--surface));
+  color: var(--accent-2);
+}
+.total-time-box b {
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
