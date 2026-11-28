@@ -106,7 +106,6 @@ const DOWNLOADED_TRACKS = [
   'gr0za-racing-racing-speed-brass-music-610347.mp3',
   'gr0za-rap-rap-beat-610255.mp3',
   'gr0za-trap-trap-beat-610220.mp3',
-  'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3',
   'kulakovka-gym-workout-266617.mp3',
   'kulakovka-sport-trap-277582.mp3',
   'tunetank-intense-trap-beat-348047.mp3',
@@ -125,7 +124,6 @@ const DOWNLOADED_TRACKS = [
 const NAME_OVERRIDES: Record<string, string> = {
   'bombinsound-action-dubstep-version-1-royalty-623351.mp3': 'Action Dubstep',
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3': 'Sport Music',
-  'ikoliks_aj-baseball-rugby-cricket-hockey-golf-music-400862.mp3': 'Game Day',
   'yevhenastafiev-advertising-advertising-music-640077.mp3': 'Big Stage',
   'yevhenastafiev-baseball-cricket-highlights-music-526079.mp3': 'Highlights',
   'yevhenastafiev-epic-epic-battle-607250.mp3': 'Epic Battle',
