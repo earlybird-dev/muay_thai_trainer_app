@@ -815,7 +815,7 @@ describe('training music', () => {
     const names = TRAINING_TRACKS.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length); // no two the same
     expect(trackNameFromFile('alex-morgan-trap-591318.mp3')).toBe('Trap');
-    expect(TRAINING_TRACKS).toHaveLength(25);
+    expect(TRAINING_TRACKS).toHaveLength(23);
   });
 });
 

@@ -105,7 +105,6 @@ function uniqueNames<T extends { name: string }>(list: T[]): T[] {
 const DOWNLOADED_TRACKS = [
   'alex-morgan-dark-trap-lazy-beat-instrumental-587390.mp3',
   'alex-morgan-trap-591318.mp3',
-  'apalonbeats-trap-trap-hype-beat-549448.mp3',
   'bombinsound-action-dubstep-version-1-royalty-623351.mp3',
   'echoes_of_lumen-trap-beat-heavy-bass-586976.mp3',
   'gr0za-energy-energy-music-627556.mp3',
@@ -124,7 +123,6 @@ const DOWNLOADED_TRACKS = [
   'yevhenastafiev-baseball-rugby-cricket-hockey-golf-music-526072.mp3',
   'yevhenastafiev-epic-epic-battle-607250.mp3',
   'yevhenastafiev-fun-fun-hip-hop-534564.mp3',
-  'yevhenastafiev-hip-hop-hip-hop-fun-534553.mp3',
   'yevhenastafiev-hollywood-movie-trailer-519458.mp3',
 ];
 /** Names chosen by hand where the file name doesn't make a good one. */
@@ -135,7 +133,6 @@ const NAME_OVERRIDES: Record<string, string> = {
   'yevhenastafiev-baseball-cricket-highlights-music-526079.mp3': 'Highlights',
   'yevhenastafiev-epic-epic-battle-607250.mp3': 'Epic Battle',
   'yevhenastafiev-fun-fun-hip-hop-534564.mp3': 'Hip Hop Groove',
-  'yevhenastafiev-hip-hop-hip-hop-fun-534553.mp3': 'Hip Hop Fun',
   'yevhenastafiev-hollywood-movie-trailer-519458.mp3': 'Movie Trailer',
 };
 export const TRAINING_TRACKS: { id: string; name: string; file: string }[] = [
