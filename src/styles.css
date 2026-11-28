@@ -3433,3 +3433,20 @@ a.heat-cell:focus-visible {
 .setup-actions.setup-session .btn:not(.start-btn) {
   flex: 1 1 0;
 }
+/* The track name sits in the middle of the music wave, with the line running behind it */
+.music-line {
+  position: relative;
+  padding-right: 0;
+}
+.music-line .now-playing-name {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 70%;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--text);
+  pointer-events: none;
+}
