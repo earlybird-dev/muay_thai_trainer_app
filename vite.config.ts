@@ -1,10 +1,23 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
 import { BOOT_LOADER_HTML } from './src/lib/fighterLoader';
+
+/** The commit being built: from GitHub Actions, or the local checkout. */
+function commit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return '';
+  }
+}
 
 export default defineConfig({
   base: '/',
+  // Shown in Settings → About, so you can tell which version a device is running.
+  define: { __BUILD__: JSON.stringify({ time: new Date().toISOString(), sha: commit() }) },
   plugins: [
     react(),
     // Start-up loading animation, shown before the app's JavaScript has loaded.

@@ -4,6 +4,7 @@ import { useStore } from '../lib/store';
 import FighterPicker from '../components/FighterPicker';
 import AccountCard from '../components/AccountCard';
 import { useAuth } from '../lib/auth';
+import { BUILD } from '../lib/buildInfo';
 import { PHRASES } from '../data/phrases';
 import { SHUFFLE_TRAINING, TRAINING_TRACKS, primeTrainingMusic, setMusicScene } from '../lib/music';
 import { useDialog } from '../components/Dialog';
@@ -256,6 +257,23 @@ export default function Settings() {
           </button>
         </div>
         {msg && <p className="small">{msg}</p>}
+      </section>
+
+      <section className="card">
+        <h2>About</h2>
+        <p className="muted small">
+          {BUILD.time ? (
+            <>
+              This version was published{' '}
+              <b>
+                {new Date(BUILD.time).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+              </b>
+              {BUILD.sha && <> · build {BUILD.sha}</>}.
+            </>
+          ) : (
+            'Development version.'
+          )}
+        </p>
       </section>
     </div>
   );

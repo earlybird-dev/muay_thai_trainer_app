@@ -3295,7 +3295,7 @@ a.heat-cell:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 6px -16px -16px;
+  margin: 0 -16px;
   padding-right: 16px;
 }
 .now-playing-name {

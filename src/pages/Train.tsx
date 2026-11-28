@@ -1141,6 +1141,13 @@ function SessionRunner({
           )}
         </div>
 
+        {/* Kept while the music is on (even between tracks), so the screen doesn't jump. */}
+        {settings.music && (
+          <div className="music-line">
+            <MusicWave playing={!!track && !paused} />
+            <NowPlayingName name={track} />
+          </div>
+        )}
         <div className="row center session-controls">
           <button className="btn big primary" onClick={() => setPaused((p) => !p)}>
             <Icon name={paused ? 'play' : 'pause'} />
@@ -1152,13 +1159,6 @@ function SessionRunner({
             End
           </button>
         </div>
-        {/* Kept while the music is on (even between tracks), so the screen doesn't jump. */}
-        {settings.music && (
-          <div className="music-line">
-            <MusicWave playing={!!track && !paused} />
-            <NowPlayingName name={track} />
-          </div>
-        )}
       </div>
     </div>
   );
